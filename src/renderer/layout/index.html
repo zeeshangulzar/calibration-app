@@ -1,0 +1,143 @@
+<html>
+
+  <head>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" src="./index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      window.FontAwesomeConfig = { autoReplaceSvg: "nest" };
+    </script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <meta
+      http-equiv="X-Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    />
+    <title>Sensor Calibration System</title>
+  </head>
+
+<body class="h-full text-base-content">
+    <div id="app-container" class="min-h-screen bg-neutral-50">
+      <header class="bg-white border-b border-neutral-200 fixed w-full z-50">
+        <div
+          class="container mx-auto px-4 py-3 flex items-center justify-between"
+        >
+          <div class="flex items-center space-x-4">
+            <i class="fa-solid fa-gauge-high text-2xl text-neutral-700"></i>
+            <h1 class="text-xl">Sensor Dashboard</h1>
+          </div>
+          <div class="flex items-center space-x-4">
+            <button
+              id="settingsBtn"
+              class="px-4 py-2 border border-neutral-300 rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-100"
+            >
+              <i class="fa-solid fa-gear mr-2"></i> Settings
+            </button>
+            <p id="app-version" class="mt-4 text-neutral-600 mb-4"></p>
+          </div>
+        </div>
+      </header>
+
+      <main id="main-content" class="pt-16 container mx-auto px-4">
+        <div class="py-6">
+          <!-- Calibration Type Selection -->
+          <div id="calibration-selection" class="mb-8">
+            <p id="bluetooth-error" class="text-red-600 mb-4 hidden">
+              Bluetooth is powered off. Please turn on bluetooth to continue.
+            </p>
+            <h2 class="text-2xl mb-6 mt-6">Select Calibration Type</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+              <div
+                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
+              >
+                <div class="flex items-center mb-4">
+                  <i
+                    class="fa-solid fa-gauge text-3xl text-neutral-700 mr-3"
+                  ></i>
+                  <h3 class="text-xl">Monster Meter</h3>
+                </div>
+                <p class="text-neutral-600 mb-4">
+                  Standard meter-based calibration with precise measurements
+                </p>
+              </div>
+
+               <div
+                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
+              >
+                <div class="flex items-center mb-4">
+                  <i
+                    class="fa-solid fa-link text-3xl text-neutral-700 mr-3"
+                  ></i>
+                  <h3 class="text-xl">Assembly Sensor</h3>
+                </div>
+                <p class="text-neutral-600 mb-4">
+                  Mapping Physical Serial Number to Bluetooth Calibration Flow
+                </p>
+              </div>
+
+               <div
+                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
+              >
+                <div class="flex items-center mb-4">
+                  <i
+                    class="fa-solid fa-brain text-3xl text-neutral-700 mr-3"
+                  ></i>
+                  <h3 class="text-xl">Smart Monster</h3>
+                </div>
+                <p class="text-neutral-600 mb-4">
+                  Automated intelligent calibration system with advanced
+                  algorithms
+                </p>
+              </div>
+
+              <div
+                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 opacity-50 pointer-events-none"
+              >
+                <div class="flex items-center mb-4">
+                  <i
+                    class="fa-solid fa-sliders text-3xl text-neutral-700 mr-3"
+                  ></i>
+                  <h3 class="text-xl">Manual</h3>
+                </div>
+                <p class="text-neutral-600 mb-4">
+                  Traditional manual calibration with full user control over it
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- <footer id="footer" class="border-t border-neutral-200 mt-8">
+        <div class="container mx-auto px-4 py-6 text-center text-neutral-600">
+          <p>© 2025 HoseMonster. All rights reserved.</p>
+        </div>
+      </footer> -->
+    </div>
+    <div
+      id="custom-alert"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
+        <button
+          id="custom-alert-ok"
+          class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </body>
+
+</html>

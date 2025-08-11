@@ -1,11 +1,22 @@
 {
   "name": "sm-calibration",
+  "productName": "SmartMonster Calibration",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Smartmonster Calibration App for Sensors and Meters",
+  "main": "src/main/main.js",
+  "type": "module",
+  "engines": {
+    "node": "v22.18.0"
+  },
   "scripts": {
+    "start": "electron .",
+    "start-dev": "nodemon --exec electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron ."
+    "package-win": "npx electron-packager . HosemonsterCalibration --platform=win32 --arch=x64 --out=release-builds --overwrite --asar=false",
+    "dist": "electron-builder --win",
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-rebuild",
+    "release": "release.bat"
   },
   "repository": {
     "type": "git",
@@ -27,5 +38,44 @@
     "globals": "^16.3.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.39.0"
+  },
+  "dependencies": {
+    "@abandonware/noble": "^1.9.2-26",
+    "@sentry/electron": "^6.8.0",
+    "@serialport/list": "^13.0.0",
+    "@serialport/stream": "^13.0.0",
+    "better-sqlite3": "^11.9.1",
+    "dotenv": "^16.5.0",
+    "handlebars": "^4.7.8",
+    "jsqr": "^1.4.0",
+    "ml-regression-polynomial": "^3.0.2",
+    "serialport": "^13.0.0",
+    "usb-detection": "^4.14.2"
+  },
+  "build": {
+    "appId": "com.smartmonster.calibration.app",
+    "productName": "SmartMonster Calibration",
+    "win": {
+      "icon": "src/main/assets/icons/win_logo.ico"
+    },
+    "files": [
+      "**/*",
+      "node_modules/**/*"
+    ],
+    "asar": false,
+    "asarUnpack": [
+      "node_modules/@abandonware/**",
+      "resources/chromium/**"
+    ],
+    "extraFiles": [
+      {
+        "from": "node_modules/electron/dist/ffmpeg.dll",
+        "to": "./"
+      },
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ]
   }
 }
