@@ -15,5 +15,6 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "notebook.defaultFormatter": "esbenp.prettier-vscode",
 }
 
