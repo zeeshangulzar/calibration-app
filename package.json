@@ -9,6 +9,10 @@
     "node": "v22.18.0"
   },
   "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "start": "electron .",
     "start-dev": "nodemon --exec electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -35,7 +39,10 @@
     "@typescript-eslint/parser": "^8.39.0",
     "electron": "^37.2.6",
     "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.3.0",
+    "prettier": "^3.6.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.39.0"
   },
