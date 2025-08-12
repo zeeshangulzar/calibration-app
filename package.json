@@ -6,7 +6,7 @@
   "main": "src/main/main.js",
   "type": "module",
   "engines": {
-    "node": "v22.18.0"
+    "node": "v24.5.0"
   },
   "scripts": {
     "lint": "eslint .",
@@ -38,6 +38,7 @@
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "electron": "^37.2.6",
+    "electron-rebuild": "^3.2.9",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -47,17 +48,8 @@
     "typescript-eslint": "^8.39.0"
   },
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-26",
-    "@sentry/electron": "^6.8.0",
-    "@serialport/list": "^13.0.0",
-    "@serialport/stream": "^13.0.0",
-    "better-sqlite3": "^11.9.1",
     "dotenv": "^16.5.0",
-    "handlebars": "^4.7.8",
-    "jsqr": "^1.4.0",
-    "ml-regression-polynomial": "^3.0.2",
-    "serialport": "^13.0.0",
-    "usb-detection": "^4.14.2"
+    "handlebars": "^4.7.8"
   },
   "build": {
     "appId": "com.smartmonster.calibration.app",
