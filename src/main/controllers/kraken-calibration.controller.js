@@ -619,57 +619,90 @@ class KrakenCalibrationController {
       this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'disconnecting', null);
       this.sendToRenderer('device-manual-disconnect-started', { deviceId });
 
-      // Cleanup subscriptions first
-      await this.globalState.cleanupDeviceSubscription(deviceId);
-
-      // Check if device is still discoverable (turned on)
+      // Fast path for already disconnected and non-discoverable devices
+      const isPeripheralConnected = device.peripheral && device.peripheral.state === 'connected';
       let isDeviceDiscoverable = false;
+      
       try {
         const discoveredDevice = this.scanner.getDevice(deviceId);
         isDeviceDiscoverable = discoveredDevice !== null && discoveredDevice !== undefined;
-        console.log(`Device ${deviceId} discoverability check: ${isDeviceDiscoverable}`);
       } catch (error) {
-        console.log(`Error checking device discoverability for ${deviceId}:`, error.message);
-        isDeviceDiscoverable = false; // Assume not discoverable if check fails
+        isDeviceDiscoverable = false;
+      }
+
+      console.log(`Device ${deviceId} - Connected: ${isPeripheralConnected}, Discoverable: ${isDeviceDiscoverable}`);
+
+      // Fast removal for disconnected and non-discoverable devices
+      if (!isPeripheralConnected && !isDeviceDiscoverable) {
+        console.log(`Device ${deviceId} is already disconnected and not discoverable - fast removal`);
+        
+        // Quick cleanup of any remaining subscriptions
+        this.globalState.activeSubscriptions.delete(deviceId);
+        
+        // Skip all disconnect attempts and proceed directly to removal
+        return this.completeDeviceRemoval(deviceId, 'Device was already disconnected and turned off');
+      }
+
+      // Cleanup subscriptions for connected/discoverable devices
+      if (isPeripheralConnected || isDeviceDiscoverable) {
+        await this.globalState.cleanupDeviceSubscription(deviceId);
       }
       
-      // Attempt to disconnect the peripheral if it exists and device is discoverable
-      if (device.peripheral && isDeviceDiscoverable) {
+      // Attempt to disconnect only if peripheral is actually connected
+      if (isPeripheralConnected && isDeviceDiscoverable) {
         try {
-          if (device.peripheral.state === 'connected') {
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                console.warn(`Disconnect timeout for device ${deviceId}, proceeding with removal`);
-                resolve(); // Don't fail, just continue with removal
-              }, 5000); // 5 second timeout
-              
-              device.peripheral.disconnect((error) => {
-                clearTimeout(timeout);
-                if (error) {
-                  console.warn(`Error disconnecting device ${deviceId}:`, error.message);
-                }
-                resolve();
-              });
+          await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+              console.warn(`Disconnect timeout for device ${deviceId}, proceeding with removal`);
+              resolve();
+            }, 3000); // Reduced timeout for faster removal
+            
+            device.peripheral.disconnect((error) => {
+              clearTimeout(timeout);
+              if (error) {
+                console.warn(`Error disconnecting device ${deviceId}:`, error.message);
+              }
+              resolve();
             });
-          }
+          });
         } catch (disconnectError) {
-          console.warn(`Failed to disconnect device ${deviceId} (device may be turned off):`, disconnectError.message);
+          console.warn(`Failed to disconnect device ${deviceId}:`, disconnectError.message);
           // Continue with removal even if disconnect fails
         }
       } else {
-        console.log(`Device ${deviceId} is not discoverable (likely turned off), skipping disconnect attempt`);
+        console.log(`Device ${deviceId} peripheral not connected or not discoverable, skipping disconnect attempt`);
       }
 
-      // Always remove device from all tracking (regardless of disconnect success/failure)
+      // Complete the removal process
+      return this.completeDeviceRemoval(deviceId, isDeviceDiscoverable 
+        ? 'Device manually disconnected and removed'
+        : 'Device removed from list (device was turned off)');
+
+    } catch (error) {
+      console.error(`Error manually disconnecting device ${deviceId}:`, error);
+      this.sendToRenderer('device-manual-disconnect-failed', { 
+        deviceId, 
+        error: error.message 
+      });
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Complete the device removal process (shared by all removal paths)
+   * @param {string} deviceId - Device ID to remove
+   * @param {string} statusMessage - Message to log
+   * @returns {Promise<{success: boolean}>}
+   */
+  async completeDeviceRemoval(deviceId, statusMessage) {
+    try {
       console.log(`Removing device ${deviceId} from all tracking...`);
       
-      // Remove from global state
+      // Remove from all tracking immediately
       this.globalState.connectedDevices.delete(deviceId);
       this.globalState.deviceSetupStatus.delete(deviceId);
       this.globalState.deviceRetryCount.delete(deviceId);
       this.globalState.deviceCharacteristics.delete(deviceId);
-      
-      // Clean up any remaining subscriptions
       this.globalState.activeSubscriptions.delete(deviceId);
 
       // Update setup queue
@@ -684,20 +717,11 @@ class KrakenCalibrationController {
       this.updateProgressSummary();
       this.updateCalibrationButtonState();
 
-      const statusMessage = isDeviceDiscoverable 
-        ? `Device ${deviceId} manually disconnected and removed`
-        : `Device ${deviceId} removed from list (device was turned off)`;
-      console.log(statusMessage);
-      
+      console.log(`Device ${deviceId}: ${statusMessage}`);
       return { success: true };
-
     } catch (error) {
-      console.error(`Error manually disconnecting device ${deviceId}:`, error);
-      this.sendToRenderer('device-manual-disconnect-failed', { 
-        deviceId, 
-        error: error.message 
-      });
-      return { success: false, error: error.message };
+      console.error(`Error completing removal for device ${deviceId}:`, error);
+      return { success: true }; // Return success anyway to clear UI
     }
   }
 
@@ -707,33 +731,8 @@ class KrakenCalibrationController {
    * @returns {Promise<{success: boolean}>}
    */
   async forceRemoveDevice(deviceId) {
-    try {
-      console.log(`Force removing device ${deviceId} (timeout/fallback)...`);
-      
-      // Remove from all tracking immediately
-      this.globalState.connectedDevices.delete(deviceId);
-      this.globalState.deviceSetupStatus.delete(deviceId);
-      this.globalState.deviceRetryCount.delete(deviceId);
-      this.globalState.deviceCharacteristics.delete(deviceId);
-      this.globalState.activeSubscriptions.delete(deviceId);
-
-      // Update setup queue
-      const queueIndex = this.globalState.setupQueue.indexOf(deviceId);
-      if (queueIndex > -1) {
-        this.globalState.setupQueue.splice(queueIndex, 1);
-      }
-
-      // Send success event to renderer
-      this.sendToRenderer('device-manual-disconnect-success', { deviceId });
-      this.updateProgressSummary();
-      this.updateCalibrationButtonState();
-
-      console.log(`Device ${deviceId} force removed successfully`);
-      return { success: true };
-    } catch (error) {
-      console.error(`Error force removing device ${deviceId}:`, error);
-      return { success: true }; // Return success anyway to clear UI
-    }
+    console.log(`Force removing device ${deviceId} (timeout/fallback)...`);
+    return this.completeDeviceRemoval(deviceId, 'Force removed due to timeout');
   }
 
   /**
