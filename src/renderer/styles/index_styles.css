@@ -1,0 +1,4 @@
+/* Basic styles for the kraken list interface */
+.hidden {
+  display: none !important;
+} 

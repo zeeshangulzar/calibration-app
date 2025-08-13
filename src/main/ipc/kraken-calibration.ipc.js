@@ -1,0 +1,134 @@
+import { ipcMain } from "electron";
+import path from "path";
+import { getMainWindow } from "../windows/main.js";
+import { KrakenCalibrationController } from "../controllers/kraken-calibration.controller.js";
+
+let krakenCalibrationController = null;
+
+/**
+ * Register all kraken calibration related IPC handlers
+ */
+export function registerKrakenCalibrationIpcHandlers() {
+  // Navigation handler - load calibration page with connected devices
+  ipcMain.on("load-kraken-calibration", async (event, connectedDeviceIds) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      // Load kraken calibration page
+      mainWindow.loadFile(path.join("src", "renderer", "kraken-calibration", "index.html"));
+      
+      // Initialize controller when page loads
+      mainWindow.webContents.once("did-finish-load", async () => {
+        // Clean up existing controller if any
+        if (krakenCalibrationController) {
+          await krakenCalibrationController.cleanup();
+        }
+        
+        krakenCalibrationController = new KrakenCalibrationController(mainWindow);
+        await krakenCalibrationController.initialize(connectedDeviceIds);
+      });
+    }
+  });
+
+  // Device setup operations
+  ipcMain.handle("kraken-calibration-retry-device", async (event, deviceId) => {
+    if (!krakenCalibrationController) {
+      return { success: false, error: "Kraken calibration not initialized" };
+    }
+    return await krakenCalibrationController.retryDeviceSetup(deviceId);
+  });
+
+  // Device connectivity operations
+  ipcMain.handle("kraken-calibration-reconnect-device", async (event, deviceId) => {
+    if (!krakenCalibrationController) {
+      return { success: false, error: "Kraken calibration not initialized" };
+    }
+    return await krakenCalibrationController.reconnectDisconnectedDevice(deviceId);
+  });
+
+  ipcMain.handle("kraken-calibration-disconnect-device", async (event, deviceId) => {
+    if (!krakenCalibrationController) {
+      return { success: false, error: "Kraken calibration not initialized" };
+    }
+    return await krakenCalibrationController.manuallyDisconnectDevice(deviceId);
+  });
+
+  // Calibration operations
+  ipcMain.handle("kraken-calibration-start", async () => {
+    if (!krakenCalibrationController) {
+      return { success: false, error: "Kraken calibration not initialized" };
+    }
+    return await krakenCalibrationController.startCalibration();
+  });
+
+  // Status and data retrieval
+  ipcMain.handle("kraken-calibration-get-status", () => {
+    if (!krakenCalibrationController) {
+      return { 
+        connectedDeviceCount: 0, 
+        setupProgress: 0, 
+        isSetupInProgress: false, 
+        devices: [] 
+      };
+    }
+    return krakenCalibrationController.getStatus();
+  });
+
+  // Navigation back to sensor list (with background cleanup like old app)
+  ipcMain.on("kraken-calibration-go-back", async () => {
+    console.log('Back button clicked - starting background cleanup...');
+    
+    const mainWindow = getMainWindow();
+    
+    // Immediately navigate to kraken list (like old app)
+    if (mainWindow) {
+      mainWindow.loadFile(path.join("src", "renderer", "kraken-list", "index.html"));
+    }
+    
+    // Start cleanup in background and notify when complete (like old app)
+    if (krakenCalibrationController) {
+      // Send kraken cleanup started event to disable connect button
+      if (mainWindow) {
+        mainWindow.webContents.send("kraken-cleanup-started");
+      }
+      
+      try {
+        // Background cleanup with proper sequencing
+        await krakenCalibrationController.cleanup();
+        krakenCalibrationController = null;
+        
+        console.log('Background cleanup completed successfully');
+        
+        // Add small delay to ensure everything has settled
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Send kraken cleanup completed event to re-enable connect button
+        if (mainWindow) {
+          mainWindow.webContents.send("kraken-cleanup-completed");
+        }
+        
+      } catch (error) {
+        console.error("Error during background cleanup:", error);
+        
+        // Even if kraken cleanup fails, re-enable the button after a delay
+        if (mainWindow) {
+          setTimeout(() => {
+            mainWindow.webContents.send("kraken-cleanup-completed");
+          }, 3000);
+        }
+      }
+    } else {
+      // No controller to cleanup, immediately enable connect button
+      if (mainWindow) {
+        mainWindow.webContents.send("kraken-cleanup-completed");
+      }
+    }
+  });
+
+  // Cleanup handler
+  ipcMain.on("kraken-calibration-cleanup", async () => {
+    if (krakenCalibrationController) {
+      await krakenCalibrationController.cleanup();
+      krakenCalibrationController = null;
+    }
+  });
+} 

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="../styles/index_styles.css" />
+    <link rel="stylesheet" href="../../assets/stylesheets/inter-font.css" />
+    <script src="./index.js"></script>
+    <script src="../../assets/js/tailwind.min.js"></script>
+    <script>
+      window.FontAwesomeConfig = { autoReplaceSvg: "nest" };
+    </script>
+    <script src="../../assets/js/font-awesome.min.js"></script>
+    <meta
+      http-equiv="X-Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    />
+    <title>Sensor Calibration System</title>
+  </head>
+
+  <body class="h-full text-base-content">
+    <!-- Loader -->
+    <div
+      id="loader"
+      class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50 hidden"
+    >
+      <div class="text-center">
+        <div
+          class="animate-spin rounded-full h-16 w-16 border-4 border-neutral-300 border-t-neutral-800 mx-auto mb-4"
+        ></div>
+        <p class="text-lg">Connecting to sensors...</p>
+      </div>
+    </div>
+    <div id="app-container" class="min-h-screen bg-neutral-50">
+      <header class="bg-white border-b border-neutral-200 fixed w-full z-50">
+        <div
+          class="container mx-auto px-4 py-3 flex items-center justify-between"
+        >
+          <div class="flex items-center space-x-4">
+            <h1 class="text-xl">Sensors List</h1>
+          </div>
+          <div class="flex items-center space-x-4">
+            <button
+              id="refreshBtn"
+              class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-700"
+            >
+              <i class="fa-solid fa-rotate mr-2"></i> Refresh
+            </button>
+            <p id="app-version" class="mt-4 text-neutral-600 mb-4"></p>
+          </div>
+        </div>
+      </header>
+
+      <main id="main-content" class="pt-16 container mx-auto px-4">
+        <!-- Back Button -->
+        <div id="back-button-kraken-list" class="mt-5">
+          <button
+            class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200"
+          >
+            <i class="fa-solid fa-arrow-left mr-2"></i> Back
+          </button>
+        </div>
+        <div class="py-6">
+          <!-- Calibration Type Selection -->
+          <div id="calibration-selection" class="mb-8">
+            <p id="bluetooth-error" class="text-red-600 mb-4 hidden">
+              Bluetooth is powered off. Please turn on bluetooth to continue.
+            </p>
+          </div>
+
+          <!-- Sensor Section (Initially Hidden) -->
+          <div id="sensor-section">
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <p class="text-neutral-600">
+                  Showing all available sensors and their readings
+                </p>
+              </div>
+              <div class="flex space-x-4">
+                <div class="relative">
+                  <input
+                    type="search"
+                    id="sensor-search"
+                    placeholder="Search sensors..."
+                    class="pl-10 pr-4 py-2 border border-neutral-300 rounded-lg w-64"
+                  />
+                  <i
+                    class="fa-solid fa-search absolute left-3 top-3 text-neutral-400"
+                  ></i>
+                </div>
+                <select
+                  id="sort-list"
+                  class="border border-neutral-300 rounded-lg px-4 py-2"
+                >
+                  <option>Sort by: Sensor Id</option>
+                  <option>Sort by: Name</option>
+                </select>
+              </div>
+            </div>
+
+            <div
+              id="sensor-list"
+              class="bg-white rounded-lg border border-neutral-200"
+            >
+              <div
+                class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-200 bg-neutral-50"
+              >
+                <div class="col-span-1">
+                  <input
+                    type="checkbox"
+                    id="select-all-checkbox"
+                    class="w-4 h-4"
+                  />
+                </div>
+
+                <div class="col-span-3">Id</div>
+                <div class="col-span-2">Name</div>
+                <div class="col-span-2">Status</div>
+                <div class="col-span-2">Signal Strength</div>
+              </div>
+            </div>
+
+            <div class="mt-6 flex justify-between items-center">
+              <div></div>
+              <div class="flex space-x-2">
+                <button
+                  id="connect-sensors-button"
+                  class="px-4 py-2 bg-neutral-800 text-white rounded-lg transition-colors duration-200 hover:bg-neutral-700"
+                >
+                  <i class="fa-solid fa-upload mr-2"></i> Connect Sensors
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <div
+      id="custom-alert"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
+        <button
+          id="custom-alert-ok"
+          class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </body>
+</html> 
