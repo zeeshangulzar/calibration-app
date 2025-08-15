@@ -1,7 +1,7 @@
 import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
-import { getSignalStrengthInfo } from '../constants/kraken.constants.js';
+import { getSignalStrengthInfo, KRAKEN_CONSTANTS } from '../constants/kraken.constants.js';
 
 class KrakenListController {
   constructor(mainWindow) {
@@ -53,6 +53,23 @@ class KrakenListController {
       this.sendToRenderer('connection-failed', { deviceId, error });
     });
 
+    // New sequential connection events
+    this.connection.on('deviceConnectionStarted', (data) => {
+      this.sendToRenderer('device-connection-started', data);
+    });
+
+    this.connection.on('deviceConnectionSuccess', (data) => {
+      this.sendToRenderer('device-connection-success', data);
+    });
+
+    this.connection.on('deviceConnectionFailed', (data) => {
+      this.sendToRenderer('device-connection-failed', data);
+    });
+
+    this.connection.on('deviceConnectionRetry', (data) => {
+      this.sendToRenderer('device-connection-retry', data);
+    });
+
     this.connection.on('multipleConnectionsComplete', (results) => {
       this.handleMultipleConnectionsComplete(results);
     });
@@ -84,32 +101,82 @@ class KrakenListController {
   handleMultipleConnectionsComplete(results) {
     this.sendToRenderer('hide-loader');
     
-    if (results.failed.length > 0) {
-      const failedDevices = results.failed.map(device => ({
-        id: device.id,
-        name: device.name || 'Unknown',
-        error: device.error
-      }));
-      
-      this.sendToRenderer('show-connection-errors', {
-        successful: results.successful.length,
-        failed: failedDevices
-      });
+    const totalSelected = this.selectedDeviceIds.size;
+    const successfulCount = results.successful.length;
+    const failedCount = results.failed.length;
+    
+    console.log(`Connection complete: ${successfulCount}/${totalSelected} devices connected successfully`);
+    
+    // Validate connected devices first
+    const validConnectedDevices = results.successful.filter(device => {
+      return device && device.id && device.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED;
+    });
+    
+    if (validConnectedDevices.length !== successfulCount) {
+      console.warn('Some connected devices are not properly validated');
+      // Add validation errors to the failed list
+      const validationError = {
+        id: 'validation-error',
+        name: 'Device Validation',
+        error: 'Some devices did not complete connection validation'
+      };
+      results.failed.push(validationError);
     }
 
-    if (results.successful.length > 0) {
-      // Store connected devices in global state
-      this.globalState.setConnectedDevices(results.successful);
-      
-      // Navigate to calibration screen with connected device IDs (no Noble objects)
-      const connectedDeviceIds = results.successful.map(device => device.id);
-      this.sendToRenderer('navigate-to-calibration', {
-        connectedDeviceIds
-      });
-
-      // Enable connect button cooldown (2 seconds like old app)
-      this.sendToRenderer('enable-connect-cooldown', { cooldownMs: 2000 });
+    // Store validated connected devices in global state (so they're ready for navigation)
+    if (validConnectedDevices.length > 0) {
+      this.globalState.setConnectedDevices(validConnectedDevices);
     }
+
+    // Determine what to do based on results
+    if (failedCount > 0 && validConnectedDevices.length > 0) {
+      // Some failed, some succeeded - show modal and let user decide
+      this.showConnectionResultsModal(validConnectedDevices, results.failed, totalSelected);
+    } else if (failedCount > 0 && validConnectedDevices.length === 0) {
+      // All failed - show error modal only
+      this.showConnectionResultsModal([], results.failed, totalSelected);
+    } else if (validConnectedDevices.length > 0) {
+      // All succeeded - navigate directly to calibration
+      this.proceedToCalibration(validConnectedDevices, totalSelected);
+    } else {
+      console.log('No devices connected successfully, staying on kraken list page');
+    }
+  }
+
+  /**
+   * Show connection results modal with option to continue or stay
+   */
+  showConnectionResultsModal(successfulDevices, failedDevices, totalSelected) {
+    const failedDevicesFormatted = failedDevices.map(device => ({
+      id: device.id,
+      name: device.name || 'Unknown',
+      error: device.error
+    }));
+    
+    this.sendToRenderer('show-connection-errors', {
+      successful: successfulDevices.length,
+      failed: failedDevicesFormatted,
+      totalSelected: totalSelected,
+      canProceed: successfulDevices.length > 0 // Tell UI if user can continue to calibration
+    });
+  }
+
+  /**
+   * Proceed to calibration with successfully connected devices
+   */
+  proceedToCalibration(validConnectedDevices, totalSelected) {
+    const connectedDeviceIds = validConnectedDevices.map(device => device.id);
+    
+    console.log(`Proceeding to calibration with ${connectedDeviceIds.length} validated devices:`, connectedDeviceIds);
+    
+    this.sendToRenderer('navigate-to-calibration', {
+      connectedDeviceIds,
+      totalSelected: totalSelected,
+      successfulCount: validConnectedDevices.length
+    });
+
+    // Enable connect button cooldown (2 seconds like old app)
+    this.sendToRenderer('enable-connect-cooldown', { cooldownMs: 2000 });
   }
 
   formatDeviceForRenderer(device) {

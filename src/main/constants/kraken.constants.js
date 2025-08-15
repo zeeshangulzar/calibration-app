@@ -18,8 +18,26 @@ export const KRAKEN_CONSTANTS = {
   DISCOVERY_TIMEOUT: 15000,     // 15 seconds
   SUBSCRIPTION_TIMEOUT: 5000,   // 5 seconds
   
+  // Retry configuration
+  MAX_RETRIES_PER_KRAKEN: 3,    // Maximum retry attempts per kraken for both connection and setup
+  
+  // Delay timings (in milliseconds)
+  DELAY_BETWEEN_CONNECTIONS: 1000,        // 1 second delay between successful connections
+  DELAY_BETWEEN_SETUP: 1500,              // 1.5 second delay between device setups
+  DELAY_BETWEEN_RETRIES: 2000,            // 2 second delay between retry attempts
+  DELAY_BEFORE_SETUP: 1000,               // 1 second delay before starting device setup
+  DELAY_BLE_STACK_RELEASE: 1000,          // 1 second delay for Windows BLE stack to release
+  
+  // Operation timeouts (in milliseconds)
+  CHARACTERISTIC_READ_TIMEOUT: 5000,       // 5 seconds for characteristic reads
+  DISCONNECT_TIMEOUT: 5000,                // 5 seconds for disconnect operations
+  MANUAL_DISCONNECT_TIMEOUT: 3000,        // 3 seconds for manual disconnect operations
+  CONNECTIVITY_MONITOR_INTERVAL: 2000,    // 2 seconds for connectivity monitoring
+  CLEANUP_TIMEOUT: 3000,                  // 3 seconds for cleanup operations
+  SCANNER_REFRESH_DELAY: 1000,            // 1 second delay for scanner refresh
+  
   // Device limits
-  MAX_DEVICES: 10,
+  MAX_DEVICES: 10,              // Maximum number of devices that can be handled
   
   // Pressure data parsing
   PRESSURE_DATA_LENGTH: 4,      // 4 bytes for float32
@@ -34,37 +52,14 @@ export const KRAKEN_CONSTANTS = {
   }
 };
 
-// Signal strength mapping
 export function getSignalStrengthInfo(rssi) {
-  let barWidth = 0;
-  let strength = "";
-  let colorClass = "";
+  const thresholds = [
+    { min: -40, strength: "Excellent", barWidth: 100, colorClass: "bg-green-500" },
+    { min: -55, strength: "Good",      barWidth: 80,  colorClass: "bg-green-400" },
+    { min: -70, strength: "Fair",      barWidth: 60,  colorClass: "bg-yellow-500" },
+    { min: -85, strength: "Weak",      barWidth: 40,  colorClass: "bg-orange-500" },
+    { min: -Infinity, strength: "Poor", barWidth: 20, colorClass: "bg-red-500" },
+  ];
 
-  if (rssi >= -40) {
-    strength = "Excellent";
-    barWidth = 100;
-    colorClass = "bg-green-500";
-  } else if (rssi >= -55) {
-    strength = "Good";
-    barWidth = 80;
-    colorClass = "bg-green-400";
-  } else if (rssi >= -70) {
-    strength = "Fair";
-    barWidth = 60;
-    colorClass = "bg-yellow-500";
-  } else if (rssi >= -85) {
-    strength = "Weak";
-    barWidth = 40;
-    colorClass = "bg-orange-500";
-  } else {
-    strength = "Poor";
-    barWidth = 20;
-    colorClass = "bg-red-500";
-  }
-
-  return {
-    barWidth,
-    strength,
-    colorClass,
-  };
-} 
+  return thresholds.find(({ min }) => rssi >= min);
+}

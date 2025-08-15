@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   krakenRefreshScan: () => ipcRenderer.invoke("kraken-refresh-scan"),
   krakenConnectDevices: (deviceIds) => ipcRenderer.invoke("kraken-connect-devices", deviceIds),
   krakenSetSelectedDevices: (deviceIds) => ipcRenderer.send("kraken-set-selected-devices", deviceIds),
+  krakenProceedToCalibration: () => ipcRenderer.invoke("kraken-proceed-to-calibration"),
   krakenGetDiscoveredDevices: () => ipcRenderer.invoke("kraken-get-discovered-devices"),
   krakenGetConnectedDevices: () => ipcRenderer.invoke("kraken-get-connected-devices"),
   krakenGetScanStatus: () => ipcRenderer.invoke("kraken-get-scan-status"),
@@ -35,6 +36,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("connection-failed", (event, data) => callback(data)),
   onShowConnectionErrors: (callback) => 
     ipcRenderer.on("show-connection-errors", (event, data) => callback(data)),
+  
+  // Sequential connection progress events
+  onDeviceConnectionStarted: (callback) => 
+    ipcRenderer.on("device-connection-started", (event, data) => callback(data)),
+  onDeviceConnectionSuccess: (callback) => 
+    ipcRenderer.on("device-connection-success", (event, data) => callback(data)),
+  onDeviceConnectionFailed: (callback) => 
+    ipcRenderer.on("device-connection-failed", (event, data) => callback(data)),
+  onDeviceConnectionRetry: (callback) => 
+    ipcRenderer.on("device-connection-retry", (event, data) => callback(data)),
   onNavigateToCalibration: (callback) => 
     ipcRenderer.on("navigate-to-calibration", (event, data) => callback(data)),
     onEnableConnectCooldown: (callback) =>
@@ -92,6 +103,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("device-setup-complete", (event, data) => callback(data)),
   onDeviceSetupFailed: (callback) => 
     ipcRenderer.on("device-setup-failed", (event, data) => callback(data)),
+  onDeviceSetupRetry: (callback) => 
+    ipcRenderer.on("device-setup-retry", (event, data) => callback(data)),
+  onDeviceSetupFailedFinal: (callback) => 
+    ipcRenderer.on("device-setup-failed-final", (event, data) => callback(data)),
+  onDeviceManualRetryStarted: (callback) => 
+    ipcRenderer.on("device-manual-retry-started", (event, data) => callback(data)),
+  onDeviceManualRetrySuccess: (callback) => 
+    ipcRenderer.on("device-manual-retry-success", (event, data) => callback(data)),
+  onDeviceManualRetryFailed: (callback) => 
+    ipcRenderer.on("device-manual-retry-failed", (event, data) => callback(data)),
+  onKrakenDetailsUpdated: (callback) => 
+    ipcRenderer.on("kraken-details-updated", (event, data) => callback(data)),
   onDeviceStatusUpdate: (callback) => 
     ipcRenderer.on("device-status-update", (event, data) => callback(data)),
   onProgressUpdate: (callback) => 

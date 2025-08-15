@@ -2,8 +2,20 @@ import { ipcMain } from "electron";
 import path from "path";
 import { getMainWindow } from "../windows/main.js";
 import { KrakenCalibrationController } from "../controllers/kraken-calibration.controller.js";
+import { KRAKEN_CONSTANTS } from "../constants/kraken.constants.js";
 
 let krakenCalibrationController = null;
+
+/**
+ * Helper function to check if controller is initialized and return appropriate error
+ * @returns {object|null} Error object if not initialized, null if initialized
+ */
+function checkControllerInitialized() {
+  if (!krakenCalibrationController) {
+    return { success: false, error: "Kraken calibration not initialized" };
+  }
+  return null;
+}
 
 /**
  * Register all kraken calibration related IPC handlers
@@ -31,32 +43,28 @@ export function registerKrakenCalibrationIpcHandlers() {
 
   // Device setup operations
   ipcMain.handle("kraken-calibration-retry-device", async (event, deviceId) => {
-    if (!krakenCalibrationController) {
-      return { success: false, error: "Kraken calibration not initialized" };
-    }
+    const error = checkControllerInitialized();
+    if (error) return error;
     return await krakenCalibrationController.retryDeviceSetup(deviceId);
   });
 
   // Device connectivity operations
   ipcMain.handle("kraken-calibration-reconnect-device", async (event, deviceId) => {
-    if (!krakenCalibrationController) {
-      return { success: false, error: "Kraken calibration not initialized" };
-    }
+    const error = checkControllerInitialized();
+    if (error) return error;
     return await krakenCalibrationController.reconnectDisconnectedDevice(deviceId);
   });
 
   ipcMain.handle("kraken-calibration-disconnect-device", async (event, deviceId) => {
-    if (!krakenCalibrationController) {
-      return { success: false, error: "Kraken calibration not initialized" };
-    }
+    const error = checkControllerInitialized();
+    if (error) return error;
     return await krakenCalibrationController.manuallyDisconnectDevice(deviceId);
   });
 
   // Calibration operations
   ipcMain.handle("kraken-calibration-start", async () => {
-    if (!krakenCalibrationController) {
-      return { success: false, error: "Kraken calibration not initialized" };
-    }
+    const error = checkControllerInitialized();
+    if (error) return error;
     return await krakenCalibrationController.startCalibration();
   });
 
@@ -99,7 +107,7 @@ export function registerKrakenCalibrationIpcHandlers() {
         console.log('Background cleanup completed successfully');
         
         // Add small delay to ensure everything has settled
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP));
         
         // Send kraken cleanup completed event to re-enable connect button
         if (mainWindow) {
@@ -113,7 +121,7 @@ export function registerKrakenCalibrationIpcHandlers() {
         if (mainWindow) {
           setTimeout(() => {
             mainWindow.webContents.send("kraken-cleanup-completed");
-          }, 3000);
+          }, KRAKEN_CONSTANTS.CLEANUP_TIMEOUT);
         }
       }
     } else {

@@ -393,30 +393,42 @@ class KrakenCalibrationStateService extends EventEmitter {
     }
   }
 
-  // Disconnect device with proper delay (like old app)
   async disconnectDeviceWithDelay(peripheral, deviceId) {
-    return new Promise((resolve) => {
-      try {
-        if (peripheral && (peripheral.state === 'connected' || peripheral.state === 'connecting')) {
-          peripheral.disconnect((error) => {
-            if (error) {
-              console.warn(`Error disconnecting device ${deviceId}:`, error.message);
-            } else {
-              console.log(`Device ${deviceId} disconnected`);
-            }
-            resolve();
-          });
+    // Early return if peripheral is invalid or already disconnected
+    if (!this.isPeripheralDisconnectable(peripheral)) {
+      console.log(`Device ${deviceId}: No disconnection needed (peripheral not connected)`);
+      return;
+    }
+
+    try {
+      await this.performDisconnect(peripheral);
+      console.log(`Device ${deviceId}: Successfully disconnected`);
+    } catch (error) {
+      console.warn(`Device ${deviceId}: Disconnect failed - ${error.message}`);
+      // Don't throw - we want cleanup to continue even if disconnect fails
+    }
+  }
+
+
+  isPeripheralDisconnectable(peripheral) {
+    return peripheral && 
+           peripheral.state && 
+           (peripheral.state === 'connected' || peripheral.state === 'connecting');
+  }
+
+
+  performDisconnect(peripheral) {
+    return new Promise((resolve, reject) => {
+      peripheral.disconnect((error) => {
+        if (error) {
+          reject(new Error(`Peripheral disconnect failed: ${error.message}`));
         } else {
           resolve();
         }
-      } catch (error) {
-        console.warn(`Error in disconnect for device ${deviceId}:`, error.message);
-        resolve();
-      }
+      });
     });
   }
 
-  // Add delay utility (like old app)
   async addDelay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

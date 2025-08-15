@@ -25,7 +25,7 @@ class KrakenConnectionService extends EventEmitter {
       // Disconnect if already connected (cleanup)
       if (peripheral.state === 'connected' || peripheral.state === 'connecting') {
         await this.disconnectPeripheral(peripheral);
-        await this.delay(1000); // Allow Windows BLE stack to fully release
+        await this.delay(KRAKEN_CONSTANTS.DELAY_BLE_STACK_RELEASE); // Allow Windows BLE stack to fully release
       }
 
       // Connect to the peripheral
@@ -72,28 +72,104 @@ class KrakenConnectionService extends EventEmitter {
       failed: []
     };
 
-
-    
-    // Connect to devices in parallel
-    const connectionPromises = deviceIds.map(async (deviceId) => {
-      try {
-        const deviceInfo = deviceInfoMap.get(deviceId);
-        if (!deviceInfo) {
-          throw new Error(`Device info not found for ${deviceId}`);
-        }
-        
-        const connectedDevice = await this.connectToDevice(deviceInfo);
-        results.successful.push(connectedDevice);
-        return { success: true, device: connectedDevice };
-      } catch (error) {
-        const deviceInfo = deviceInfoMap.get(deviceId) || { id: deviceId, name: 'Unknown' };
-        results.failed.push({ ...deviceInfo, error: error.message });
-        return { success: false, deviceId, error: error.message };
+    // Connect to devices sequentially with delays to prevent BLE interference
+    for (let i = 0; i < deviceIds.length; i++) {
+      const deviceId = deviceIds[i];
+      
+      const deviceInfo = deviceInfoMap.get(deviceId);
+      if (!deviceInfo) {
+        console.error(`Device info not found for ${deviceId}`);
+        results.failed.push({ 
+          id: deviceId, 
+          name: 'Unknown', 
+          error: 'Device info not found' 
+        });
+        continue;
       }
-    });
-
-    await Promise.allSettled(connectionPromises);
-    
+      
+      console.log(`Connecting to device ${i + 1}/${deviceIds.length}: ${deviceId}`);
+      this.emit('deviceConnectionStarted', { 
+        deviceId, 
+        currentIndex: i + 1, 
+        totalCount: deviceIds.length,
+        deviceName: deviceInfo.name || 'Unknown'
+      });
+      
+      // Try connecting with up to MAX_RETRIES_PER_KRAKEN retries
+      let connectedDevice = null;
+      let lastError = null;
+      
+      for (let retry = 0; retry < KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN; retry++) {
+        try {
+          if (retry > 0) {
+            console.log(`Retry ${retry}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} for device ${deviceId}`);
+            this.emit('deviceConnectionRetry', { 
+              deviceId, 
+              retryAttempt: retry + 1,
+              maxRetries: KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN,
+              deviceName: deviceInfo.name || 'Unknown'
+            });
+            // Wait a bit longer between retries
+            await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_RETRIES);
+          }
+          
+          connectedDevice = await this.connectToDevice(deviceInfo);
+          console.log(`Successfully connected to device: ${deviceId} on attempt ${retry + 1}`);
+          break; // Success, exit retry loop
+          
+        } catch (error) {
+          lastError = error;
+          console.warn(`Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`, error.message);
+          
+          // Clean up any partial connection state
+          if (deviceInfo.peripheral) {
+            try {
+              await this.disconnectPeripheral(deviceInfo.peripheral);
+              await this.delay(500); // Brief delay after cleanup
+            } catch (cleanupError) {
+              console.warn(`Cleanup error for ${deviceId}:`, cleanupError.message);
+            }
+          }
+        }
+      }
+      
+      if (connectedDevice) {
+        results.successful.push(connectedDevice);
+        this.emit('deviceConnectionSuccess', { 
+          deviceId, 
+          currentIndex: i + 1, 
+          totalCount: deviceIds.length,
+          connectedCount: results.successful.length
+        });
+        
+        // Add delay after successful connection
+        if (i < deviceIds.length - 1) {
+          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection...`);
+          await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
+        }
+      } else {
+        // All retries failed
+        console.error(`Failed to connect to device ${deviceId} after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} attempts`);
+        results.failed.push({ 
+          ...deviceInfo, 
+          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`
+        });
+        
+        this.emit('deviceConnectionFailed', { 
+          deviceId, 
+          currentIndex: i + 1, 
+          totalCount: deviceIds.length,
+          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
+          deviceName: deviceInfo.name || 'Unknown'
+        });
+        
+        // Still wait before trying next device
+        if (i < deviceIds.length - 1) {
+          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection attempt...`);
+          await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
+        }
+      }
+    }
 
     this.emit('multipleConnectionsComplete', results);
     
@@ -175,7 +251,7 @@ class KrakenConnectionService extends EventEmitter {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(null);
-      }, 5000);
+      }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
 
       characteristic.read((error, data) => {
         clearTimeout(timeout);
@@ -228,7 +304,7 @@ class KrakenConnectionService extends EventEmitter {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Disconnect timeout'));
-        }, 5000);
+        }, KRAKEN_CONSTANTS.DISCONNECT_TIMEOUT);
 
         peripheral.disconnect((error) => {
           clearTimeout(timeout);

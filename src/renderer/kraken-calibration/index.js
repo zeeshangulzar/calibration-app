@@ -35,10 +35,15 @@ document.addEventListener("DOMContentLoaded", () => {
 // Event listeners for calibration events
 window.electronAPI.onShowPageLoader(() => {
   document.getElementById("page-loader")?.classList.remove("hidden");
+  // disable refresh button
+  document.getElementById("refresh-button").disabled = true;
+
 });
 
 window.electronAPI.onHidePageLoader(() => {
   document.getElementById("page-loader")?.classList.add("hidden");
+  // enable refresh button
+  document.getElementById("refresh-button").disabled = false;
 });
 
 window.electronAPI.onInitializeDevices((devices) => {
@@ -63,6 +68,36 @@ window.electronAPI.onDeviceSetupComplete((data) => {
 window.electronAPI.onDeviceSetupFailed((data) => {
   const { deviceId, error } = data;
   updateDeviceWidget(deviceId, 'failed', error);
+});
+
+window.electronAPI.onDeviceSetupRetry((data) => {
+  const { deviceId, attempt, maxRetries, message } = data;
+  updateDeviceWidget(deviceId, 'in-progress', `Retry ${attempt}/${maxRetries} - ${message || 'Retrying setup...'}`, 'retrying');
+});
+
+window.electronAPI.onDeviceSetupFailedFinal((data) => {
+  const { deviceId, error, maxRetries } = data;
+  updateDeviceWidget(deviceId, 'failed', `Failed after ${maxRetries} attempts: ${error}`);
+});
+
+window.electronAPI.onDeviceManualRetryStarted((data) => {
+  const { deviceId } = data;
+  updateDeviceWidget(deviceId, 'in-progress', 'Manual retry in progress...', 'retrying');
+});
+
+window.electronAPI.onDeviceManualRetrySuccess((data) => {
+  const { deviceId } = data;
+  updateDeviceWidget(deviceId, 'ready', 'Ready for calibration');
+});
+
+window.electronAPI.onDeviceManualRetryFailed((data) => {
+  const { deviceId, error } = data;
+  updateDeviceWidget(deviceId, 'failed', `Manual retry failed: ${error}`);
+});
+
+window.electronAPI.onKrakenDetailsUpdated((data) => {
+  const { deviceId, firmwareVersion, displayName } = data;
+  updateKrakenDetails(deviceId, firmwareVersion, displayName);
 });
 
 window.electronAPI.onDeviceStatusUpdate((data) => {
@@ -243,7 +278,7 @@ function createDeviceWidget(device) {
   widget.innerHTML = `
     <!-- Header with disconnect button -->
     <div class="flex justify-between items-start mb-2">
-      <h4 class="font-medium">Sensor ${device.displayName}</h4>
+      <h4 class="font-medium device-name">Sensor ${device.displayName}</h4>
       <button 
         onclick="disconnectDevice('${device.id}')"
         class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors duration-200"
@@ -260,7 +295,7 @@ function createDeviceWidget(device) {
     <!-- Device Info -->
     <div class="text-xs text-neutral-500 mb-2">
       <div>ID: ${device.id}</div>
-      <div>Firmware: ${device.firmwareVersion}</div>
+      <div>Firmware: <span class="device-firmware">${device.firmwareVersion}</span></div>
     </div>
 
     <!-- Action Area -->
@@ -381,6 +416,31 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
   }
 }
 
+// Update kraken device details (firmware, display name, etc.)
+function updateKrakenDetails(deviceId, firmwareVersion, displayName) {
+  console.log(`Updating kraken ${deviceId} details: firmware=${firmwareVersion}, displayName=${displayName}`);
+  
+  // Update firmware version in widget
+  const firmwareElement = document.querySelector(`#device-widget-${deviceId} .device-firmware`);
+  if (firmwareElement && firmwareVersion) {
+    firmwareElement.textContent = firmwareVersion;
+  }
+  
+  // Update display name in widget header  
+  const nameElement = document.querySelector(`#device-widget-${deviceId} .device-name`);
+  if (nameElement && displayName) {
+    nameElement.textContent = `Sensor ${displayName}`;
+  }
+  
+  // Store in connected devices map for future reference
+  if (window.connectedDevices && window.connectedDevices.has(deviceId)) {
+    const device = window.connectedDevices.get(deviceId);
+    if (firmwareVersion) device.firmwareVersion = firmwareVersion;
+    if (displayName) device.displayName = displayName;
+    window.connectedDevices.set(deviceId, device);
+  }
+}
+
 // Update device from detailed status object
 function updateDeviceFromStatus(deviceId, statusObj) {
   const { status, stage, error } = statusObj;
@@ -397,7 +457,9 @@ function updateDeviceFromStatus(deviceId, statusObj) {
     case 'in-progress':
       if (stage === 'connecting') message = 'Reconnecting to device...';
       else if (stage === 'discovering') message = 'Discovering services...';
+      else if (stage === 'reading-details') message = 'Reading device information...';
       else if (stage === 'subscribing') message = 'Setting up characteristics...';
+      else if (stage === 'retrying') message = 'Retrying setup...';
       else if (stage === 'disconnecting') message = 'Disconnecting device...';
       else message = 'Setting up device...';
       break;

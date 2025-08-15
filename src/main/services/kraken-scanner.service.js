@@ -119,7 +119,7 @@ class KrakenScannerService extends EventEmitter {
   async refreshScan() {
     try {
       await this.stopScanning();
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause
+      await new Promise(resolve => setTimeout(resolve, KRAKEN_CONSTANTS.SCANNER_REFRESH_DELAY)); // Brief pause
       await this.startScanning();
     } catch (error) {
       console.error('Error refreshing scan:', error);

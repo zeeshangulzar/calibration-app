@@ -150,37 +150,126 @@ window.electronAPI.onShowBluetoothError((val) => {
   }
 });
 
+// Prevent loader flickering by adding state management
+let loaderState = {
+  isVisible: false,
+  hideTimeout: null,
+  showTimeout: null
+};
+
 window.electronAPI.onShowLoader(() => {
-  document.getElementById("loader")?.classList.remove("hidden");
+  // Clear any pending hide operation
+  if (loaderState.hideTimeout) {
+    clearTimeout(loaderState.hideTimeout);
+    loaderState.hideTimeout = null;
+  }
+  
+  // Only show if not already visible to prevent flickering
+  if (!loaderState.isVisible) {
+    const loader = document.getElementById("loader");
+    if (loader) {
+      loader.classList.remove("hidden");
+      loaderState.isVisible = true;
+    }
+  }
 });
 
 window.electronAPI.onHideLoader(() => {
-  document.getElementById("loader")?.classList.add("hidden");
+  // Clear any pending show operation
+  if (loaderState.showTimeout) {
+    clearTimeout(loaderState.showTimeout);
+    loaderState.showTimeout = null;
+  }
+  
+  // Add a small delay before hiding to prevent rapid show/hide cycles
+  loaderState.hideTimeout = setTimeout(() => {
+    const loader = document.getElementById("loader");
+    if (loader && loaderState.isVisible) {
+      loader.classList.add("hidden");
+      loaderState.isVisible = false;
+    }
+    loaderState.hideTimeout = null;
+  }, 100); // 100ms delay to smooth out rapid state changes
+});
+
+// Handle sequential connection progress
+window.electronAPI.onDeviceConnectionStarted((data) => {
+  const { deviceId, currentIndex, totalCount, deviceName } = data;
+  const loader = document.getElementById("loader");
+  const loaderText = loader?.querySelector('p');
+  if (loaderText) {
+    loaderText.textContent = `Connecting to device ${currentIndex}/${totalCount}: ${deviceName}...`;
+  }
+  console.log(`Starting connection to device ${currentIndex}/${totalCount}: ${deviceName}`);
+});
+
+window.electronAPI.onDeviceConnectionSuccess((data) => {
+  const { deviceId, currentIndex, totalCount, connectedCount } = data;
+  console.log(`Successfully connected device ${currentIndex}/${totalCount}. Total connected: ${connectedCount}`);
+});
+
+window.electronAPI.onDeviceConnectionFailed((data) => {
+  const { deviceId, currentIndex, totalCount, error, deviceName } = data;
+  console.log(`Failed to connect device ${currentIndex}/${totalCount} (${deviceName}): ${error}`);
+});
+
+window.electronAPI.onDeviceConnectionRetry((data) => {
+  const { deviceId, retryAttempt, maxRetries, deviceName } = data;
+  const loader = document.getElementById("loader");
+  const loaderText = loader?.querySelector('p');
+  if (loaderText) {
+    loaderText.textContent = `Retrying connection (${retryAttempt}/${maxRetries}): ${deviceName}...`;
+  }
+  console.log(`Retrying connection to ${deviceName} (${retryAttempt}/${maxRetries})`);
 });
 
 window.electronAPI.onShowConnectionErrors((data) => {
-  const { successful, failed } = data;
+  const { successful, failed, totalSelected, canProceed } = data;
   let message = '';
 
+  message += `Connection Results: ${successful}/${totalSelected || (successful + failed.length)} devices connected successfully.\n\n`;
+
   if (successful > 0) {
-    message += `Successfully connected to ${successful} device${successful !== 1 ? 's' : ''}.\n\n`;
+    message += `✓ Successfully connected to ${successful} device${successful !== 1 ? 's' : ''}.\n\n`;
   }
 
   if (failed.length > 0) {
-    message += `Failed to connect to:\n`;
+    message += `✗ Failed to connect to ${failed.length} device${failed.length !== 1 ? 's' : ''}:\n`;
     failed.forEach(device => {
       message += `• ${device.name || device.id}: ${device.error}\n`;
     });
   }
 
-  showCustomAlert(message);
+  // Show modal with option to proceed if some devices connected successfully
+  if (canProceed) {
+    message += `\n\nDo you want to proceed with the ${successful} successfully connected device${successful !== 1 ? 's' : ''}?`;
+    showConnectionResultsModal(message, true);
+  } else {
+    // All failed - show simple alert
+    showCustomAlert(message);
+  }
 });
 
 window.electronAPI.onNavigateToCalibration((data) => {
-  const { connectedDeviceIds } = data;
+  const { connectedDeviceIds, totalSelected, successfulCount } = data;
   if (connectedDeviceIds && connectedDeviceIds.length > 0) {
-    // Navigate to kraken calibration page
-    window.electronAPI.loadKrakenCalibration(connectedDeviceIds);
+    // Ensure loader is hidden before navigation
+    if (loaderState.hideTimeout) {
+      clearTimeout(loaderState.hideTimeout);
+      loaderState.hideTimeout = null;
+    }
+    const loader = document.getElementById("loader");
+    if (loader) {
+      loader.classList.add("hidden");
+      loaderState.isVisible = false;
+    }
+    
+    console.log(`Navigating to calibration with ${connectedDeviceIds.length} devices`);
+    
+    // Add a small delay to ensure any popups are processed before navigation
+    setTimeout(() => {
+      window.electronAPI.loadKrakenCalibration(connectedDeviceIds);
+    }, 200);
   }
 });
 
@@ -232,6 +321,77 @@ function showCustomAlert(message) {
   alertOkBtn.onclick = () => {
     alertBox.classList.add("hidden");
   };
+}
+
+function showConnectionResultsModal(message, canProceed = false) {
+  // Create modal if it doesn't exist
+  let modal = document.getElementById("connection-results-modal");
+  if (!modal) {
+    modal = createConnectionResultsModal();
+    document.body.appendChild(modal);
+  }
+
+  const messageElement = modal.querySelector("#connection-results-message");
+  const proceedBtn = modal.querySelector("#proceed-to-calibration-btn");
+  const cancelBtn = modal.querySelector("#cancel-connection-btn");
+
+  messageElement.textContent = message;
+  
+  // Show/hide proceed button based on whether user can continue
+  if (canProceed) {
+    proceedBtn.classList.remove("hidden");
+  } else {
+    proceedBtn.classList.add("hidden");
+  }
+
+  modal.classList.remove("hidden");
+
+  // Handle proceed button click
+  proceedBtn.onclick = async () => {
+    modal.classList.add("hidden");
+    try {
+      const result = await window.electronAPI.krakenProceedToCalibration();
+      if (!result.success) {
+        showCustomAlert(`Failed to proceed to calibration: ${result.error}`);
+      }
+    } catch (error) {
+      showCustomAlert(`Error proceeding to calibration: ${error.message}`);
+    }
+  };
+
+  // Handle cancel button click
+  cancelBtn.onclick = () => {
+    modal.classList.add("hidden");
+  };
+}
+
+function createConnectionResultsModal() {
+  const modal = document.createElement("div");
+  modal.id = "connection-results-modal";
+  modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden";
+  
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 class="text-lg font-semibold mb-4">Connection Results</h3>
+      <p id="connection-results-message" class="text-sm text-gray-700 mb-6 whitespace-pre-line"></p>
+      <div class="flex justify-end space-x-2">
+        <button
+          id="cancel-connection-btn"
+          class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700"
+        >
+          Cancel
+        </button>
+        <button
+          id="proceed-to-calibration-btn"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Continue to Calibration
+        </button>
+      </div>
+    </div>
+  `;
+  
+  return modal;
 }
 
 function sortAndRender() {
