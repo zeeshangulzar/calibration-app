@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/icons/win_logo.ico" />
+    <link rel="stylesheet" href="../../assets/stylesheets/inter-font.css" />
+    <script src="../../assets/js/tailwind.min.js"></script>
+    <script src="../../assets/js/font-awesome.min.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white border-b">
+      <div class="max-w-6xl mx-auto px-8">
+        <div class="flex justify-between items-center py-4">
+          <div class="flex items-center gap-4">
+            <h1 class="text-xl ml-4 flex items-center gap-2">
+              <i class="fas fa-cog text-gray-700"></i>
+              Settings
+            </h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Floating Notifications Container -->
+    <div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-8 py-8">
+      <div class="flex justify-start mb-8">
+        <button
+          id="back-button"
+          class="px-6 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all duration-200 hover:bg-gray-200 hover:transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <i class="fas fa-arrow-left"></i> Back
+        </button>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <!-- Fluke Configuration Section -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden h-fit">
+          <div class="bg-black text-white px-6 py-2">
+            <h2 class="text-lg font-semibold">
+              <i class="fas fa-network-wired mr-2"></i>
+              Fluke Configuration
+            </h2>
+          </div>
+          <div class="p-6">
+            <form id="fluke-settings-form">
+              <div class="space-y-4">
+                <div class="space-y-2">
+                  <label for="fluke-ip" class="block font-semibold text-gray-700"
+                    >Fluke IP Address</label
+                  >
+                  <input
+                    type="text"
+                    id="fluke-ip"
+                    class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-base transition-all duration-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    placeholder="10.10.69.27"
+                    required
+                  />
+                  <small class="text-gray-600 text-sm"
+                    >IP address of the Fluke calibration device</small
+                  >
+                </div>
+                <div class="space-y-2">
+                  <label for="fluke-port" class="block font-semibold text-gray-700"
+                    >Fluke Port</label
+                  >
+                  <input
+                    type="number"
+                    id="fluke-port"
+                    class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-base transition-all duration-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    placeholder="3490"
+                    min="1"
+                    max="65535"
+                    required
+                  />
+                  <small class="text-gray-600 text-sm">Port number for Telnet connection</small>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-3 mt-6">
+                <button
+                  type="submit"
+                  class="px-6 py-2 bg-black text-white rounded-lg font-semibold transition-all duration-200 hover:bg-gray-800 hover:transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <i class="fas fa-save mr-2"></i>Save Settings
+                </button>
+                <button
+                  type="button"
+                  id="test-connection-btn"
+                  class="px-6 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all duration-200 hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <i class="fas fa-wifi mr-2"></i>Test Connection
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Fluke Interactive Commands Section -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="bg-black text-white px-6 py-2">
+            <h2 class="text-lg font-semibold">
+              <i class="fas fa-terminal mr-2"></i>
+              Fluke Interactive Commands
+            </h2>
+          </div>
+          <div class="p-6">
+            <!-- Quick Commands -->
+            <div class="mb-4">
+              <h4 class="font-semibold text-gray-700 mb-3">Quick Commands</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="*IDN?"
+                >
+                  *IDN? - Device ID
+                </button>
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="OUTPut:STATe?"
+                >
+                  OUTPut:STATe? - Output State
+                </button>
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="OUTPut:STATe ON"
+                >
+                  OUTPut:STATe ON - Enable Output
+                </button>
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="OUTPut:STATe OFF"
+                >
+                  OUTPut:STATe OFF - Disable Output
+                </button>
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="MEASure:PRESsure?"
+                >
+                  MEASure:PRESsure? - Read Pressure
+                </button>
+                <button
+                  class="p-2 bg-gray-100 border border-gray-300 rounded-md text-xs cursor-pointer transition-all duration-200 text-left font-mono hover:bg-gray-200 hover:border-gray-400"
+                  data-command="SYSTem:ERRor?"
+                >
+                  SYSTem:ERRor? - Check Errors
+                </button>
+              </div>
+            </div>
+
+            <!-- Command Input -->
+            <div class="border-2 border-gray-300 rounded-lg overflow-hidden">
+              <div class="flex p-3 bg-gray-50 border-b border-gray-300">
+                <input
+                  type="text"
+                  id="command-input"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md mr-2 font-mono text-sm transition-all duration-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  placeholder="Enter SCPI command (e.g., *IDN?)"
+                />
+                <button
+                  id="send-command-btn"
+                  class="px-4 py-2 bg-black text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-800 mr-2"
+                >
+                  <i class="fas fa-paper-plane mr-1"></i>Send
+                </button>
+                <button
+                  id="clear-history-btn"
+                  class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-200"
+                >
+                  <i class="fas fa-trash mr-1"></i>Clear
+                </button>
+              </div>
+
+              <!-- Command History -->
+              <div
+                id="command-history"
+                class="h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-xs p-3"
+              >
+                <div class="text-gray-400 text-center py-12">
+                  Command history will appear here...
+                  <br />
+                  <small class="text-xs">Connect to Fluke device to start sending commands</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Command Help -->
+            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h5 class="font-semibold text-blue-800 mb-2 text-sm">
+                <i class="fas fa-info-circle mr-1"></i>Command Help
+              </h5>
+              <div class="text-xs text-blue-700 space-y-1">
+                <p><strong>Query commands</strong> (ending with ?) will wait for a response.</p>
+                <p><strong>Set commands</strong> will be sent without waiting for a response.</p>
+                <p>
+                  Use <code class="bg-blue-200 px-1 rounded">*IDN?</code> to test connection and get
+                  device information.
+                </p>
+                <p>
+                  Examples: <code class="bg-blue-200 px-1 rounded">*IDN?</code>,
+                  <code class="bg-blue-200 px-1 rounded">OUTPut:STATe ON</code>,
+                  <code class="bg-blue-200 px-1 rounded">MEASure:PRESsure?</code>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div
+      id="loading-overlay"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div class="bg-white p-6 rounded-lg flex items-center">
+        <div
+          class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-indigo-500 mr-3"
+        ></div>
+        <span id="loading-text">Processing...</span>
+      </div>
+    </div>
+
+    <script src="index.js"></script>
+  </body>
+</html>
