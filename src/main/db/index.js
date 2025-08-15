@@ -1,0 +1,256 @@
+import path from 'path';
+import { app } from 'electron';
+import Database from 'better-sqlite3';
+
+// Store DB in user's app data directory
+let dbPath = null;
+
+let db = null;
+let isInitialized = false;
+
+/**
+ * Initialize database with proper PRAGMAs and migrations
+ */
+export function initializeDatabase() {
+  if (isInitialized) {
+    return db;
+  }
+
+  try {
+    // Set database path if not already set
+    if (!dbPath) {
+      dbPath = path.join(app.getPath('userData'), 'calibration_settings.db');
+    }
+
+    console.log('Initializing database at:', dbPath);
+
+    // Open database
+    db = new Database(dbPath);
+
+    // Enable WAL mode and other optimizations
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('foreign_keys = ON');
+    db.pragma('cache_size = 10000');
+    db.pragma('temp_store = MEMORY');
+
+    // Run migrations
+    runMigrations();
+
+    isInitialized = true;
+    console.log('Database initialized successfully');
+
+    return db;
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    throw error;
+  }
+}
+
+/**
+ * Run database migrations
+ */
+function runMigrations() {
+  // Create migrations table if it doesn't exist
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `
+  ).run();
+
+  // Get current schema version
+  const currentVersion =
+    db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
+
+  // Define migrations
+  const migrations = [
+    {
+      version: 1,
+      sql: `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          fluke_ip TEXT DEFAULT '10.10.69.27',
+          fluke_port TEXT DEFAULT '3490',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `,
+    },
+    {
+      version: 2,
+      sql: `
+        CREATE TABLE IF NOT EXISTS command_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type TEXT NOT NULL CHECK (type IN ('command', 'response')),
+          content TEXT NOT NULL,
+          related_command TEXT,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `,
+    },
+  ];
+
+  // Run pending migrations
+  const transaction = db.transaction(() => {
+    for (const migration of migrations) {
+      if (migration.version > currentVersion) {
+        db.prepare(migration.sql).run();
+        db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(migration.version);
+        console.log(`Applied migration ${migration.version}`);
+      }
+    }
+  });
+
+  transaction();
+}
+
+/**
+ * Get database instance
+ */
+export function getDatabase() {
+  if (!isInitialized) {
+    return initializeDatabase();
+  }
+  return db;
+}
+
+/**
+ * Close database connection
+ */
+export function closeDatabase() {
+  if (db && isInitialized) {
+    db.close();
+    isInitialized = false;
+    console.log('Database connection closed');
+  }
+}
+
+/**
+ * Get Fluke settings
+ */
+export function getFlukeSettings() {
+  const db = getDatabase();
+  try {
+    const settings = db
+      .prepare('SELECT fluke_ip, fluke_port FROM app_settings ORDER BY id DESC LIMIT 1')
+      .get();
+    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+  } catch (error) {
+    console.error('Failed to get fluke settings:', error);
+    return { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+  }
+}
+
+/**
+ * Save Fluke settings
+ */
+export function saveFlukeSettings(ip, port) {
+  const db = getDatabase();
+  try {
+    const transaction = db.transaction(() => {
+      const existingSettings = db
+        .prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1')
+        .get();
+
+      if (existingSettings) {
+        // Update existing settings
+        db.prepare(
+          `
+          UPDATE app_settings
+          SET fluke_ip = ?, fluke_port = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+        ).run(ip, port, existingSettings.id);
+      } else {
+        // Insert new settings
+        db.prepare(
+          `
+          INSERT INTO app_settings (fluke_ip, fluke_port)
+          VALUES (?, ?)
+        `
+        ).run(ip, port);
+      }
+    });
+
+    transaction();
+    console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}`);
+    return { success: true, message: 'Settings saved successfully' };
+  } catch (error) {
+    console.error('Failed to save fluke settings:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Add command to history
+ */
+export function addCommandToHistory(type, content, relatedCommand = null) {
+  const db = getDatabase();
+  try {
+    db.prepare(
+      `
+      INSERT INTO command_history (type, content, related_command)
+      VALUES (?, ?, ?)
+    `
+    ).run(type, content, relatedCommand);
+
+    // Keep history size manageable (delete old entries)
+    db.prepare(
+      `
+      DELETE FROM command_history 
+      WHERE id NOT IN (
+        SELECT id FROM command_history 
+        ORDER BY timestamp DESC 
+        LIMIT 100
+      )
+    `
+    ).run();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to add command to history:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get command history
+ */
+export function getCommandHistory(limit = 50) {
+  const db = getDatabase();
+  try {
+    return db
+      .prepare(
+        `
+      SELECT type, content, related_command, timestamp
+      FROM command_history
+      ORDER BY timestamp DESC
+      LIMIT ?
+    `
+      )
+      .all(limit);
+  } catch (error) {
+    console.error('Failed to get command history:', error);
+    return [];
+  }
+}
+
+/**
+ * Clear command history
+ */
+export function clearCommandHistory() {
+  const db = getDatabase();
+  try {
+    db.prepare('DELETE FROM command_history').run();
+    return { success: true, message: 'Command history cleared' };
+  } catch (error) {
+    console.error('Failed to clear command history:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Don't initialize database on module load - wait for app to be ready
+// initializeDatabase();

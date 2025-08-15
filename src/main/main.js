@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createMainWindow } from './windows/main.js';
 import { registerIpcHandlers } from './ipc/index.js';
+import { initializeDatabase, closeDatabase } from './db/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +21,22 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    // Initialize database
+    console.log('App ready, initializing database...');
+    initializeDatabase();
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    // Continue with app startup even if database fails
+  }
+
   createMainWindow(currentAppVersion, __dirname);
   registerIpcHandlers();
+});
+
+// Cleanup on app exit
+app.on('before-quit', () => {
+  closeDatabase();
 });
