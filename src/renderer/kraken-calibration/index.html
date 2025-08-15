@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <link rel="stylesheet" href="../styles/index_styles.css" />
@@ -6,7 +6,7 @@
     <script src="./index.js"></script>
     <script src="../../assets/js/tailwind.min.js"></script>
     <script>
-      window.FontAwesomeConfig = { autoReplaceSvg: "nest" };
+      window.FontAwesomeConfig = { autoReplaceSvg: 'nest' };
     </script>
     <script src="../../assets/js/font-awesome.min.js"></script>
     <style>
@@ -14,24 +14,33 @@
       .removing {
         user-select: none;
         cursor: not-allowed;
-        background: linear-gradient(45deg, transparent 25%, rgba(255,0,0,0.05) 25%, rgba(255,0,0,0.05) 50%, transparent 50%, transparent 75%, rgba(255,0,0,0.05) 75%);
+        background: linear-gradient(
+          45deg,
+          transparent 25%,
+          rgba(255, 0, 0, 0.05) 25%,
+          rgba(255, 0, 0, 0.05) 50%,
+          transparent 50%,
+          transparent 75%,
+          rgba(255, 0, 0, 0.05) 75%
+        );
         background-size: 20px 20px;
         animation: removing-stripes 1s linear infinite;
       }
-      
+
       @keyframes removing-stripes {
-        0% { background-position: 0 0; }
-        100% { background-position: 20px 0; }
+        0% {
+          background-position: 0 0;
+        }
+        100% {
+          background-position: 20px 0;
+        }
       }
-      
+
       .removing * {
         pointer-events: none !important;
       }
     </style>
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
     <title>Kraken Calibration</title>
   </head>
 
@@ -51,9 +60,7 @@
 
     <div id="app-container" class="min-h-screen bg-neutral-50">
       <header class="bg-white border-b border-neutral-200 fixed w-full z-40">
-        <div
-          class="container mx-auto px-4 py-3 flex items-center justify-between"
-        >
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
           <div class="flex items-center space-x-4">
             <h1 class="text-xl font-semibold">Kraken Calibration</h1>
             <span id="connection-status" class="text-sm text-neutral-600"></span>
@@ -63,7 +70,7 @@
 
       <main id="main-content" class="pt-16 container mx-auto px-4">
         <!-- Back Button -->
-        <div id="back-button-calibration" class="mt-5">
+        <div id="back-button-kraken-calibration" class="mt-5">
           <button
             class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200"
           >
@@ -82,12 +89,9 @@
             </div>
 
             <!-- Devices Grid -->
-            <div
-              id="devices-grid"
-              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
+            <div id="devices-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <!-- Device widgets will be inserted here dynamically -->
-          </div>
+            </div>
 
             <div class="flex items-center justify-between">
               <h2 class="text-xl">Calibration Control</h2>
@@ -126,4 +130,4 @@
       </div>
     </div>
   </body>
-</html> 
+</html>

@@ -73,6 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+
+
   // Sorting
   const sortDropdown = document.getElementById("sort-list");
   if (sortDropdown) {

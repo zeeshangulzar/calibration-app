@@ -10,21 +10,21 @@ class KrakenListController {
     this.connection = getKrakenConnection();
     this.globalState = getKrakenCalibrationState();
     this.selectedDeviceIds = new Set();
-    
+
     this.setupEventListeners();
   }
 
   setupEventListeners() {
     // Scanner events
-    this.scanner.on('bluetoothStateChanged', (state) => {
+    this.scanner.on('bluetoothStateChanged', state => {
       this.handleBluetoothStateChange(state);
     });
 
-    this.scanner.on('deviceDiscovered', (device) => {
+    this.scanner.on('deviceDiscovered', device => {
       this.handleDeviceDiscovered(device);
     });
 
-    this.scanner.on('deviceUpdated', (device) => {
+    this.scanner.on('deviceUpdated', device => {
       this.handleDeviceUpdated(device);
     });
 
@@ -36,7 +36,7 @@ class KrakenListController {
       this.sendToRenderer('scan-stopped');
     });
 
-    this.scanner.on('scanError', (error) => {
+    this.scanner.on('scanError', error => {
       this.sendToRenderer('scan-error', error.message);
     });
 
@@ -45,7 +45,7 @@ class KrakenListController {
       this.sendToRenderer('connection-started', deviceId);
     });
 
-    this.connection.on('deviceConnected', (device) => {
+    this.connection.on('deviceConnected', device => {
       this.sendToRenderer('device-connected', this.formatDeviceForRenderer(device));
     });
 
@@ -54,23 +54,23 @@ class KrakenListController {
     });
 
     // New sequential connection events
-    this.connection.on('deviceConnectionStarted', (data) => {
+    this.connection.on('deviceConnectionStarted', data => {
       this.sendToRenderer('device-connection-started', data);
     });
 
-    this.connection.on('deviceConnectionSuccess', (data) => {
+    this.connection.on('deviceConnectionSuccess', data => {
       this.sendToRenderer('device-connection-success', data);
     });
 
-    this.connection.on('deviceConnectionFailed', (data) => {
+    this.connection.on('deviceConnectionFailed', data => {
       this.sendToRenderer('device-connection-failed', data);
     });
 
-    this.connection.on('deviceConnectionRetry', (data) => {
+    this.connection.on('deviceConnectionRetry', data => {
       this.sendToRenderer('device-connection-retry', data);
     });
 
-    this.connection.on('multipleConnectionsComplete', (results) => {
+    this.connection.on('multipleConnectionsComplete', results => {
       this.handleMultipleConnectionsComplete(results);
     });
   }
@@ -78,7 +78,7 @@ class KrakenListController {
   handleBluetoothStateChange(state) {
     const isReady = state === 'poweredOn';
     this.sendToRenderer('bluetooth-state-changed', { state, isReady });
-    
+
     if (!isReady) {
       this.sendToRenderer('show-bluetooth-error', true);
     } else {
@@ -100,25 +100,31 @@ class KrakenListController {
 
   handleMultipleConnectionsComplete(results) {
     this.sendToRenderer('hide-loader');
-    
+
     const totalSelected = this.selectedDeviceIds.size;
     const successfulCount = results.successful.length;
     const failedCount = results.failed.length;
-    
-    console.log(`Connection complete: ${successfulCount}/${totalSelected} devices connected successfully`);
-    
+
+    console.log(
+      `Connection complete: ${successfulCount}/${totalSelected} devices connected successfully`
+    );
+
     // Validate connected devices first
     const validConnectedDevices = results.successful.filter(device => {
-      return device && device.id && device.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED;
+      return (
+        device &&
+        device.id &&
+        device.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED
+      );
     });
-    
+
     if (validConnectedDevices.length !== successfulCount) {
       console.warn('Some connected devices are not properly validated');
       // Add validation errors to the failed list
       const validationError = {
         id: 'validation-error',
         name: 'Device Validation',
-        error: 'Some devices did not complete connection validation'
+        error: 'Some devices did not complete connection validation',
       };
       results.failed.push(validationError);
     }
@@ -150,14 +156,14 @@ class KrakenListController {
     const failedDevicesFormatted = failedDevices.map(device => ({
       id: device.id,
       name: device.name || 'Unknown',
-      error: device.error
+      error: device.error,
     }));
-    
+
     this.sendToRenderer('show-connection-errors', {
       successful: successfulDevices.length,
       failed: failedDevicesFormatted,
       totalSelected: totalSelected,
-      canProceed: successfulDevices.length > 0 // Tell UI if user can continue to calibration
+      canProceed: successfulDevices.length > 0, // Tell UI if user can continue to calibration
     });
   }
 
@@ -166,13 +172,16 @@ class KrakenListController {
    */
   proceedToCalibration(validConnectedDevices, totalSelected) {
     const connectedDeviceIds = validConnectedDevices.map(device => device.id);
-    
-    console.log(`Proceeding to calibration with ${connectedDeviceIds.length} validated devices:`, connectedDeviceIds);
-    
+
+    console.log(
+      `Proceeding to calibration with ${connectedDeviceIds.length} validated devices:`,
+      connectedDeviceIds
+    );
+
     this.sendToRenderer('navigate-to-calibration', {
       connectedDeviceIds,
       totalSelected: totalSelected,
-      successfulCount: validConnectedDevices.length
+      successfulCount: validConnectedDevices.length,
     });
 
     // Enable connect button cooldown (2 seconds like old app)
@@ -181,7 +190,7 @@ class KrakenListController {
 
   formatDeviceForRenderer(device) {
     const signalInfo = getSignalStrengthInfo(device.rssi);
-    
+
     return {
       id: device.id,
       name: device.name,
@@ -196,7 +205,7 @@ class KrakenListController {
       signalStrength: signalInfo.strength,
       signalBarWidth: signalInfo.barWidth,
       signalColorClass: signalInfo.colorClass,
-      isSelected: this.selectedDeviceIds.has(device.id)
+      isSelected: this.selectedDeviceIds.has(device.id),
     };
   }
 
@@ -212,7 +221,7 @@ class KrakenListController {
       if (!this.scanner.isBluetoothReady()) {
         throw new Error('Bluetooth is not ready');
       }
-      
+
       await this.scanner.startScanning();
       return { success: true };
     } catch (error) {
@@ -250,7 +259,7 @@ class KrakenListController {
       }
 
       this.sendToRenderer('show-loader');
-      
+
       // Create device info map
       const deviceInfoMap = new Map();
       for (const deviceId of deviceIds) {
@@ -261,14 +270,13 @@ class KrakenListController {
       }
 
       const results = await this.connection.connectToMultipleDevices(deviceIds, deviceInfoMap);
-      
+
       // Return serializable data only (no Noble objects)
-      return { 
-        success: true, 
+      return {
+        success: true,
         connectedCount: results.successful?.length || 0,
-        failedCount: results.failed?.length || 0
+        failedCount: results.failed?.length || 0,
       };
-      
     } catch (error) {
       this.sendToRenderer('hide-loader');
       console.error('Error connecting to devices:', error);
@@ -307,12 +315,12 @@ class KrakenListController {
     try {
       // Load the kraken list page
       await this.loadKrakenListPage();
-      
+
       // Start scanning if bluetooth is ready
       if (this.scanner.isBluetoothReady()) {
         await this.startScanning();
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error initializing kraken list:', error);
@@ -326,4 +334,4 @@ class KrakenListController {
   }
 }
 
-export { KrakenListController }; 
+export { KrakenListController };

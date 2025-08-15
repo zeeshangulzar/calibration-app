@@ -1,18 +1,16 @@
 const connectedDevices = new Map();
 let allDevicesReady = false;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
   // Back button functionality
-  document
-    .getElementById("back-button-calibration")
-    .addEventListener("click", () => {
-      window.electronAPI.krakenCalibrationGoBack();
-    });
+  document.getElementById('back-button-kraken-calibration').addEventListener('click', () => {
+    window.electronAPI.krakenCalibrationGoBack();
+  });
 
   // Start calibration button
-  const startCalibrationBtn = document.getElementById("start-calibration-btn");
+  const startCalibrationBtn = document.getElementById('start-calibration-btn');
   if (startCalibrationBtn) {
-    startCalibrationBtn.addEventListener("click", async () => {
+    startCalibrationBtn.addEventListener('click', async () => {
       if (allDevicesReady) {
         try {
           const result = await window.electronAPI.krakenCalibrationStart();
@@ -27,152 +25,156 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Error alert OK button
-  document.getElementById("error-ok-btn").addEventListener("click", () => {
-    document.getElementById("error-alert").classList.add("hidden");
+  document.getElementById('error-ok-btn').addEventListener('click', () => {
+    document.getElementById('error-alert').classList.add('hidden');
   });
 });
 
 // Event listeners for calibration events
 window.electronAPI.onShowPageLoader(() => {
-  document.getElementById("page-loader")?.classList.remove("hidden");
+  document.getElementById('page-loader')?.classList.remove('hidden');
   // disable refresh button
-  document.getElementById("refresh-button").disabled = true;
-
+  document.getElementById('refreshBtn').disabled = true;
 });
 
 window.electronAPI.onHidePageLoader(() => {
-  document.getElementById("page-loader")?.classList.add("hidden");
+  document.getElementById('page-loader')?.classList.add('hidden');
   // enable refresh button
-  document.getElementById("refresh-button").disabled = false;
+  document.getElementById('refreshBtn').disabled = false;
 });
 
-window.electronAPI.onInitializeDevices((devices) => {
+window.electronAPI.onInitializeDevices(devices => {
   initializeDeviceWidgets(devices);
 });
 
-window.electronAPI.onDeviceSetupStarted((data) => {
+window.electronAPI.onDeviceSetupStarted(data => {
   const { deviceId } = data;
   updateDeviceWidget(deviceId, 'in-progress', 'Starting setup...');
 });
 
-window.electronAPI.onDeviceSetupStage((data) => {
+window.electronAPI.onDeviceSetupStage(data => {
   const { deviceId, stage, message } = data;
   updateDeviceWidget(deviceId, 'in-progress', message, stage);
 });
 
-window.electronAPI.onDeviceSetupComplete((data) => {
+window.electronAPI.onDeviceSetupComplete(data => {
   const { deviceId } = data;
   updateDeviceWidget(deviceId, 'ready', 'Ready for calibration');
 });
 
-window.electronAPI.onDeviceSetupFailed((data) => {
+window.electronAPI.onDeviceSetupFailed(data => {
   const { deviceId, error } = data;
   updateDeviceWidget(deviceId, 'failed', error);
 });
 
-window.electronAPI.onDeviceSetupRetry((data) => {
+window.electronAPI.onDeviceSetupRetry(data => {
   const { deviceId, attempt, maxRetries, message } = data;
-  updateDeviceWidget(deviceId, 'in-progress', `Retry ${attempt}/${maxRetries} - ${message || 'Retrying setup...'}`, 'retrying');
+  updateDeviceWidget(
+    deviceId,
+    'in-progress',
+    `Retry ${attempt}/${maxRetries} - ${message || 'Retrying setup...'}`,
+    'retrying'
+  );
 });
 
-window.electronAPI.onDeviceSetupFailedFinal((data) => {
+window.electronAPI.onDeviceSetupFailedFinal(data => {
   const { deviceId, error, maxRetries } = data;
   updateDeviceWidget(deviceId, 'failed', `Failed after ${maxRetries} attempts: ${error}`);
 });
 
-window.electronAPI.onDeviceManualRetryStarted((data) => {
+window.electronAPI.onDeviceManualRetryStarted(data => {
   const { deviceId } = data;
   updateDeviceWidget(deviceId, 'in-progress', 'Manual retry in progress...', 'retrying');
 });
 
-window.electronAPI.onDeviceManualRetrySuccess((data) => {
+window.electronAPI.onDeviceManualRetrySuccess(data => {
   const { deviceId } = data;
   updateDeviceWidget(deviceId, 'ready', 'Ready for calibration');
 });
 
-window.electronAPI.onDeviceManualRetryFailed((data) => {
+window.electronAPI.onDeviceManualRetryFailed(data => {
   const { deviceId, error } = data;
   updateDeviceWidget(deviceId, 'failed', `Manual retry failed: ${error}`);
 });
 
-window.electronAPI.onKrakenDetailsUpdated((data) => {
+window.electronAPI.onKrakenDetailsUpdated(data => {
   const { deviceId, firmwareVersion, displayName } = data;
   updateKrakenDetails(deviceId, firmwareVersion, displayName);
 });
 
-window.electronAPI.onDeviceStatusUpdate((data) => {
+window.electronAPI.onDeviceStatusUpdate(data => {
   const { deviceId, status } = data;
   updateDeviceFromStatus(deviceId, status);
 });
 
-window.electronAPI.onProgressUpdate((data) => {
+window.electronAPI.onProgressUpdate(data => {
   updateProgressSummary(data);
 });
 
 window.electronAPI.onAllDevicesReady(() => {
   allDevicesReady = true;
-  const startBtn = document.getElementById("start-calibration-btn");
+  const startBtn = document.getElementById('start-calibration-btn');
   if (startBtn) {
     startBtn.disabled = false;
-    startBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
   }
-  
+
   // Update status message
-  document.getElementById("connection-status").textContent = "All devices ready for calibration";
+  document.getElementById('connection-status').textContent = 'All devices ready for calibration';
 });
 
-window.electronAPI.onDeviceDataUpdate((data) => {
+window.electronAPI.onDeviceDataUpdate(data => {
   const { deviceId, pressure } = data;
   updateDevicePressureData(deviceId, pressure);
 });
 
 // Connectivity event listeners
-window.electronAPI.onDeviceConnectivityLost((data) => {
+window.electronAPI.onDeviceConnectivityLost(data => {
   const { deviceId, message } = data;
   console.log(`Device ${deviceId} lost connectivity:`, message);
   updateDeviceWidget(deviceId, 'disconnected', message);
 });
 
-window.electronAPI.onDeviceReconnectionStarted((data) => {
+window.electronAPI.onDeviceReconnectionStarted(data => {
   const { deviceId } = data;
   console.log(`Device ${deviceId} reconnection started`);
   updateDeviceWidget(deviceId, 'in-progress', 'Reconnecting...');
 });
 
-window.electronAPI.onDeviceReconnectionSuccess((data) => {
+window.electronAPI.onDeviceReconnectionSuccess(data => {
   const { deviceId } = data;
   console.log(`Device ${deviceId} reconnected successfully`);
   // Status will be updated via normal device-status-update event
 });
 
-window.electronAPI.onDeviceReconnectionFailed((data) => {
+window.electronAPI.onDeviceReconnectionFailed(data => {
   const { deviceId, error } = data;
   console.log(`Device ${deviceId} reconnection failed:`, error);
   updateDeviceWidget(deviceId, 'disconnected', `Reconnection failed: ${error}`);
 });
 
-window.electronAPI.onDeviceManualDisconnectStarted((data) => {
+window.electronAPI.onDeviceManualDisconnectStarted(data => {
   const { deviceId } = data;
   console.log(`Device ${deviceId} manual disconnect started`);
   updateDeviceWidget(deviceId, 'in-progress', 'Removing...');
-  
+
   // Disable all interactions on this widget
   const widget = document.getElementById(`device-widget-${deviceId}`);
   if (widget) {
     widget.style.pointerEvents = 'none';
     widget.style.opacity = '0.6';
     widget.classList.add('removing');
-    
+
     // Add visual removing effect
     widget.style.transform = 'scale(0.95)';
     widget.style.transition = 'all 0.3s ease';
   }
 });
 
-window.electronAPI.onDeviceManualDisconnectSuccess((data) => {
+window.electronAPI.onDeviceManualDisconnectSuccess(data => {
   const { deviceId } = data;
   console.log(`Device ${deviceId} manually disconnected and removed`);
-  
+
   // Animate widget removal
   const widget = document.getElementById(`device-widget-${deviceId}`);
   if (widget) {
@@ -180,7 +182,7 @@ window.electronAPI.onDeviceManualDisconnectSuccess((data) => {
     widget.style.transform = 'scale(0.8)';
     widget.style.opacity = '0';
     widget.style.transition = 'all 0.4s ease';
-    
+
     // Remove widget after animation completes
     setTimeout(() => {
       if (widget.parentNode) {
@@ -188,15 +190,15 @@ window.electronAPI.onDeviceManualDisconnectSuccess((data) => {
       }
     }, 400);
   }
-  
+
   // Show success message (temporary notification)
   showNotification(`Kraken ${deviceId.substring(0, 8)}... removed from calibration`, 'success');
 });
 
-window.electronAPI.onDeviceManualDisconnectFailed((data) => {
+window.electronAPI.onDeviceManualDisconnectFailed(data => {
   const { deviceId, error } = data;
   console.log(`Device ${deviceId} manual disconnect failed:`, error);
-  
+
   // Re-enable widget interactions
   const widget = document.getElementById(`device-widget-${deviceId}`);
   if (widget) {
@@ -205,52 +207,52 @@ window.electronAPI.onDeviceManualDisconnectFailed((data) => {
     widget.style.transform = 'scale(1)';
     widget.classList.remove('removing');
   }
-  
+
   showNotification(`Failed to remove kraken: ${error}`, 'error');
 });
 
-window.electronAPI.onUpdateCalibrationButtonState((data) => {
+window.electronAPI.onUpdateCalibrationButtonState(data => {
   const { enabled, deviceCount } = data;
-  const startBtn = document.getElementById("start-calibration-btn");
+  const startBtn = document.getElementById('start-calibration-btn');
   if (startBtn) {
     startBtn.disabled = !enabled;
     if (enabled) {
-      startBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     } else {
-      startBtn.classList.add("opacity-50", "cursor-not-allowed");
+      startBtn.classList.add('opacity-50', 'cursor-not-allowed');
     }
   }
-  
+
   // Update status message
-  const statusEl = document.getElementById("connection-status");
+  const statusEl = document.getElementById('connection-status');
   if (statusEl) {
     if (deviceCount === 0) {
-      statusEl.textContent = "No devices connected";
+      statusEl.textContent = 'No devices connected';
     } else if (enabled) {
-      statusEl.textContent = "All devices ready for calibration";
+      statusEl.textContent = 'All devices ready for calibration';
     } else {
-      statusEl.textContent = "Some devices are disconnected or not ready";
+      statusEl.textContent = 'Some devices are disconnected or not ready';
     }
   }
 });
 
-window.electronAPI.onDeviceDisconnected((data) => {
+window.electronAPI.onDeviceDisconnected(data => {
   const { deviceId } = data;
   handleDeviceDisconnection(deviceId);
 });
 
 window.electronAPI.onCalibrationStarted(() => {
   // Handle calibration start
-  showInfo("Calibration started successfully!");
+  showInfo('Calibration started successfully!');
 });
 
 // Initialize device widgets in the grid
 function initializeDeviceWidgets(devices) {
-  const devicesGrid = document.getElementById("devices-grid");
+  const devicesGrid = document.getElementById('devices-grid');
   if (!devicesGrid) return;
 
   // Clear existing widgets
-  devicesGrid.innerHTML = "";
+  devicesGrid.innerHTML = '';
   connectedDevices.clear();
 
   devices.forEach(device => {
@@ -265,15 +267,15 @@ function initializeDeviceWidgets(devices) {
     ready: 0,
     failed: 0,
     pending: devices.length,
-    progress: 0
+    progress: 0,
   });
 }
 
 // Create individual device widget (using old app design)
 function createDeviceWidget(device) {
-  const widget = document.createElement("div");
+  const widget = document.createElement('div');
   widget.id = `device-widget-${device.id}`;
-  widget.className = "rounded-md border bg-white p-4 shadow-sm transition-all duration-200";
+  widget.className = 'rounded-md border bg-white p-4 shadow-sm transition-all duration-200';
 
   widget.innerHTML = `
     <!-- Header with disconnect button -->
@@ -353,16 +355,18 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         let progress = 25;
         if (stage === 'discovering') progress = 50;
         if (stage === 'subscribing') progress = 75;
-        
+
         progressBar.style.width = `${progress}%`;
         progressBar.className = 'bg-blue-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
+        widget.className =
+          'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
         break;
       case 'ready':
         progressBar.style.width = '100%';
         progressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
-        
+        widget.className =
+          'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
+
         // Show data area for ready devices
         if (dataArea) {
           dataArea.classList.remove('hidden');
@@ -371,8 +375,9 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
       case 'failed':
         progressBar.style.width = '100%';
         progressBar.className = 'bg-red-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200';
-        
+        widget.className =
+          'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200';
+
         // Show retry button
         if (actionArea) {
           actionArea.classList.remove('hidden');
@@ -383,11 +388,11 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
 
   // Show/hide action areas based on status
   const reconnectArea = document.getElementById(`device-reconnect-${deviceId}`);
-  
+
   if (actionArea && status !== 'failed') {
     actionArea.classList.add('hidden');
   }
-  
+
   if (reconnectArea) {
     if (status === 'disconnected') {
       reconnectArea.classList.remove('hidden');
@@ -400,7 +405,7 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
   if (dataArea && status !== 'ready') {
     dataArea.classList.add('hidden');
   }
-  
+
   // Update widget visual state for disconnected devices
   const deviceWidget = document.getElementById(`device-widget-${deviceId}`);
   if (deviceWidget) {
@@ -411,27 +416,34 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
       deviceWidget.classList.add('border-green-300', 'bg-green-50');
       deviceWidget.classList.remove('border-red-300', 'bg-red-50');
     } else {
-      deviceWidget.classList.remove('border-red-300', 'bg-red-50', 'border-green-300', 'bg-green-50');
+      deviceWidget.classList.remove(
+        'border-red-300',
+        'bg-red-50',
+        'border-green-300',
+        'bg-green-50'
+      );
     }
   }
 }
 
 // Update kraken device details (firmware, display name, etc.)
 function updateKrakenDetails(deviceId, firmwareVersion, displayName) {
-  console.log(`Updating kraken ${deviceId} details: firmware=${firmwareVersion}, displayName=${displayName}`);
-  
+  console.log(
+    `Updating kraken ${deviceId} details: firmware=${firmwareVersion}, displayName=${displayName}`
+  );
+
   // Update firmware version in widget
   const firmwareElement = document.querySelector(`#device-widget-${deviceId} .device-firmware`);
   if (firmwareElement && firmwareVersion) {
     firmwareElement.textContent = firmwareVersion;
   }
-  
-  // Update display name in widget header  
+
+  // Update display name in widget header
   const nameElement = document.querySelector(`#device-widget-${deviceId} .device-name`);
   if (nameElement && displayName) {
     nameElement.textContent = `Sensor ${displayName}`;
   }
-  
+
   // Store in connected devices map for future reference
   if (window.connectedDevices && window.connectedDevices.has(deviceId)) {
     const device = window.connectedDevices.get(deviceId);
@@ -477,8 +489,6 @@ function updateDeviceFromStatus(deviceId, statusObj) {
   updateDeviceWidget(deviceId, status, message, stage);
 }
 
-
-
 // Update progress summary
 function updateProgressSummary(data) {
   const { total, ready, failed, pending, progress } = data;
@@ -486,17 +496,17 @@ function updateProgressSummary(data) {
   // document.getElementById("total-devices").textContent = total;
   // document.getElementById("ready-devices").textContent = ready;
   // document.getElementById("pending-devices").textContent = pending;
-  
-  const progressBar = document.getElementById("progress-bar");
+
+  const progressBar = document.getElementById('progress-bar');
   if (progressBar) {
     progressBar.style.width = `${progress}%`;
   }
 
   // Update connection status
-  const connectionStatus = document.getElementById("connection-status");
+  const connectionStatus = document.getElementById('connection-status');
   if (connectionStatus) {
     if (progress === 100 && failed === 0) {
-      connectionStatus.textContent = "All devices ready";
+      connectionStatus.textContent = 'All devices ready';
     } else if (failed > 0) {
       connectionStatus.textContent = `${ready} ready, ${failed} failed`;
     } else {
@@ -520,14 +530,14 @@ function handleDeviceDisconnection(deviceId) {
     widget.classList.add('opacity-50');
     updateDeviceWidget(deviceId, 'failed', 'Device disconnected');
   }
-  
+
   connectedDevices.delete(deviceId);
   allDevicesReady = false;
-  
-  const startBtn = document.getElementById("start-calibration-btn");
+
+  const startBtn = document.getElementById('start-calibration-btn');
   if (startBtn) {
     startBtn.disabled = true;
-    startBtn.classList.add("opacity-50", "cursor-not-allowed");
+    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
   }
 }
 
@@ -545,18 +555,18 @@ async function retryDeviceSetup(deviceId) {
 
 // Show error alert
 function showError(message) {
-  const errorAlert = document.getElementById("error-alert");
-  const errorMessage = document.getElementById("error-message");
-  
+  const errorAlert = document.getElementById('error-alert');
+  const errorMessage = document.getElementById('error-message');
+
   if (errorAlert && errorMessage) {
     errorMessage.textContent = message;
-    errorAlert.classList.remove("hidden");
+    errorAlert.classList.remove('hidden');
   }
 }
 
 // Show info message (placeholder for future implementation)
 function showInfo(message) {
-  console.log("Info:", message);
+  console.log('Info:', message);
   // Could implement a toast notification or similar
 }
 
@@ -565,7 +575,7 @@ async function reconnectDevice(deviceId) {
   try {
     console.log(`Reconnecting device ${deviceId}...`);
     const result = await window.electronAPI.krakenCalibrationReconnectDevice(deviceId);
-    
+
     if (!result.success) {
       alert(`Failed to reconnect device: ${result.error}`);
     }
@@ -578,41 +588,43 @@ async function reconnectDevice(deviceId) {
 // Manually disconnect a device
 async function disconnectDevice(deviceId) {
   try {
-    const confirmDisconnect = confirm('Are you sure you want to disconnect and remove this kraken from the calibration?');
+    const confirmDisconnect = confirm(
+      'Are you sure you want to disconnect and remove this kraken from the calibration?'
+    );
     if (!confirmDisconnect) return;
-    
+
     console.log(`Manually disconnecting device ${deviceId}...`);
-    
+
     // Immediately disable widget and show removing state
     const widget = document.getElementById(`device-widget-${deviceId}`);
     const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
-    
+
     if (widget) {
       widget.style.pointerEvents = 'none';
       widget.style.opacity = '0.7';
       widget.classList.add('removing');
     }
-    
+
     if (disconnectBtn) {
       disconnectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i>';
       disconnectBtn.disabled = true;
     }
-    
+
     // Update widget status immediately
     updateDeviceWidget(deviceId, 'in-progress', 'Preparing to remove...');
-    
+
     const result = await window.electronAPI.krakenCalibrationDisconnectDevice(deviceId);
-    
+
     if (!result.success) {
       showNotification(`Failed to remove kraken: ${result.error}`, 'error');
-      
+
       // Reset widget state on failure
       if (widget) {
         widget.style.pointerEvents = 'auto';
         widget.style.opacity = '1';
         widget.classList.remove('removing');
       }
-      
+
       if (disconnectBtn) {
         disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
         disconnectBtn.disabled = false;
@@ -621,17 +633,17 @@ async function disconnectDevice(deviceId) {
   } catch (error) {
     console.error('Error disconnecting device:', error);
     showNotification(`Error removing kraken: ${error.message}`, 'error');
-    
+
     // Reset widget state on error
     const widget = document.getElementById(`device-widget-${deviceId}`);
     const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
-    
+
     if (widget) {
       widget.style.pointerEvents = 'auto';
       widget.style.opacity = '1';
       widget.classList.remove('removing');
     }
-    
+
     if (disconnectBtn) {
       disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
       disconnectBtn.disabled = false;
@@ -644,15 +656,13 @@ function showNotification(message, type = 'info') {
   // Create notification element
   const notification = document.createElement('div');
   notification.className = `fixed top-4 right-4 px-4 py-2 rounded-md shadow-lg text-white z-50 transition-all duration-300 ${
-    type === 'success' ? 'bg-green-600' :
-    type === 'error' ? 'bg-red-600' :
-    'bg-blue-600'
+    type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
   }`;
   notification.textContent = message;
-  
+
   // Add to body
   document.body.appendChild(notification);
-  
+
   // Remove after 3 seconds
   setTimeout(() => {
     notification.style.opacity = '0';
@@ -667,4 +677,4 @@ function showNotification(message, type = 'info') {
 // Make functions globally available for onclick handlers
 window.retryDeviceSetup = retryDeviceSetup;
 window.reconnectDevice = reconnectDevice;
-window.disconnectDevice = disconnectDevice; 
+window.disconnectDevice = disconnectDevice;
