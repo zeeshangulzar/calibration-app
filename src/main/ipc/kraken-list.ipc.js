@@ -1,7 +1,7 @@
-import { ipcMain } from "electron";
-import path from "path";
-import { getMainWindow } from "../windows/main.js";
-import { KrakenListController } from "../controllers/kraken-list.controller.js";
+import { ipcMain } from 'electron';
+import path from 'path';
+import { getMainWindow } from '../windows/main.js';
+import { KrakenListController } from '../controllers/kraken-list.controller.js';
 
 let krakenListController = null;
 
@@ -10,9 +10,9 @@ let krakenListController = null;
  * @param {string} operation - Name of the operation being performed
  * @returns {object|null} Error object if not initialized, null if initialized
  */
-function checkControllerInitialized(operation = "operation") {
+function checkControllerInitialized(operation = 'operation') {
   if (!krakenListController) {
-    return { success: false, error: "Kraken list not initialized" };
+    return { success: false, error: 'Kraken list not initialized' };
   }
   return null;
 }
@@ -34,14 +34,14 @@ function getControllerDataOrDefault(defaultValue, getter) {
  */
 export function registerKrakenListIpcHandlers() {
   // Navigation handler
-  ipcMain.on("load-kraken-list", async () => {
+  ipcMain.on('load-kraken-list', async () => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       // Load kraken list page
-      mainWindow.loadFile(path.join("src", "renderer", "kraken-list", "index.html"));
-      
+      mainWindow.loadFile(path.join('src', 'renderer', 'kraken-list', 'index.html'));
+
       // Initialize controller when page loads
-      mainWindow.webContents.once("did-finish-load", async () => {
+      mainWindow.webContents.once('did-finish-load', async () => {
         // Don't cleanup existing controller to maintain continuous scanning
         if (!krakenListController) {
           krakenListController = new KrakenListController(mainWindow);
@@ -55,52 +55,55 @@ export function registerKrakenListIpcHandlers() {
   });
 
   // Scanning operations
-  ipcMain.handle("kraken-start-scan", async () => {
+  ipcMain.handle('kraken-start-scan', async () => {
     const error = checkControllerInitialized();
     if (error) return error;
     return await krakenListController.startScanning();
   });
 
-  ipcMain.handle("kraken-stop-scan", async () => {
+  ipcMain.handle('kraken-stop-scan', async () => {
     const error = checkControllerInitialized();
     if (error) return error;
     return await krakenListController.stopScanning();
   });
 
-  ipcMain.handle("kraken-refresh-scan", async () => {
+  ipcMain.handle('kraken-refresh-scan', async () => {
     const error = checkControllerInitialized();
     if (error) return error;
     return await krakenListController.refreshScan();
   });
 
   // Connection operations
-  ipcMain.handle("kraken-connect-devices", async (event, deviceIds) => {
+  ipcMain.handle('kraken-connect-devices', async (event, deviceIds) => {
     const error = checkControllerInitialized();
     if (error) return error;
     return await krakenListController.connectToSelectedDevices(deviceIds);
   });
 
-  ipcMain.on("kraken-set-selected-devices", (event, deviceIds) => {
+  ipcMain.on('kraken-set-selected-devices', (event, deviceIds) => {
     if (krakenListController) {
       krakenListController.setSelectedDevices(deviceIds);
     }
   });
 
   // Handle user choosing to proceed to calibration after seeing connection results
-  ipcMain.handle("kraken-proceed-to-calibration", async () => {
+  ipcMain.handle('kraken-proceed-to-calibration', async () => {
     if (!krakenListController) {
-      return { success: false, error: "Kraken list not initialized" };
+      return { success: false, error: 'Kraken list not initialized' };
     }
-    
+
     try {
       // Get the connected devices from global state
       const connectedDevices = krakenListController.globalState.getConnectedDevices();
       if (connectedDevices.length === 0) {
-        return { success: false, error: "No connected devices available" };
+        return { success: false, error: 'No connected devices available' };
       }
-      
+
       // Proceed to calibration with the devices
-      krakenListController.proceedToCalibration(connectedDevices, krakenListController.selectedDeviceIds.size);
+      krakenListController.proceedToCalibration(
+        connectedDevices,
+        krakenListController.selectedDeviceIds.size
+      );
       return { success: true };
     } catch (error) {
       console.error('Error proceeding to calibration:', error);
@@ -109,51 +112,33 @@ export function registerKrakenListIpcHandlers() {
   });
 
   // Data retrieval operations
-  ipcMain.handle("kraken-get-discovered-devices", () => {
-    return getControllerDataOrDefault([], (controller) => controller.getDiscoveredDevices());
+  ipcMain.handle('kraken-get-discovered-devices', () => {
+    return getControllerDataOrDefault([], controller => controller.getDiscoveredDevices());
   });
 
-  ipcMain.handle("kraken-get-connected-devices", () => {
-    return getControllerDataOrDefault([], (controller) => controller.getConnectedDevices());
+  ipcMain.handle('kraken-get-connected-devices', () => {
+    return getControllerDataOrDefault([], controller => controller.getConnectedDevices());
   });
 
-  ipcMain.handle("kraken-get-scan-status", () => {
+  ipcMain.handle('kraken-get-scan-status', () => {
     return getControllerDataOrDefault(
       { isScanning: false, bluetoothState: 'unknown', deviceCount: 0 },
-      (controller) => controller.getScanStatus()
+      controller => controller.getScanStatus()
     );
   });
 
-  ipcMain.handle("kraken-get-connection-status", () => {
+  ipcMain.handle('kraken-get-connection-status', () => {
     return getControllerDataOrDefault(
       { connectedCount: 0, connectingCount: 0, connectedDeviceIds: [] },
-      (controller) => controller.getConnectionStatus()
+      controller => controller.getConnectionStatus()
     );
   });
 
   // Cleanup operations
-  ipcMain.on("cleanup-kraken-list", async () => {
+  ipcMain.on('cleanup-kraken-list', async () => {
     if (krakenListController) {
       await krakenListController.cleanup();
       krakenListController = null;
     }
   });
 }
-
-/**
- * Get the current kraken list controller instance
- * @returns {KrakenListController|null}
- */
-export function getKrakenListController() {
-  return krakenListController;
-}
-
-/**
- * Cleanup kraken list resources
- */
-export async function cleanupKrakenListIpc() {
-  if (krakenListController) {
-    await krakenListController.cleanup();
-    krakenListController = null;
-  }
-} 

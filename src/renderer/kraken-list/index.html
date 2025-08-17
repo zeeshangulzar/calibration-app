@@ -1,18 +1,15 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <link rel="stylesheet" href="../styles/index_styles.css" />
     <link rel="stylesheet" href="../../assets/stylesheets/inter-font.css" />
-    <script src="./index.js"></script>
+    <script type="module" src="./index.js"></script>
     <script src="../../assets/js/tailwind.min.js"></script>
     <script>
-      window.FontAwesomeConfig = { autoReplaceSvg: "nest" };
+      window.FontAwesomeConfig = { autoReplaceSvg: 'nest' };
     </script>
     <script src="../../assets/js/font-awesome.min.js"></script>
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
     <title>Sensor Calibration System</title>
   </head>
 
@@ -31,16 +28,14 @@
     </div>
     <div id="app-container" class="min-h-screen bg-neutral-50">
       <header class="bg-white border-b border-neutral-200 fixed w-full z-50">
-        <div
-          class="container mx-auto px-4 py-3 flex items-center justify-between"
-        >
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
           <div class="flex items-center space-x-4">
             <h1 class="text-xl">Sensors List</h1>
           </div>
           <div class="flex items-center space-x-4">
             <button
               id="refreshBtn"
-              class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-700"
+              class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-opacity-50"
             >
               <i class="fa-solid fa-rotate mr-2"></i> Refresh
             </button>
@@ -70,9 +65,7 @@
           <div id="sensor-section">
             <div class="flex items-center justify-between mb-6">
               <div>
-                <p class="text-neutral-600">
-                  Showing all available sensors and their readings
-                </p>
+                <p class="text-neutral-600">Showing all available sensors and their readings</p>
               </div>
               <div class="flex space-x-4">
                 <div class="relative">
@@ -82,33 +75,21 @@
                     placeholder="Search sensors..."
                     class="pl-10 pr-4 py-2 border border-neutral-300 rounded-lg w-64"
                   />
-                  <i
-                    class="fa-solid fa-search absolute left-3 top-3 text-neutral-400"
-                  ></i>
+                  <i class="fa-solid fa-search absolute left-3 top-3 text-neutral-400"></i>
                 </div>
-                <select
-                  id="sort-list"
-                  class="border border-neutral-300 rounded-lg px-4 py-2"
-                >
+                <select id="sort-list" class="border border-neutral-300 rounded-lg px-4 py-2">
                   <option>Sort by: Sensor Id</option>
                   <option>Sort by: Name</option>
                 </select>
               </div>
             </div>
 
-            <div
-              id="sensor-list"
-              class="bg-white rounded-lg border border-neutral-200"
-            >
+            <div id="sensor-list" class="bg-white rounded-lg border border-neutral-200">
               <div
                 class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-200 bg-neutral-50"
               >
                 <div class="col-span-1">
-                  <input
-                    type="checkbox"
-                    id="select-all-checkbox"
-                    class="w-4 h-4"
-                  />
+                  <input type="checkbox" id="select-all-checkbox" class="w-4 h-4" />
                 </div>
 
                 <div class="col-span-3">Id</div>
@@ -148,4 +129,4 @@
       </div>
     </div>
   </body>
-</html> 
+</html>

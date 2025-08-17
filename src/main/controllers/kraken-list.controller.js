@@ -1,7 +1,8 @@
 import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
-import { getSignalStrengthInfo, KRAKEN_CONSTANTS } from '../constants/kraken.constants.js';
+import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import { getSignalStrengthInfo } from '../../shared/helpers/signal-strength.helper.js';
 
 class KrakenListController {
   constructor(mainWindow) {
