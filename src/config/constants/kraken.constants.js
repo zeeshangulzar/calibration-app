@@ -22,7 +22,7 @@ export const KRAKEN_CONSTANTS = {
   MAX_RETRIES_PER_KRAKEN: 3, // Maximum retry attempts per kraken for both connection and setup
 
   // Delay timings (in milliseconds)
-  DELAY_BETWEEN_CONNECTIONS: 1000, // 1 second delay between successful connections
+  DELAY_BETWEEN_CONNECTIONS: 1500, // 1.5 second delay between successful connections
   DELAY_BETWEEN_SETUP: 1500, // 1.5 second delay between device setups
   DELAY_BETWEEN_RETRIES: 2000, // 2 second delay between retry attempts
   DELAY_BEFORE_SETUP: 1000, // 1 second delay before starting device setup

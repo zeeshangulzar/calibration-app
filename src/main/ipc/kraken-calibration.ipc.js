@@ -3,13 +3,10 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { KrakenCalibrationController } from '../controllers/kraken-calibration.controller.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
 let krakenCalibrationController = null;
 
-/**
- * Helper function to check if controller is initialized and return appropriate error
- * @returns {object|null} Error object if not initialized, null if initialized
- */
 function checkControllerInitialized() {
   if (!krakenCalibrationController) {
     return { success: false, error: 'Kraken calibration not initialized' };
@@ -107,7 +104,7 @@ export function registerKrakenCalibrationIpcHandlers() {
         console.log('Background cleanup completed successfully');
 
         // Add small delay to ensure everything has settled
-        await new Promise(resolve => setTimeout(resolve, KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP));
+        await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP);
 
         // Send kraken cleanup completed event to re-enable connect button
         if (mainWindow) {

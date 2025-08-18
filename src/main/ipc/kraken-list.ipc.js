@@ -5,12 +5,7 @@ import { KrakenListController } from '../controllers/kraken-list.controller.js';
 
 let krakenListController = null;
 
-/**
- * Helper function to check if controller is initialized and return appropriate error
- * @param {string} operation - Name of the operation being performed
- * @returns {object|null} Error object if not initialized, null if initialized
- */
-function checkControllerInitialized(operation = 'operation') {
+function checkControllerInitialized() {
   if (!krakenListController) {
     return { success: false, error: 'Kraken list not initialized' };
   }
