@@ -233,12 +233,7 @@ class KrakenCalibrationController {
     try {
       const device = this.globalState.connectedDevices.get(deviceId);
       if (!device) {
-        const error = new Error(`Device ${deviceId} not found in connected devices`);
-        Sentry.captureException(error, {
-          tags: { deviceId, operation: 'setup_device' },
-          extra: { connectedDevices: Array.from(this.globalState.connectedDevices.keys()) },
-        });
-        throw error;
+        throw new Error(`Device ${deviceId} not found in connected devices`);
       }
 
       // Check if device is already being processed or is ready to prevent duplicate setup
@@ -550,30 +545,30 @@ class KrakenCalibrationController {
       this.devicesBeingProcessed.add(deviceId);
 
       try {
-      // Reset device status to show retry is starting
-      this.globalState.updateDeviceStatus(
-        deviceId,
-        'in-progress',
-        'retrying',
-        'Manual retry in progress...'
-      );
-      this.sendToRenderer('device-manual-retry-started', { deviceId });
-
-      // Try setup with retries
-      const success = await this.setupDeviceWithRetries(deviceId);
-
-      if (success) {
-        console.log(`Device ${deviceId} setup completed successfully after manual retry`);
-        this.sendToRenderer('device-manual-retry-success', { deviceId });
-        this.checkAllDevicesReady();
-        return { success: true };
-      } else {
-        console.log(`Device ${deviceId} setup failed even after manual retry`);
-        this.sendToRenderer('device-manual-retry-failed', {
+        // Reset device status to show retry is starting
+        this.globalState.updateDeviceStatus(
           deviceId,
-          error: 'Setup failed after manual retry',
-        });
-        return { success: false, error: 'Setup failed after manual retry' };
+          'in-progress',
+          'retrying',
+          'Manual retry in progress...'
+        );
+        this.sendToRenderer('device-manual-retry-started', { deviceId });
+
+        // Try setup with retries
+        const success = await this.setupDeviceWithRetries(deviceId);
+
+        if (success) {
+          console.log(`Device ${deviceId} setup completed successfully after manual retry`);
+          this.sendToRenderer('device-manual-retry-success', { deviceId });
+          this.checkAllDevicesReady();
+          return { success: true };
+        } else {
+          console.log(`Device ${deviceId} setup failed even after manual retry`);
+          this.sendToRenderer('device-manual-retry-failed', {
+            deviceId,
+            error: 'Setup failed after manual retry',
+          });
+          return { success: false, error: 'Setup failed after manual retry' };
         }
       } finally {
         // Always remove from processing set when done
@@ -769,63 +764,63 @@ class KrakenCalibrationController {
       this.devicesBeingProcessed.add(deviceId);
 
       try {
-      // Update status to show reconnection attempt
-      this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'reconnecting', null);
-      this.sendToRenderer('device-reconnection-started', { deviceId });
+        // Update status to show reconnection attempt
+        this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'reconnecting', null);
+        this.sendToRenderer('device-reconnection-started', { deviceId });
 
         // Get fresh peripheral and check connection state (with scanning if needed)
         console.log(`Looking for device ${deviceId} in scan results...`);
-      const freshPeripheral = await this.globalState.getFreshPeripheral(deviceId);
+        const freshPeripheral = await this.globalState.getFreshPeripheral(deviceId);
 
-      // Check if peripheral is already connected
-      if (freshPeripheral.state === 'connected') {
-        console.log(`Device ${deviceId} is already connected, skipping connection step`);
-      } else {
+        // Check if peripheral is already connected
+        if (freshPeripheral.state === 'connected') {
+          console.log(`Device ${deviceId} is already connected, skipping connection step`);
+        } else {
           console.log(`Connecting to device ${deviceId}...`);
-        // Connect with timeout only if not already connected
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
+          // Connect with timeout only if not already connected
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
               reject(new Error('Reconnection timeout - device may be out of range or powered off'));
-          }, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
+            }, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
 
-          freshPeripheral.connect(error => {
-            clearTimeout(timeout);
-            if (error) {
-              // Check if error is about already being connected
-              if (
-                error.message.includes('already connected') ||
-                error.message.includes('Peripheral already connected')
-              ) {
-                console.log(`Device ${deviceId} was already connected, continuing with setup`);
-                resolve();
-              } else {
+            freshPeripheral.connect(error => {
+              clearTimeout(timeout);
+              if (error) {
+                // Check if error is about already being connected
+                if (
+                  error.message.includes('already connected') ||
+                  error.message.includes('Peripheral already connected')
+                ) {
+                  console.log(`Device ${deviceId} was already connected, continuing with setup`);
+                  resolve();
+                } else {
                   reject(new Error(`Connection failed: ${error.message}`));
+                }
+              } else {
+                console.log(`Device ${deviceId} reconnected successfully`);
+                resolve();
               }
-            } else {
-              console.log(`Device ${deviceId} reconnected successfully`);
-              resolve();
-            }
+            });
           });
-        });
-      }
+        }
 
-      // Update device with connected peripheral
-      const device = this.globalState.connectedDevices.get(deviceId);
-      if (device) {
-        device.peripheral = freshPeripheral;
-        this.globalState.connectedDevices.set(deviceId, device);
-      }
+        // Update device with connected peripheral
+        const device = this.globalState.connectedDevices.get(deviceId);
+        if (device) {
+          device.peripheral = freshPeripheral;
+          this.globalState.connectedDevices.set(deviceId, device);
+        }
 
-      // Re-setup the device (discover services and subscribe)
+        // Re-setup the device (discover services and subscribe)
         console.log(`Setting up device ${deviceId} after reconnection...`);
-      const success = await this.setupDevice(deviceId);
+        const success = await this.setupDevice(deviceId);
 
-      if (success) {
+        if (success) {
           console.log(`Device ${deviceId} successfully reconnected and set up`);
-        this.sendToRenderer('device-reconnection-success', { deviceId });
-        return { success: true };
-      } else {
-        throw new Error('Failed to setup device after reconnection');
+          this.sendToRenderer('device-reconnection-success', { deviceId });
+          return { success: true };
+        } else {
+          throw new Error('Failed to setup device after reconnection');
         }
       } finally {
         // Always remove from processing set

@@ -49,6 +49,9 @@
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
+    "@sentry/browser": "^10.5.0",
+    "@sentry/electron": "^6.11.0",
+    "@sentry/node": "^10.5.0",
     "dotenv": "^16.5.0",
     "handlebars": "^4.7.8"
   },
