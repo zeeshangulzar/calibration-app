@@ -87,13 +87,6 @@ export function registerKrakenCalibrationIpcHandlers() {
     // Immediately navigate to kraken list (like old app)
     if (mainWindow) {
       mainWindow.loadFile(path.join('src', 'renderer', 'kraken-list', 'index.html'));
-      // Ensure the event is sent after the new page is ready
-      mainWindow.webContents.once('did-finish-load', () => {
-        mainWindow.webContents.send('enable-connect-cooldown', {
-          cooldownMs: KRAKEN_CONSTANTS.CONNECT_BUTTON_COOLDOWN_MS,
-          label: 'Cooling down...',
-        });
-      });
     }
 
     // Start cleanup in background and notify when complete (like old app)

@@ -231,12 +231,6 @@ window.electronAPI.onEnableConnectCooldown(data => {
   if (connectBtn) {
     connectBtn.disabled = true;
     connectBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    const originalHtml = connectBtn.innerHTML;
-
-    if (data?.label) {
-      connectBtn.innerHTML = originalHtml;
-      connectBtn.innerHTML = `<i class="fa-solid fa-snowflake mr-2"></i> ${data.label}`;
-    }
     setTimeout(() => {
       connectBtn.disabled = false;
       connectBtn.classList.remove('opacity-50', 'cursor-not-allowed');

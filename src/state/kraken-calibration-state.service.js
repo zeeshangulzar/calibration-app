@@ -36,7 +36,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.deviceRetryCount.clear();
     this.activeSubscriptions.clear();
     this.deviceCharacteristics.clear();
-
+    
     devices.forEach(device => {
       this.connectedDevices.set(device.id, device);
       this.deviceRetryCount.set(device.id, 0); // Initialize retry count
@@ -46,26 +46,19 @@ class KrakenCalibrationStateService extends EventEmitter {
         error: null,
         services: null,
         characteristics: null,
-        peripheral: device.peripheral,
+        peripheral: device.peripheral
       });
     });
 
     this.setupQueue = devices.map(d => d.id);
     this.currentSetupIndex = 0;
     this.isCalibrationActive = true;
-
+    
     console.log(`Global state: Set ${devices.length} connected devices`);
   }
 
   // Update device status
-  updateDeviceStatus(
-    deviceId,
-    status,
-    stage = null,
-    error = null,
-    services = null,
-    characteristics = null
-  ) {
+  updateDeviceStatus(deviceId, status, stage = null, error = null, services = null, characteristics = null) {
     const currentStatus = this.deviceSetupStatus.get(deviceId);
     if (!currentStatus) return;
 
@@ -76,25 +69,23 @@ class KrakenCalibrationStateService extends EventEmitter {
       error: error || currentStatus.error,
       services: services || currentStatus.services,
       characteristics: characteristics || currentStatus.characteristics,
-      updatedAt: Date.now(),
+      updatedAt: Date.now()
     };
 
     this.deviceSetupStatus.set(deviceId, updatedStatus);
-
+    
     // Emit status update with serializable data only
-    this.emit('deviceStatusUpdate', {
-      deviceId,
+    this.emit('deviceStatusUpdate', { 
+      deviceId, 
       status: {
         status: updatedStatus.status,
         stage: updatedStatus.stage,
         error: updatedStatus.error,
-        updatedAt: updatedStatus.updatedAt,
-      },
+        updatedAt: updatedStatus.updatedAt
+      }
     });
-
-    console.log(
-      `Global state: Device ${deviceId} status updated to ${status}${stage ? ` (${stage})` : ''}`
-    );
+    
+    console.log(`Global state: Device ${deviceId} status updated to ${status}${stage ? ` (${stage})` : ''}`);
   }
 
   // Get connected devices
@@ -157,12 +148,13 @@ class KrakenCalibrationStateService extends EventEmitter {
 
   // Clean up all connections and reset state
 
+
   // Disconnect a single device
   async disconnectDevice(peripheral) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       try {
         if (peripheral && (peripheral.state === 'connected' || peripheral.state === 'connecting')) {
-          peripheral.disconnect(error => {
+          peripheral.disconnect((error) => {
             if (error) {
               console.warn('Error disconnecting device:', error.message);
             }
@@ -185,7 +177,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       connectedDeviceCount: this.connectedDevices.size,
       setupProgress: this.getSetupProgress(),
       isSetupInProgress: this.isSetupInProgress,
-      areAllReady: this.areAllDevicesReady(),
+      areAllReady: this.areAllDevicesReady()
     };
   }
 
@@ -223,33 +215,9 @@ class KrakenCalibrationStateService extends EventEmitter {
       throw new Error('Scanner not available for reconnection');
     }
 
-    // First, try to get the device from current discovered devices
-    let freshDevice = this.scanner.getDevice(deviceId);
-
+    const freshDevice = this.scanner.getDevice(deviceId);
     if (!freshDevice || !freshDevice.peripheral) {
-      console.log(`Device ${deviceId} not found in current scan results, starting fresh scan...`);
-
-      // Ensure scanning is active to rediscover the device
-      const scanStatus = this.scanner.getScanStatus();
-      if (!scanStatus.isScanning) {
-        try {
-          await this.scanner.startScanning();
-          console.log('Started scanning to rediscover disconnected device');
-        } catch (scanError) {
-          console.warn('Failed to start scanning for device rediscovery:', scanError.message);
-        }
-      }
-
-      // Wait a bit for scanning to potentially rediscover the device
-      await this.addDelay(2000); // 2 seconds to allow rediscovery
-
-      // Try again after scan
-      freshDevice = this.scanner.getDevice(deviceId);
-      if (!freshDevice || !freshDevice.peripheral) {
-        throw new Error(
-          `Device ${deviceId} not found in scan results. Please ensure the device is powered on and in range.`
-        );
-      }
+      throw new Error(`Fresh peripheral not found for device ${deviceId}`);
     }
 
     return freshDevice.peripheral;
@@ -258,7 +226,7 @@ class KrakenCalibrationStateService extends EventEmitter {
   // Reconnect to a device with retry logic (like old app)
   async reconnectDevice(deviceId) {
     console.log(`Global state: Attempting to reconnect device ${deviceId}`);
-
+    
     const device = this.connectedDevices.get(deviceId);
     if (!device) {
       throw new Error(`Device ${deviceId} not found in connected devices`);
@@ -266,33 +234,28 @@ class KrakenCalibrationStateService extends EventEmitter {
 
     const retryCount = this.getRetryCount(deviceId);
     const maxRetries = this.maxRetries;
-
+    
     if (retryCount >= maxRetries) {
       throw new Error(`Max retries (${maxRetries}) exceeded for device ${deviceId}`);
     }
 
     const attempt = retryCount + 1;
-    console.log(
-      `Global state: Reconnection attempt ${attempt}/${maxRetries} for device ${deviceId}`
-    );
+    console.log(`Global state: Reconnection attempt ${attempt}/${maxRetries} for device ${deviceId}`);
 
     try {
       // Disconnect old peripheral if connected
-      if (
-        device.peripheral &&
-        (device.peripheral.state === 'connected' || device.peripheral.state === 'connecting')
-      ) {
+      if (device.peripheral && (device.peripheral.state === 'connected' || device.peripheral.state === 'connecting')) {
         await this.disconnectDevice(device.peripheral);
         await this.addDelay(1500); // Wait for clean disconnect
       }
 
       // Get fresh peripheral from scanner
       const freshPeripheral = await this.getFreshPeripheral(deviceId);
-
+      
       // Update device with fresh peripheral
       device.peripheral = freshPeripheral;
       this.connectedDevices.set(deviceId, device);
-
+      
       // Update status with fresh peripheral
       const status = this.deviceSetupStatus.get(deviceId);
       if (status) {
@@ -307,28 +270,25 @@ class KrakenCalibrationStateService extends EventEmitter {
 
       const deviceInfo = this.scanner.getDevice(deviceId);
       const reconnectedDevice = await this.connection.connectToDevice(deviceInfo);
-
+      
       // Update connected device with new connection data
       this.connectedDevices.set(deviceId, reconnectedDevice);
-
+      
       console.log(`Global state: Successfully reconnected device ${deviceId}`);
       return reconnectedDevice;
+      
     } catch (error) {
       this.incrementRetryCount(deviceId);
       const delay = this.baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
-
-      console.log(
-        `Global state: Reconnection attempt ${attempt} failed for device ${deviceId}: ${error.message}`
-      );
-
+      
+      console.log(`Global state: Reconnection attempt ${attempt} failed for device ${deviceId}: ${error.message}`);
+      
       if (this.canRetryDevice(deviceId)) {
         console.log(`Global state: Will retry device ${deviceId} after ${delay}ms delay`);
         await this.addDelay(delay);
         return this.reconnectDevice(deviceId); // Recursive retry
       } else {
-        throw new Error(
-          `Failed to reconnect device ${deviceId} after ${maxRetries} attempts: ${error.message}`
-        );
+        throw new Error(`Failed to reconnect device ${deviceId} after ${maxRetries} attempts: ${error.message}`);
       }
     }
   }
@@ -352,7 +312,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       try {
         // Unsubscribe from characteristic
         await new Promise((resolve, reject) => {
-          characteristic.unsubscribe(err => {
+          characteristic.unsubscribe((err) => {
             if (err) {
               console.warn(`Error unsubscribing from device ${deviceId}:`, err.message);
             } else {
@@ -364,10 +324,10 @@ class KrakenCalibrationStateService extends EventEmitter {
 
         // Remove data listener
         characteristic.removeListener('data', handler);
-
+        
         // Remove from tracking
         this.activeSubscriptions.delete(deviceId);
-
+        
         console.log(`Global state: Cleaned up subscription for device ${deviceId}`);
       } catch (error) {
         console.warn(`Error during subscription cleanup for device ${deviceId}:`, error.message);
@@ -378,7 +338,7 @@ class KrakenCalibrationStateService extends EventEmitter {
   // Enhanced cleanup (exactly like old app)
   async cleanup() {
     console.log('Global state: Starting enhanced cleanup...');
-
+    
     try {
       // Step 1: Cleanup all subscriptions (like old app)
       console.log('Global state: Cleaning up subscriptions...');
@@ -386,7 +346,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       for (const deviceId of this.activeSubscriptions.keys()) {
         subscriptionCleanupPromises.push(this.cleanupDeviceSubscription(deviceId));
       }
-
+      
       if (subscriptionCleanupPromises.length > 0) {
         await Promise.allSettled(subscriptionCleanupPromises);
         console.log('Global state: All subscriptions cleaned up');
@@ -405,7 +365,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       // Step 3: Allow Windows BLE stack to fully release (like old app)
       console.log('Global state: Allowing BLE stack to release...');
       await this.addDelay(1000);
-
+      
       // Step 4: Restart scanning (like old app)
       if (this.scanner) {
         console.log('Global state: Restarting scanning...');
@@ -418,14 +378,15 @@ class KrakenCalibrationStateService extends EventEmitter {
           console.warn('Global state: Error restarting scanning:', scanError.message);
         }
       }
-
+      
       // Step 5: Reset all state
       this.reset();
-
+      
       console.log('Global state: Enhanced cleanup completed');
-
+      
       // Emit cleanup complete event
       this.emit('cleanupComplete');
+      
     } catch (error) {
       console.error('Global state: Error during enhanced cleanup:', error);
       throw error; // Re-throw to handle in calling code
@@ -448,17 +409,17 @@ class KrakenCalibrationStateService extends EventEmitter {
     }
   }
 
+
   isPeripheralDisconnectable(peripheral) {
-    return (
-      peripheral &&
-      peripheral.state &&
-      (peripheral.state === 'connected' || peripheral.state === 'connecting')
-    );
+    return peripheral && 
+           peripheral.state && 
+           (peripheral.state === 'connected' || peripheral.state === 'connecting');
   }
+
 
   performDisconnect(peripheral) {
     return new Promise((resolve, reject) => {
-      peripheral.disconnect(error => {
+      peripheral.disconnect((error) => {
         if (error) {
           reject(new Error(`Peripheral disconnect failed: ${error.message}`));
         } else {
@@ -483,4 +444,4 @@ export function getKrakenCalibrationState() {
   return stateInstance;
 }
 
-export { KrakenCalibrationStateService };
+export { KrakenCalibrationStateService }; 
