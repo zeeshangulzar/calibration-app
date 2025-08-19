@@ -1,7 +1,7 @@
 {
   "name": "sm-calibration",
   "productName": "SmartMonster Calibration",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "description": "Smartmonster Calibration App for Sensors and Meters",
   "main": "src/main/main.js",
   "type": "module",
@@ -38,6 +38,7 @@
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "electron": "^37.2.6",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
@@ -59,7 +60,7 @@
     "appId": "com.smartmonster.calibration.app",
     "productName": "SmartMonster Calibration",
     "win": {
-      "icon": "src/main/assets/icons/win_logo.ico"
+      "icon": "src/assets/icons/win_logo.ico"
     },
     "files": [
       "**/*",
