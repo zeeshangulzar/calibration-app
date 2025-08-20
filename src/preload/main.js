@@ -1,5 +1,29 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Simple crash tracking for preload
+try {
+  const Sentry = require('@sentry/electron/preload');
+  const SENTRY_DSN = process.env.SENTRY_DSN || '';
+
+  if (SENTRY_DSN) {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      tracesSampleRate: 0,
+      autoSessionTracking: false,
+    });
+
+    process.on('uncaughtException', error => {
+      Sentry.captureException(error);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      Sentry.captureException(new Error(`Unhandled Rejection: ${reason}`));
+    });
+  }
+} catch (error) {
+  // Silently fail if Sentry setup fails
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   //======== Core Application APIs ========
   loadHomeScreen: () => ipcRenderer.send('load-home-screen'),
