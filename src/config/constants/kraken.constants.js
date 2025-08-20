@@ -31,7 +31,7 @@ export const KRAKEN_CONSTANTS = {
   CONNECT_BUTTON_COOLDOWN_MS: 5000, // 5 seconds cooldown for the connect button
 
   // Operation timeouts (in milliseconds)
-  CHARACTERISTIC_READ_TIMEOUT: 5000, // 5 seconds for characteristic reads
+  CHARACTERISTIC_READ_TIMEOUT: 15000, // 15 seconds for characteristic reads (increased from 5s)
   DISCONNECT_TIMEOUT: 5000, // 5 seconds for disconnect operations
   MANUAL_DISCONNECT_TIMEOUT: 3000, // 3 seconds for manual disconnect operations
   CONNECTIVITY_MONITOR_INTERVAL: 2000, // 2 seconds for connectivity monitoring

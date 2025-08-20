@@ -382,7 +382,14 @@ class KrakenCalibrationStateService extends EventEmitter {
       console.log('Global state: Allowing BLE stack to release...');
       await this.addDelay(1000);
 
-      // Step 4: Restart scanning (like old app)
+      // Step 4: Reset connection service state to ensure clean slate
+      if (this.connection) {
+        console.log('Global state: Resetting connection service state...');
+        this.connection.resetState();
+        await this.addDelay(500);
+      }
+
+      // Step 5: Restart scanning (like old app)
       if (this.scanner) {
         console.log('Global state: Restarting scanning...');
         try {
@@ -395,7 +402,7 @@ class KrakenCalibrationStateService extends EventEmitter {
         }
       }
 
-      // Step 5: Reset all state
+      // Step 6: Reset all state
       this.reset();
 
       console.log('Global state: Enhanced cleanup completed');

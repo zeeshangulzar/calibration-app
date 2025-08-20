@@ -340,6 +340,32 @@ class KrakenCalibrationController {
   }
 
   /**
+   * Safely read a kraken BLE characteristic with timeout
+   * @param {object} characteristic - BLE characteristic
+   * @returns {Promise<Buffer|null>} Characteristic data or null on error
+   */
+  async safeReadKrakenCharacteristic(characteristic) {
+    return new Promise(resolve => {
+      const timeoutId = setTimeout(() => {
+        console.warn(
+          `Kraken characteristic read timeout after ${KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT}ms`
+        );
+        resolve(null);
+      }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
+
+      characteristic.read((error, data) => {
+        clearTimeout(timeoutId);
+        if (error) {
+          console.warn('Kraken characteristic read failed:', error.message);
+          resolve(null);
+        } else {
+          resolve(data);
+        }
+      });
+    });
+  }
+
+  /**
    * Update kraken device details from freshly discovered characteristics
    * This ensures firmware version and other details are current
    * @param {object} device - Kraken device object
@@ -354,19 +380,38 @@ class KrakenCalibrationController {
     });
 
     try {
-      // Get firmware version
+      // Get firmware version with retry logic
       const firmwareChar = characteristics.find(
         c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID
       );
 
       if (firmwareChar) {
-        const firmwareData = await this.safeReadKrakenCharacteristic(firmwareChar);
-        if (firmwareData && firmwareData.length > 0) {
-          const firmwareVersion = firmwareData.toString('utf8').trim();
-          device.firmwareVersion = firmwareVersion;
-          console.log(`Device ${deviceId}: Updated firmware version to ${firmwareVersion}`);
-        } else {
-          console.warn(`Device ${deviceId}: Could not read firmware version`);
+        let firmwareVersion = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        // Retry firmware reading up to 3 times
+        while (!firmwareVersion && retryCount < maxRetries) {
+          if (retryCount > 0) {
+            console.log(`Device ${deviceId}: Firmware read retry ${retryCount}/${maxRetries}`);
+            await this.globalState.addDelay(1000); // Wait 1 second between retries
+          }
+
+          const firmwareData = await this.safeReadKrakenCharacteristic(firmwareChar);
+          if (firmwareData && firmwareData.length > 0) {
+            firmwareVersion = firmwareData.toString('utf8').trim();
+            device.firmwareVersion = firmwareVersion;
+            console.log(
+              `Device ${deviceId}: Updated firmware version to ${firmwareVersion} on attempt ${retryCount + 1}`
+            );
+          } else {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.warn(
+                `Device ${deviceId}: Could not read firmware version after ${maxRetries} attempts`
+              );
+            }
+          }
         }
       } else {
         console.warn(`Device ${deviceId}: Firmware characteristic not found`);
@@ -401,29 +446,6 @@ class KrakenCalibrationController {
       console.warn(`Device ${deviceId}: Error reading device details:`, error.message);
       // Don't throw - this is not critical for functionality
     }
-  }
-
-  /**
-   * Safely read a kraken BLE characteristic with timeout
-   * @param {object} characteristic - BLE characteristic
-   * @returns {Promise<Buffer|null>} Characteristic data or null on error
-   */
-  async safeReadKrakenCharacteristic(characteristic) {
-    return new Promise(resolve => {
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
-
-      characteristic.read((error, data) => {
-        clearTimeout(timeout);
-        if (error) {
-          console.warn('Characteristic read failed:', error.message);
-          resolve(null);
-        } else {
-          resolve(data);
-        }
-      });
-    });
   }
 
   async setupPressureSubscription(device, characteristics) {
