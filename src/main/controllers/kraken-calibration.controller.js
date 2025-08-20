@@ -541,8 +541,8 @@ class KrakenCalibrationController {
       );
       this.sendToRenderer('device-manual-retry-started', { deviceId });
 
-      // Try setup with retries
-      const success = await this.setupDeviceWithRetries(deviceId);
+      // Try setup for this device only (don't affect other devices)
+      const success = await this.setupDevice(deviceId);
 
       if (success) {
         console.log(`Device ${deviceId} setup completed successfully after manual retry`);
@@ -781,13 +781,17 @@ class KrakenCalibrationController {
         this.globalState.connectedDevices.set(deviceId, device);
       }
 
-      // Re-setup the device (discover services and subscribe)
+      // Re-setup ONLY this device (don't trigger full sequential setup)
       console.log(`Setting up device ${deviceId} after reconnection...`);
       const success = await this.setupDevice(deviceId);
 
       if (success) {
         console.log(`Device ${deviceId} successfully reconnected and set up`);
         this.sendToRenderer('device-reconnection-success', { deviceId });
+
+        // Check if all devices are ready after this reconnection
+        this.checkAllDevicesReady();
+
         return { success: true };
       } else {
         throw new Error('Failed to setup device after reconnection');
@@ -800,6 +804,67 @@ class KrakenCalibrationController {
         error: error.message,
       });
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Setup a single device without affecting the sequential setup process
+   * This is used for reconnections and individual device setup
+   * @param {string} deviceId - Device ID to setup
+   * @returns {Promise<boolean>} Success status
+   */
+  async setupSingleDevice(deviceId) {
+    try {
+      const device = this.globalState.connectedDevices.get(deviceId);
+      if (!device) {
+        throw new Error(`Device ${deviceId} not found in connected devices`);
+      }
+
+      // Ensure device is connected before proceeding
+      await this.ensureDeviceConnected(device, deviceId);
+
+      // Update UI and state
+      this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'discovering');
+      this.sendToRenderer('device-setup-started', { deviceId });
+      this.sendToRenderer('device-setup-stage', {
+        deviceId,
+        stage: 'discovering',
+        message: 'Discovering services and characteristics...',
+      });
+
+      // Discover services and characteristics
+      const { services, characteristics } = await discoverWithTimeout(
+        device.peripheral,
+        KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT
+      );
+
+      // Update device details with fresh service discovery (including firmware)
+      await this.updateKrakenDetailsFromCharacteristics(device, characteristics, deviceId);
+
+      // Setup pressure data subscription
+      await this.setupPressureSubscription(device, characteristics);
+
+      // Store characteristics for cleanup and mark as ready
+      this.globalState.setDeviceCharacteristics(deviceId, characteristics);
+      this.globalState.updateDeviceStatus(
+        deviceId,
+        'ready',
+        'complete',
+        null,
+        services,
+        characteristics
+      );
+      this.sendToRenderer('device-setup-complete', { deviceId });
+
+      return true;
+    } catch (error) {
+      console.error(`Error setting up device ${deviceId}:`, error);
+      this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', error.message);
+      this.sendToRenderer('device-setup-failed', {
+        deviceId,
+        error: error.message,
+      });
+      return false;
     }
   }
 
