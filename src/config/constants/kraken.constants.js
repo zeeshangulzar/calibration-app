@@ -25,8 +25,10 @@ export const KRAKEN_CONSTANTS = {
   DELAY_BETWEEN_CONNECTIONS: 1500, // 1.5 second delay between successful connections
   DELAY_BETWEEN_SETUP: 1500, // 1.5 second delay between device setups
   DELAY_BETWEEN_RETRIES: 2000, // 2 second delay between retry attempts
-  DELAY_BEFORE_SETUP: 1000, // 1 second delay before starting device setup
+  DELAY_BEFORE_SETUP: 2000, // 1 second delay before starting device setup
   DELAY_BLE_STACK_RELEASE: 1000, // 1 second delay for Windows BLE stack to release
+
+  CONNECT_BUTTON_COOLDOWN_MS: 5000, // 5 seconds cooldown for the connect button
 
   // Operation timeouts (in milliseconds)
   CHARACTERISTIC_READ_TIMEOUT: 5000, // 5 seconds for characteristic reads
@@ -36,12 +38,6 @@ export const KRAKEN_CONSTANTS = {
   CLEANUP_TIMEOUT: 3000, // 3 seconds for cleanup operations
   SCANNER_REFRESH_DELAY: 1000, // 1 second delay for scanner refresh
 
-  // Device limits
-  MAX_DEVICES: 10, // Maximum number of devices that can be handled
-
-  // Pressure data parsing
-  PRESSURE_DATA_LENGTH: 4, // 4 bytes for float32
-
   // Device connection states
   CONNECTION_STATES: {
     DISCONNECTED: 'disconnected',
@@ -50,4 +46,7 @@ export const KRAKEN_CONSTANTS = {
     DISCONNECTING: 'disconnecting',
     ERROR: 'error',
   },
+
+  // Device limits
+  MAX_PRESSURE: 300,
 };

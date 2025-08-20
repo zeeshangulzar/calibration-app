@@ -42,12 +42,7 @@ class KrakenCalibrationController {
     });
   }
 
-  /**
-   * Initialize calibration with connected devices
-   * @param {string[]} connectedDeviceIds - Array of device IDs
-   * @returns {Promise<{success: boolean, deviceCount?: number, error?: string}>}
-   */
-  async initialize(connectedDeviceIds) {
+  async initialize() {
     try {
       this.sendToRenderer('show-page-loader');
 
@@ -615,7 +610,7 @@ class KrakenCalibrationController {
       displayName: device.displayName || device.name,
       firmwareVersion: device.firmwareVersion || 'Unknown',
       minPressure: device.minPressure || 0,
-      maxPressure: device.maxPressure || 100,
+      maxPressure: device.maxPressure || KRAKEN_CONSTANTS.MAX_PRESSURE,
       status: status.status,
       stage: status.stage,
       error: status.error,
@@ -729,10 +724,11 @@ class KrakenCalibrationController {
       if (freshPeripheral.state === 'connected') {
         console.log(`Device ${deviceId} is already connected, skipping connection step`);
       } else {
+        console.log(`Connecting to device ${deviceId}...`);
         // Connect with timeout only if not already connected
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error('Reconnection timeout'));
+            reject(new Error('Reconnection timeout - device may be out of range or powered off'));
           }, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
 
           freshPeripheral.connect(error => {
@@ -746,7 +742,7 @@ class KrakenCalibrationController {
                 console.log(`Device ${deviceId} was already connected, continuing with setup`);
                 resolve();
               } else {
-                reject(error);
+                reject(new Error(`Connection failed: ${error.message}`));
               }
             } else {
               console.log(`Device ${deviceId} reconnected successfully`);
@@ -764,9 +760,11 @@ class KrakenCalibrationController {
       }
 
       // Re-setup the device (discover services and subscribe)
+      console.log(`Setting up device ${deviceId} after reconnection...`);
       const success = await this.setupDevice(deviceId);
 
       if (success) {
+        console.log(`Device ${deviceId} successfully reconnected and set up`);
         this.sendToRenderer('device-reconnection-success', { deviceId });
         return { success: true };
       } else {
