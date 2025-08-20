@@ -765,17 +765,22 @@ class KrakenCalibrationController {
                 resolve();
               } else {
                 reject(new Error(`Connection failed: ${error.message}`));
+                reject(new Error(`Connection failed: ${error.message}`));
               }
-            });
+            } else {
+              console.log(`Device ${deviceId} reconnected successfully`);
+              resolve();
+            }
           });
-        }
+        });
+      }
 
-        // Update device with connected peripheral
-        const device = this.globalState.connectedDevices.get(deviceId);
-        if (device) {
-          device.peripheral = freshPeripheral;
-          this.globalState.connectedDevices.set(deviceId, device);
-        }
+      // Update device with connected peripheral
+      const device = this.globalState.connectedDevices.get(deviceId);
+      if (device) {
+        device.peripheral = freshPeripheral;
+        this.globalState.connectedDevices.set(deviceId, device);
+      }
 
       // Re-setup ONLY this device (don't trigger full sequential setup)
       console.log(`Setting up device ${deviceId} after reconnection...`);

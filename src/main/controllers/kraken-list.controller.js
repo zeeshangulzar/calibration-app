@@ -318,6 +318,7 @@ class KrakenListController {
       await this.connection.cleanup();
       this.selectedDeviceIds.clear();
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error during kraken list cleanup:', error);
     }
   }
