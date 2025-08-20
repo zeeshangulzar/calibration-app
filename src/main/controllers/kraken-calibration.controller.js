@@ -19,9 +19,6 @@ class KrakenCalibrationController {
     this.connectivityMonitor = null;
     this.monitoringInterval = KRAKEN_CONSTANTS.CONNECTIVITY_MONITOR_INTERVAL; // Check every 2 seconds
 
-    // Track devices currently being processed manually to prevent concurrent operations
-    this.devicesBeingProcessed = new Set();
-
     this.initializeServices();
     this.setupEventListeners();
   }
@@ -45,11 +42,6 @@ class KrakenCalibrationController {
     });
   }
 
-  /**
-   * Initialize calibration with connected devices
-   * @param {string[]} connectedDeviceIds - Array of device IDs
-   * @returns {Promise<{success: boolean, deviceCount?: number, error?: string}>}
-   */
   async initialize() {
     try {
       this.sendToRenderer('show-page-loader');
@@ -236,17 +228,6 @@ class KrakenCalibrationController {
         throw new Error(`Device ${deviceId} not found in connected devices`);
       }
 
-      // Check if device is already being processed or is ready to prevent duplicate setup
-      const currentStatus = this.globalState.getDeviceStatus(deviceId);
-      if (currentStatus?.status === 'ready') {
-        console.log(`Device ${deviceId} is already set up and ready, skipping setup`);
-        return true;
-      }
-      if (currentStatus?.status === 'in-progress' && currentStatus?.stage !== 'failed') {
-        console.log(`Device ${deviceId} is already being processed, skipping duplicate setup`);
-        return false;
-      }
-
       // Ensure device is connected before proceeding
       await this.ensureDeviceConnected(device, deviceId);
 
@@ -359,6 +340,32 @@ class KrakenCalibrationController {
   }
 
   /**
+   * Safely read a kraken BLE characteristic with timeout
+   * @param {object} characteristic - BLE characteristic
+   * @returns {Promise<Buffer|null>} Characteristic data or null on error
+   */
+  async safeReadKrakenCharacteristic(characteristic) {
+    return new Promise(resolve => {
+      const timeoutId = setTimeout(() => {
+        console.warn(
+          `Kraken characteristic read timeout after ${KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT}ms`
+        );
+        resolve(null);
+      }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
+
+      characteristic.read((error, data) => {
+        clearTimeout(timeoutId);
+        if (error) {
+          console.warn('Kraken characteristic read failed:', error.message);
+          resolve(null);
+        } else {
+          resolve(data);
+        }
+      });
+    });
+  }
+
+  /**
    * Update kraken device details from freshly discovered characteristics
    * This ensures firmware version and other details are current
    * @param {object} device - Kraken device object
@@ -373,19 +380,38 @@ class KrakenCalibrationController {
     });
 
     try {
-      // Get firmware version
+      // Get firmware version with retry logic
       const firmwareChar = characteristics.find(
         c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID
       );
 
       if (firmwareChar) {
-        const firmwareData = await this.safeReadKrakenCharacteristic(firmwareChar);
-        if (firmwareData && firmwareData.length > 0) {
-          const firmwareVersion = firmwareData.toString('utf8').trim();
-          device.firmwareVersion = firmwareVersion;
-          console.log(`Device ${deviceId}: Updated firmware version to ${firmwareVersion}`);
-        } else {
-          console.warn(`Device ${deviceId}: Could not read firmware version`);
+        let firmwareVersion = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        // Retry firmware reading up to 3 times
+        while (!firmwareVersion && retryCount < maxRetries) {
+          if (retryCount > 0) {
+            console.log(`Device ${deviceId}: Firmware read retry ${retryCount}/${maxRetries}`);
+            await this.globalState.addDelay(1000); // Wait 1 second between retries
+          }
+
+          const firmwareData = await this.safeReadKrakenCharacteristic(firmwareChar);
+          if (firmwareData && firmwareData.length > 0) {
+            firmwareVersion = firmwareData.toString('utf8').trim();
+            device.firmwareVersion = firmwareVersion;
+            console.log(
+              `Device ${deviceId}: Updated firmware version to ${firmwareVersion} on attempt ${retryCount + 1}`
+            );
+          } else {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.warn(
+                `Device ${deviceId}: Could not read firmware version after ${maxRetries} attempts`
+              );
+            }
+          }
         }
       } else {
         console.warn(`Device ${deviceId}: Firmware characteristic not found`);
@@ -420,29 +446,6 @@ class KrakenCalibrationController {
       console.warn(`Device ${deviceId}: Error reading device details:`, error.message);
       // Don't throw - this is not critical for functionality
     }
-  }
-
-  /**
-   * Safely read a kraken BLE characteristic with timeout
-   * @param {object} characteristic - BLE characteristic
-   * @returns {Promise<Buffer|null>} Characteristic data or null on error
-   */
-  async safeReadKrakenCharacteristic(characteristic) {
-    return new Promise(resolve => {
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
-
-      characteristic.read((error, data) => {
-        clearTimeout(timeout);
-        if (error) {
-          console.warn('Characteristic read failed:', error.message);
-          resolve(null);
-        } else {
-          resolve(data);
-        }
-      });
-    });
   }
 
   async setupPressureSubscription(device, characteristics) {
@@ -529,57 +532,35 @@ class KrakenCalibrationController {
     try {
       console.log(`Manual retry requested for device ${deviceId}`);
 
-      // Check if device is already being processed to prevent concurrent operations
-      if (this.devicesBeingProcessed.has(deviceId)) {
-        console.log(`Device ${deviceId} is already being processed manually, skipping retry`);
-        return { success: false, error: 'Device is already being processed' };
-      }
+      // Reset device status to show retry is starting
+      this.globalState.updateDeviceStatus(
+        deviceId,
+        'in-progress',
+        'retrying',
+        'Manual retry in progress...'
+      );
+      this.sendToRenderer('device-manual-retry-started', { deviceId });
 
-      const currentStatus = this.globalState.getDeviceStatus(deviceId);
-      if (currentStatus?.status === 'in-progress' && currentStatus?.stage !== 'failed') {
-        console.log(`Device ${deviceId} is already being processed, skipping manual retry`);
-        return { success: false, error: 'Device is already being processed' };
-      }
+      // Try setup for this device only (don't affect other devices)
+      const success = await this.setupDevice(deviceId);
 
-      // Mark device as being processed manually
-      this.devicesBeingProcessed.add(deviceId);
-
-      try {
-        // Reset device status to show retry is starting
-        this.globalState.updateDeviceStatus(
+      if (success) {
+        console.log(`Device ${deviceId} setup completed successfully after manual retry`);
+        this.sendToRenderer('device-manual-retry-success', { deviceId });
+        this.checkAllDevicesReady();
+        return { success: true };
+      } else {
+        console.log(`Device ${deviceId} setup failed even after manual retry`);
+        this.sendToRenderer('device-manual-retry-failed', {
           deviceId,
-          'in-progress',
-          'retrying',
-          'Manual retry in progress...'
-        );
-        this.sendToRenderer('device-manual-retry-started', { deviceId });
-
-        // Try setup with retries
-        const success = await this.setupDeviceWithRetries(deviceId);
-
-        if (success) {
-          console.log(`Device ${deviceId} setup completed successfully after manual retry`);
-          this.sendToRenderer('device-manual-retry-success', { deviceId });
-          this.checkAllDevicesReady();
-          return { success: true };
-        } else {
-          console.log(`Device ${deviceId} setup failed even after manual retry`);
-          this.sendToRenderer('device-manual-retry-failed', {
-            deviceId,
-            error: 'Setup failed after manual retry',
-          });
-          return { success: false, error: 'Setup failed after manual retry' };
-        }
-      } finally {
-        // Always remove from processing set when done
-        this.devicesBeingProcessed.delete(deviceId);
+          error: 'Setup failed after manual retry',
+        });
+        return { success: false, error: 'Setup failed after manual retry' };
       }
     } catch (error) {
       console.error(`Error in manual retry process for device ${deviceId}:`, error);
       this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', error.message);
       this.sendToRenderer('device-manual-retry-failed', { deviceId, error: error.message });
-      // Remove from processing set on error
-      this.devicesBeingProcessed.delete(deviceId);
       return { success: false, error: error.message };
     }
   }
@@ -754,77 +735,67 @@ class KrakenCalibrationController {
     try {
       console.log(`Attempting to reconnect device ${deviceId}...`);
 
-      // Check if device is already being processed to prevent concurrent operations
-      if (this.devicesBeingProcessed.has(deviceId)) {
-        console.log(`Device ${deviceId} is already being processed, skipping reconnection`);
-        return { success: false, error: 'Device is already being processed' };
+      // Update status to show reconnection attempt
+      this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'reconnecting', null);
+      this.sendToRenderer('device-reconnection-started', { deviceId });
+
+      // Get fresh peripheral and check connection state
+      const freshPeripheral = await this.globalState.getFreshPeripheral(deviceId);
+
+      // Check if peripheral is already connected
+      if (freshPeripheral.state === 'connected') {
+        console.log(`Device ${deviceId} is already connected, skipping connection step`);
+      } else {
+        console.log(`Connecting to device ${deviceId}...`);
+        // Connect with timeout only if not already connected
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Reconnection timeout - device may be out of range or powered off'));
+          }, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
+
+          freshPeripheral.connect(error => {
+            clearTimeout(timeout);
+            if (error) {
+              // Check if error is about already being connected
+              if (
+                error.message.includes('already connected') ||
+                error.message.includes('Peripheral already connected')
+              ) {
+                console.log(`Device ${deviceId} was already connected, continuing with setup`);
+                resolve();
+              } else {
+                reject(new Error(`Connection failed: ${error.message}`));
+                reject(new Error(`Connection failed: ${error.message}`));
+              }
+            } else {
+              console.log(`Device ${deviceId} reconnected successfully`);
+              resolve();
+            }
+          });
+        });
       }
 
-      // Mark device as being processed
-      this.devicesBeingProcessed.add(deviceId);
+      // Update device with connected peripheral
+      const device = this.globalState.connectedDevices.get(deviceId);
+      if (device) {
+        device.peripheral = freshPeripheral;
+        this.globalState.connectedDevices.set(deviceId, device);
+      }
 
-      try {
-        // Update status to show reconnection attempt
-        this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'reconnecting', null);
-        this.sendToRenderer('device-reconnection-started', { deviceId });
+      // Re-setup ONLY this device (don't trigger full sequential setup)
+      console.log(`Setting up device ${deviceId} after reconnection...`);
+      const success = await this.setupDevice(deviceId);
 
-        // Get fresh peripheral and check connection state (with scanning if needed)
-        console.log(`Looking for device ${deviceId} in scan results...`);
-        const freshPeripheral = await this.globalState.getFreshPeripheral(deviceId);
+      if (success) {
+        console.log(`Device ${deviceId} successfully reconnected and set up`);
+        this.sendToRenderer('device-reconnection-success', { deviceId });
 
-        // Check if peripheral is already connected
-        if (freshPeripheral.state === 'connected') {
-          console.log(`Device ${deviceId} is already connected, skipping connection step`);
-        } else {
-          console.log(`Connecting to device ${deviceId}...`);
-          // Connect with timeout only if not already connected
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('Reconnection timeout - device may be out of range or powered off'));
-            }, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
+        // Check if all devices are ready after this reconnection
+        this.checkAllDevicesReady();
 
-            freshPeripheral.connect(error => {
-              clearTimeout(timeout);
-              if (error) {
-                // Check if error is about already being connected
-                if (
-                  error.message.includes('already connected') ||
-                  error.message.includes('Peripheral already connected')
-                ) {
-                  console.log(`Device ${deviceId} was already connected, continuing with setup`);
-                  resolve();
-                } else {
-                  reject(new Error(`Connection failed: ${error.message}`));
-                }
-              } else {
-                console.log(`Device ${deviceId} reconnected successfully`);
-                resolve();
-              }
-            });
-          });
-        }
-
-        // Update device with connected peripheral
-        const device = this.globalState.connectedDevices.get(deviceId);
-        if (device) {
-          device.peripheral = freshPeripheral;
-          this.globalState.connectedDevices.set(deviceId, device);
-        }
-
-        // Re-setup the device (discover services and subscribe)
-        console.log(`Setting up device ${deviceId} after reconnection...`);
-        const success = await this.setupDevice(deviceId);
-
-        if (success) {
-          console.log(`Device ${deviceId} successfully reconnected and set up`);
-          this.sendToRenderer('device-reconnection-success', { deviceId });
-          return { success: true };
-        } else {
-          throw new Error('Failed to setup device after reconnection');
-        }
-      } finally {
-        // Always remove from processing set
-        this.devicesBeingProcessed.delete(deviceId);
+        return { success: true };
+      } else {
+        throw new Error('Failed to setup device after reconnection');
       }
     } catch (error) {
       console.error(`Failed to reconnect device ${deviceId}:`, error);
@@ -833,9 +804,68 @@ class KrakenCalibrationController {
         deviceId,
         error: error.message,
       });
-      // Remove from processing set on error
-      this.devicesBeingProcessed.delete(deviceId);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Setup a single device without affecting the sequential setup process
+   * This is used for reconnections and individual device setup
+   * @param {string} deviceId - Device ID to setup
+   * @returns {Promise<boolean>} Success status
+   */
+  async setupSingleDevice(deviceId) {
+    try {
+      const device = this.globalState.connectedDevices.get(deviceId);
+      if (!device) {
+        throw new Error(`Device ${deviceId} not found in connected devices`);
+      }
+
+      // Ensure device is connected before proceeding
+      await this.ensureDeviceConnected(device, deviceId);
+
+      // Update UI and state
+      this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'discovering');
+      this.sendToRenderer('device-setup-started', { deviceId });
+      this.sendToRenderer('device-setup-stage', {
+        deviceId,
+        stage: 'discovering',
+        message: 'Discovering services and characteristics...',
+      });
+
+      // Discover services and characteristics
+      const { services, characteristics } = await discoverWithTimeout(
+        device.peripheral,
+        KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT
+      );
+
+      // Update device details with fresh service discovery (including firmware)
+      await this.updateKrakenDetailsFromCharacteristics(device, characteristics, deviceId);
+
+      // Setup pressure data subscription
+      await this.setupPressureSubscription(device, characteristics);
+
+      // Store characteristics for cleanup and mark as ready
+      this.globalState.setDeviceCharacteristics(deviceId, characteristics);
+      this.globalState.updateDeviceStatus(
+        deviceId,
+        'ready',
+        'complete',
+        null,
+        services,
+        characteristics
+      );
+      this.sendToRenderer('device-setup-complete', { deviceId });
+
+      return true;
+    } catch (error) {
+      console.error(`Error setting up device ${deviceId}:`, error);
+      this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', error.message);
+      this.sendToRenderer('device-setup-failed', {
+        deviceId,
+        error: error.message,
+      });
+      return false;
     }
   }
 
@@ -1028,8 +1058,6 @@ class KrakenCalibrationController {
    */
   async cleanup() {
     this.stopConnectivityMonitoring();
-    // Clear any devices being processed manually
-    this.devicesBeingProcessed.clear();
     await this.globalState.cleanup();
   }
 }

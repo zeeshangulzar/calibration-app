@@ -50,7 +50,9 @@ class KrakenConnectionService extends EventEmitter {
 
       return connectedDevice;
     } catch (error) {
-      this.connectionAttempts.delete(id);
+      // Use the new error handling method
+      await this.handleConnectionError(id, error, peripheral);
+
       console.error(`Failed to connect to device ${id}:`, error);
       this.emit('connectionFailed', { deviceId: id, error: error.message });
       throw error;
@@ -351,6 +353,63 @@ class KrakenConnectionService extends EventEmitter {
   async cleanup() {
     await this.disconnectAll();
     this.removeAllListeners();
+    this.resetState();
+  }
+
+  /**
+   * Reset the connection service state completely
+   * This ensures no stale connections remain when reconnecting to the same devices
+   */
+  resetState() {
+    console.log('Connection service: Resetting state...');
+    this.connectedDevices.clear();
+    this.connectionAttempts.clear();
+    console.log('Connection service: State reset complete');
+  }
+
+  /**
+   * Prepare for reconnection by ensuring clean state
+   * This is called when navigating back to the device list to ensure fresh connections
+   */
+  async prepareForReconnection() {
+    console.log('Connection service: Preparing for reconnection...');
+
+    // Disconnect all current connections
+    await this.disconnectAll();
+
+    // Reset state
+    this.resetState();
+
+    // Allow BLE stack to fully release
+    await this.delay(KRAKEN_CONSTANTS.DELAY_BLE_STACK_RELEASE);
+
+    console.log('Connection service: Ready for reconnection');
+  }
+
+  /**
+   * Handle connection errors more gracefully
+   * This method attempts to recover from common connection issues
+   */
+  async handleConnectionError(deviceId, error, peripheral) {
+    console.log(`Connection service: Handling error for device ${deviceId}:`, error.message);
+
+    try {
+      // Attempt to disconnect the peripheral if it's in a bad state
+      if (peripheral && (peripheral.state === 'connected' || peripheral.state === 'connecting')) {
+        await this.disconnectPeripheral(peripheral);
+        await this.delay(1000); // Wait for clean disconnect
+      }
+
+      // Remove any stale connection attempts
+      this.connectionAttempts.delete(deviceId);
+
+      console.log(`Connection service: Error handling completed for device ${deviceId}`);
+    } catch (cleanupError) {
+      console.warn(
+        `Connection service: Error during error handling for device ${deviceId}:`,
+        cleanupError.message
+      );
+    }
   }
 }
 

@@ -261,6 +261,9 @@ class KrakenListController {
 
       this.sendToRenderer('show-loader');
 
+      // Ensure connection service is ready for fresh connections
+      await this.connection.prepareForReconnection();
+
       // Create device info map
       const deviceInfoMap = new Map();
       for (const deviceId of deviceIds) {
@@ -306,14 +309,26 @@ class KrakenListController {
   }
 
   async cleanup() {
-    await this.scanner.cleanup();
-    await this.connection.cleanup();
-    this.selectedDeviceIds.clear();
+    try {
+      // Ensure connection service is properly reset for fresh connections
+      await this.connection.prepareForReconnection();
+
+      // Clean up scanner and other resources
+      await this.scanner.cleanup();
+      await this.connection.cleanup();
+      this.selectedDeviceIds.clear();
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error during kraken list cleanup:', error);
+    }
   }
 
   // Initialize the controller when the window loads
   async initialize() {
     try {
+      // Ensure connection service is ready for fresh connections
+      await this.connection.prepareForReconnection();
+
       // Load the kraken list page
       await this.loadKrakenListPage();
 

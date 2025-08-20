@@ -223,33 +223,9 @@ class KrakenCalibrationStateService extends EventEmitter {
       throw new Error('Scanner not available for reconnection');
     }
 
-    // First, try to get the device from current discovered devices
-    let freshDevice = this.scanner.getDevice(deviceId);
-
+    const freshDevice = this.scanner.getDevice(deviceId);
     if (!freshDevice || !freshDevice.peripheral) {
-      console.log(`Device ${deviceId} not found in current scan results, starting fresh scan...`);
-
-      // Ensure scanning is active to rediscover the device
-      const scanStatus = this.scanner.getScanStatus();
-      if (!scanStatus.isScanning) {
-        try {
-          await this.scanner.startScanning();
-          console.log('Started scanning to rediscover disconnected device');
-        } catch (scanError) {
-          console.warn('Failed to start scanning for device rediscovery:', scanError.message);
-        }
-      }
-
-      // Wait a bit for scanning to potentially rediscover the device
-      await this.addDelay(2000); // 2 seconds to allow rediscovery
-
-      // Try again after scan
-      freshDevice = this.scanner.getDevice(deviceId);
-      if (!freshDevice || !freshDevice.peripheral) {
-        throw new Error(
-          `Device ${deviceId} not found in scan results. Please ensure the device is powered on and in range.`
-        );
-      }
+      throw new Error(`Fresh peripheral not found for device ${deviceId}`);
     }
 
     return freshDevice.peripheral;
@@ -406,7 +382,14 @@ class KrakenCalibrationStateService extends EventEmitter {
       console.log('Global state: Allowing BLE stack to release...');
       await this.addDelay(1000);
 
-      // Step 4: Restart scanning (like old app)
+      // Step 4: Reset connection service state to ensure clean slate
+      if (this.connection) {
+        console.log('Global state: Resetting connection service state...');
+        this.connection.resetState();
+        await this.addDelay(500);
+      }
+
+      // Step 5: Restart scanning (like old app)
       if (this.scanner) {
         console.log('Global state: Restarting scanning...');
         try {
@@ -419,7 +402,7 @@ class KrakenCalibrationStateService extends EventEmitter {
         }
       }
 
-      // Step 5: Reset all state
+      // Step 6: Reset all state
       this.reset();
 
       console.log('Global state: Enhanced cleanup completed');

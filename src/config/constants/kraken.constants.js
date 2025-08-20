@@ -28,16 +28,15 @@ export const KRAKEN_CONSTANTS = {
   DELAY_BEFORE_SETUP: 2000, // 2 second delay before starting device setup
   DELAY_BLE_STACK_RELEASE: 1000, // 1 second delay for Windows BLE stack to release
 
+  CONNECT_BUTTON_COOLDOWN_MS: 5000, // 5 seconds cooldown for the connect button
+
   // Operation timeouts (in milliseconds)
-  CHARACTERISTIC_READ_TIMEOUT: 5000, // 5 seconds for characteristic reads
+  CHARACTERISTIC_READ_TIMEOUT: 15000, // 15 seconds for characteristic reads (increased from 5s)
   DISCONNECT_TIMEOUT: 5000, // 5 seconds for disconnect operations
   MANUAL_DISCONNECT_TIMEOUT: 3000, // 3 seconds for manual disconnect operations
   CONNECTIVITY_MONITOR_INTERVAL: 2000, // 2 seconds for connectivity monitoring
   CLEANUP_TIMEOUT: 3000, // 3 seconds for cleanup operations
   SCANNER_REFRESH_DELAY: 1000, // 1 second delay for scanner refresh
-
-  // UI cooldowns
-  CONNECT_BUTTON_COOLDOWN_MS: 5000, // 5 seconds cooldown after going back to list
 
   // Device connection states
   CONNECTION_STATES: {
