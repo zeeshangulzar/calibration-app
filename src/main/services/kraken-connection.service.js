@@ -31,22 +31,12 @@ class KrakenConnectionService extends EventEmitter {
       // Connect to the peripheral
       await this.connectWithTimeout(peripheral, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
 
-      // Discover services and characteristics
-      const { services, characteristics } = await discoverWithTimeout(
-        peripheral,
-        KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT
-      );
-
-      // Get device information
-      const deviceDetails = await this.gatherDeviceDetails(services, characteristics, deviceInfo);
-
       // Create connected device object (without Noble objects to avoid cloning issues)
       const connectedDevice = {
         id: deviceInfo.id,
         name: deviceInfo.name,
         address: deviceInfo.address,
         rssi: deviceInfo.rssi,
-        ...deviceDetails,
         connectionState: KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED,
         connectedAt: new Date().toISOString(),
         // Store peripheral reference separately for internal use
