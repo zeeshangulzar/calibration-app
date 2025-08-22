@@ -1,4 +1,5 @@
 import EventEmitter from 'events';
+import { KRAKEN_CONSTANTS } from '../config/constants/kraken.constants.js';
 
 /**
  * Global state manager for Kraken Calibration
@@ -374,13 +375,13 @@ class KrakenCalibrationStateService extends EventEmitter {
         if (device.peripheral) {
           await this.disconnectDeviceWithDelay(device.peripheral, deviceId);
           // Individual delay between each device disconnect (like old app)
-          await this.addDelay(500);
+          await this.addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_DISCONNECT);
         }
       }
 
       // Step 3: Allow Windows BLE stack to fully release (like old app)
       console.log('Global state: Allowing BLE stack to release...');
-      await this.addDelay(1000);
+      await this.addDelay(KRAKEN_CONSTANTS.DELAY_BLE_STACK_RELEASE);
 
       // Step 4: Reset connection service state to ensure clean slate
       if (this.connection) {
