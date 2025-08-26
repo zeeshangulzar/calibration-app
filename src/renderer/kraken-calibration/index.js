@@ -1,3 +1,8 @@
+// update this showCustomAlertModal  import to be like import * from as
+import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
+import { populateSelectOptions } from '../../shared/helpers/ui-helper.js';
+import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+
 const connectedDevices = new Map();
 let allDevicesReady = false;
 
@@ -7,18 +12,29 @@ document.addEventListener('DOMContentLoaded', () => {
     window.electronAPI.krakenCalibrationGoBack();
   });
 
+  populateCalibrationControls();
+
   // Start calibration button
   const startCalibrationBtn = document.getElementById('start-calibration-btn');
   if (startCalibrationBtn) {
     startCalibrationBtn.addEventListener('click', async () => {
+      const sweepValue = document.getElementById('sweep-value')?.value;
+      const testerName = document.getElementById('tester-name')?.value;
+
+      if (!sweepValue || !testerName) {
+        NotificationHelper.showCustomAlertModal(
+          'Please select Tester Name before starting calibration.'
+        );
+        return;
+      }
       if (allDevicesReady) {
         try {
           const result = await window.electronAPI.krakenCalibrationStart();
           if (!result.success) {
-            showError(`Failed to start calibration: ${result.error}`);
+            NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
           }
         } catch (error) {
-          showError(`Error starting calibration: ${error.message}`);
+          NotificationHelper.showError(`Error starting calibration: ${error.message}`);
         }
       }
     });
@@ -192,7 +208,7 @@ window.electronAPI.onDeviceManualDisconnectSuccess(data => {
   }
 
   // Show success message (temporary notification)
-  showNotification(`Kraken ${deviceId.substring(0, 8)}... removed from calibration`, 'success');
+  NotificationHelper.showSuccess(`Kraken ${deviceId.substring(0, 8)}... removed from calibration`);
 });
 
 window.electronAPI.onDeviceManualDisconnectFailed(data => {
@@ -208,7 +224,7 @@ window.electronAPI.onDeviceManualDisconnectFailed(data => {
     widget.classList.remove('removing');
   }
 
-  showNotification(`Failed to remove kraken: ${error}`, 'error');
+  NotificationHelper.showError(`Failed to remove kraken: ${error}`);
 });
 
 window.electronAPI.onUpdateCalibrationButtonState(data => {
@@ -243,7 +259,7 @@ window.electronAPI.onDeviceDisconnected(data => {
 
 window.electronAPI.onCalibrationStarted(() => {
   // Handle calibration start
-  showInfo('Calibration started successfully!');
+  NotificationHelper.showInfo('Calibration started successfully!');
 });
 
 // Initialize device widgets in the grid
@@ -491,11 +507,7 @@ function updateDeviceFromStatus(deviceId, statusObj) {
 
 // Update progress summary
 function updateProgressSummary(data) {
-  const { total, ready, failed, pending, progress } = data;
-
-  // document.getElementById("total-devices").textContent = total;
-  // document.getElementById("ready-devices").textContent = ready;
-  // document.getElementById("pending-devices").textContent = pending;
+  const { ready, failed, pending, progress } = data;
 
   const progressBar = document.getElementById('progress-bar');
   if (progressBar) {
@@ -553,23 +565,6 @@ async function retryDeviceSetup(deviceId) {
   }
 }
 
-// Show error alert
-function showError(message) {
-  const errorAlert = document.getElementById('error-alert');
-  const errorMessage = document.getElementById('error-message');
-
-  if (errorAlert && errorMessage) {
-    errorMessage.textContent = message;
-    errorAlert.classList.remove('hidden');
-  }
-}
-
-// Show info message (placeholder for future implementation)
-function showInfo(message) {
-  console.log('Info:', message);
-  // Could implement a toast notification or similar
-}
-
 // Reconnect a disconnected device
 async function reconnectDevice(deviceId) {
   try {
@@ -616,7 +611,7 @@ async function disconnectDevice(deviceId) {
     const result = await window.electronAPI.krakenCalibrationDisconnectDevice(deviceId);
 
     if (!result.success) {
-      showNotification(`Failed to remove kraken: ${result.error}`, 'error');
+      NotificationHelper.showError(`Failed to remove kraken: ${result.error}`);
 
       // Reset widget state on failure
       if (widget) {
@@ -632,7 +627,7 @@ async function disconnectDevice(deviceId) {
     }
   } catch (error) {
     console.error('Error disconnecting device:', error);
-    showNotification(`Error removing kraken: ${error.message}`, 'error');
+    NotificationHelper.showError(`Error removing kraken: ${error.message}`);
 
     // Reset widget state on error
     const widget = document.getElementById(`device-widget-${deviceId}`);
@@ -651,27 +646,13 @@ async function disconnectDevice(deviceId) {
   }
 }
 
-// Simple notification function
-function showNotification(message, type = 'info') {
-  // Create notification element
-  const notification = document.createElement('div');
-  notification.className = `fixed top-4 right-4 px-4 py-2 rounded-md shadow-lg text-white z-50 transition-all duration-300 ${
-    type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-  }`;
-  notification.textContent = message;
+function populateCalibrationControls() {
+  // Populate Sweep Value dropdown
 
-  // Add to body
-  document.body.appendChild(notification);
+  populateSelectOptions('sweep-value', KRAKEN_CONSTANTS.SWEEP_OPTIONS);
 
-  // Remove after 3 seconds
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  }, 3000);
+  // Populate Tester Name dropdown
+  populateSelectOptions('tester-name', KRAKEN_CONSTANTS.TESTER_NAMES);
 }
 
 // Make functions globally available for onclick handlers

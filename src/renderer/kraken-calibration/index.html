@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="../styles/index_styles.css" />
     <link rel="stylesheet" href="../../assets/stylesheets/inter-font.css" />
-    <script src="./index.js"></script>
+    <script type="module" src="./index.js"></script>
     <script src="../../assets/js/tailwind.min.js"></script>
     <script>
       window.FontAwesomeConfig = { autoReplaceSvg: 'nest' };
@@ -93,18 +93,128 @@
               <!-- Device widgets will be inserted here dynamically -->
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="items-center">
+              <h2 class="text-xl">Calibration Settings</h2>
+              <div class="flex items-center justify-between mb-4">
+                <!-- Dropdowns Row -->
+                <div class="flex gap-10 py-6">
+                  <!-- Sweep Value Dropdown -->
+                  <div>
+                    <label
+                      for="sweep-value"
+                      class="block text-sm font-medium text-neutral-700 mb-1"
+                    >
+                      Select Sweep Value
+                    </label>
+                    <select
+                      id="sweep-value"
+                      class="border border-neutral-300 rounded-md px-14 py-2 text-sm"
+                    ></select>
+                  </div>
+
+                  <!-- Tester Name Dropdown -->
+                  <div>
+                    <label
+                      for="tester-name"
+                      class="block text-sm font-medium text-neutral-700 mb-1"
+                    >
+                      Select Tester Name
+                    </label>
+                    <select
+                      id="tester-name"
+                      class="border border-neutral-300 rounded-md px-10 py-2 text-sm"
+                    ></select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between mb-4">
               <h2 class="text-xl">Calibration Control</h2>
               <div class="flex gap-3">
+                <!-- Show Calibration Results Button -->
+                <button
+                  id="show-results-btn"
+                  class="rounded-lg bg-neutral-800 px-4 py-2 text-white hover:bg-neutral-700 transition-colors hidden"
+                >
+                  <i class="fa-solid fa-chart-line mr-2"></i> Show Calibration Results
+                </button>
                 <button
                   id="start-calibration-btn"
-                  disabled
-                  class="px-6 py-2 bg-neutral-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-neutral-700"
+                  class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <i class="fa-solid fa-play mr-2"></i> Start Calibration
+                  <i class="fa-solid fa-play mr-2"></i>Start Calibration
+                </button>
+                <button
+                  id="stop-calibration-button"
+                  class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden"
+                >
+                  <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
                 </button>
               </div>
             </div>
+          </div>
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <section id="pressure-readings" class="rounded-lg border bg-white p-6">
+              <h2 class="mb-4 text-lg">Pressure Readings</h2>
+              <div class="space-y-4">
+                <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                  <span>Reference Pressure</span>
+                  <span id="reference-pressure-value">N/A</span>
+                </div>
+                <div id="sensor-pressures" class="space-y-2">
+                  <!-- Sensors will be dynamically added here -->
+                </div>
+              </div>
+            </section>
+
+            <section id="calibration-log" class="rounded-lg border bg-white p-6">
+              <h2 class="mb-4 text-lg">Calibration Logs</h2>
+              <div
+                id="calibration-log-content"
+                class="h-[450px] overflow-y-auto rounded-md bg-neutral-900 p-4 text-sm text-white"
+              >
+                <div id="log-messages" class="space-y-2">
+                  <!-- Log messages will be appended here -->
+                </div>
+              </div>
+            </section>
+
+            <section id="sensors-calibration-status" class="mb-8 w-full col-span-full">
+              <div
+                id="calibration-status-list"
+                class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+              >
+                <!-- Calibrating sensor cards -->
+              </div>
+            </section>
+
+            <section id="sensors-calibration-status" class="mb-8 w-full col-span-full">
+              <div
+                id="calibration-status-list"
+                class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+              >
+                <!-- Populated by JS -->
+              </div>
+            </section>
+
+            <section
+              id="calibration-results"
+              class="hidden mt-6 rounded-lg border bg-white p-6 w-full col-span-full"
+            >
+              <!-- Tabs -->
+              <div class="mb-4 flex space-x-2">
+                <button
+                  id="tab-verification"
+                  class="tab-button bg-neutral-900 text-white px-4 py-2 rounded"
+                >
+                  Verification Results
+                </button>
+              </div>
+              <!-- Tab Panels -->
+              <div id="panel-verification" class="tab-panel"></div>
+            </section>
           </div>
         </div>
       </main>
@@ -124,6 +234,21 @@
         <button
           id="error-ok-btn"
           class="px-6 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+
+    <div
+      id="custom-alert"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
+        <button
+          id="custom-alert-ok"
+          class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
         >
           OK
         </button>

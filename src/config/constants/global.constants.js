@@ -1,0 +1,3 @@
+export const GLOBAL_CONSTANTS = {
+  NOTIFICATION_TIMEOUT: 4000,
+};

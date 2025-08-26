@@ -49,4 +49,20 @@ export const KRAKEN_CONSTANTS = {
 
   // Device limits
   MAX_PRESSURE: 300,
+
+  // Calibration settings
+  SWEEP_OPTIONS: {
+    100: '100',
+    250: '250',
+    300: '300',
+  },
+  TESTER_NAMES: { Gabriel: 'Gabriel' },
+
+  // Default calibration settings
+  DEFAULT_CALIBRATION: {
+    SWEEP_VALUE: 100,
+    TESTER_NAME: '',
+    MAX_DISCREPANCY: 5.0,
+    TOLERANCE: 0.5,
+  },
 };

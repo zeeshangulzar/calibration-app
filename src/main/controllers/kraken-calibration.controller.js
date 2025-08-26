@@ -3,6 +3,11 @@ import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { parsePressureData, discoverWithTimeout } from '../utils/ble.utils.js';
+import { addDelay } from '../../shared/helpers/calibration-helper.js';
+
+// Fluke commands
+import * as FlukeUtil from '../utils/fluke.utils.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Kraken Calibration Controller
@@ -604,14 +609,29 @@ class KrakenCalibrationController {
       if (!this.globalState.areAllDevicesReady()) {
         throw new Error('Not all devices are ready for calibration');
       }
-
-      // TODO: Implement actual calibration logic
       this.sendToRenderer('calibration-started');
 
-      return { success: true };
+      disableBackButton();
+      showStopCalibrationButton();
+      hideResultsButton();
+      clearCalibrationLogs();
+      clearKrakenSweepData();
+
+      await runPreReqs();
+      calibrateAllSensors(this.globalState.connectedDevices);
+
+      await setFlukeToZero();
+      await waitForFlukePressure();
+
+      await subscribeAgainToKrakens(this.globalState.connectedDevices);
+
+      markAsReadyForVerificationProcess();
+      hideStopButton();
+
+      saveDataToDatabase();
     } catch (error) {
       console.error('Error starting calibration:', error);
-      return { success: false, error: error.message };
+      Sentry.captureException(error);
     }
   }
 
@@ -1052,6 +1072,68 @@ class KrakenCalibrationController {
     });
   }
 
+  async runPreReqs() {
+    const commands = [
+      {
+        check: FlukeUtil.flukeCheckOutputStateCommand,
+        validate: response => response === '1',
+        action: FlukeUtil.flukeSetOutputStateCommand,
+        name: 'Output State',
+      },
+      {
+        check: FlukeUtil.flukeCheckOutputPressureModeCommand,
+        validate: response => response.toUpperCase() === 'CONTROL',
+        action: FlukeUtil.flukeSetOutputPressureModeControlCommand,
+        name: 'Output Mode',
+      },
+      {
+        check: FlukeUtil.flukeCheckStaticModeCommand,
+        validate: response => response === '0',
+        action: FlukeUtil.flukeSetStaticModeCommand,
+        name: 'Static Mode',
+      },
+      {
+        check: FlukeUtil.flukeCheckToleranceCommand,
+        validate: response => parseFloat(response) === flukeTolerance,
+        action: FlukeUtil.flukeSetToleranceCommand,
+        name: 'Tolerance',
+      },
+    ];
+
+    for (const command of commands) {
+      if (isCalibrationOrVerificationStopped()) return;
+      await addDelay(1000);
+
+      if (data) {
+        console.log(`Checking ${command.name}...`);
+        showLogOnScreen(`Checking ${command.name}...`);
+
+        const response = await telnet.send(command.check);
+        console.log(`Response for ${command.name}: ${response}`);
+        showLogOnScreen(`Response for ${command.name}: ${response}`);
+
+        if (!command.validate(response)) {
+          console.log(`Setting ${command.name}...`);
+          showLogOnScreen(`Setting ${command.name}...`);
+
+          telnet.send(command.action);
+          await addDelay(1000);
+        } else {
+          console.log(`${command.name} already set correctly.`);
+          showLogOnScreen(`${command.name} already set correctly.`);
+        }
+      } else {
+        stopCalibrationAndEnableBackButton();
+      }
+    }
+
+    console.log('All commands executed.');
+    showLogOnScreen('All commands executed.');
+  }
+
+  isCalibrationOrVerificationStopped() {
+    return !this.globalState.isCalibrationActive || !this.globalState.isVerificationActive;
+  }
   /**
    * Cleanup all resources and connections
    * @returns {Promise<void>}
