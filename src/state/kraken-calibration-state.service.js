@@ -17,6 +17,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.activeSubscriptions = new Map(); // Track active characteristic subscriptions
     this.deviceCharacteristics = new Map(); // Track device characteristics for cleanup
     this.isCalibrationActive = false;
+    this.isVerificationActive = false;
     this.setupQueue = [];
     this.currentSetupIndex = 0;
     this.isSetupInProgress = false;
