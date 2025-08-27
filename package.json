@@ -54,7 +54,8 @@
     "@sentry/electron": "^6.11.0",
     "@sentry/node": "^10.5.0",
     "dotenv": "^16.5.0",
-    "handlebars": "^4.7.8"
+    "handlebars": "^4.7.8",
+    "better-sqlite3": "^11.9.1"
   },
   "build": {
     "appId": "com.smartmonster.calibration.app",
