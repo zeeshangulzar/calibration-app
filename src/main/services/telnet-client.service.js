@@ -13,7 +13,6 @@ class TelnetClientService extends EventEmitter {
     this.isConnected = false;
     this.host = null;
     this.port = null;
-    this.connectionTimeout = 10000; // 10 seconds
     this.responseTimeout = 5000; // 5 seconds
     this.autoReconnect = false;
     this.reconnectAttempts = 0;
@@ -72,17 +71,9 @@ class TelnetClientService extends EventEmitter {
       }
 
       this.client = new net.Socket();
-      this.client.setTimeout(this.connectionTimeout);
-
-      // Connection timeout handler
-      const connectionTimer = setTimeout(() => {
-        this.client.destroy();
-        reject({ success: false, error: 'Connection timeout' });
-      }, this.connectionTimeout);
 
       // Connection successful
       this.client.connect(this.port, this.host, () => {
-        clearTimeout(connectionTimer);
         this.isConnected = true;
         this.reconnectAttempts = 0;
 

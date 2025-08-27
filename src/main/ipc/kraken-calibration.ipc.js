@@ -59,10 +59,11 @@ export function registerKrakenCalibrationIpcHandlers() {
   });
 
   // Calibration operations
-  ipcMain.handle('kraken-calibration-start', async () => {
+  ipcMain.handle('kraken-calibration-start', async (event, sweepValue, testerName) => {
     const error = checkControllerInitialized();
+
     if (error) return error;
-    return await krakenCalibrationController.startCalibration();
+    return await krakenCalibrationController.startCalibration(sweepValue, testerName);
   });
 
   // Status and data retrieval

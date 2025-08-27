@@ -2,8 +2,14 @@ import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+// import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
+import { FLUKE_CONSTANTS } from '../../config/constants/fluke.constants.js';
 import { parsePressureData, discoverWithTimeout } from '../utils/ble.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
+// import { getLocalTimestamp } from '../utils/general.utils.js';
+import { TelnetClientService } from '../services/telnet-client.service.js';
+
+import { UART_service } from '../services/uart-service.js';
 
 // Fluke commands
 import * as FlukeUtil from '../utils/fluke.utils.js';
@@ -26,6 +32,11 @@ class KrakenCalibrationController {
 
     this.initializeServices();
     this.setupEventListeners();
+    this.initializeTelnetClient();
+  }
+
+  initializeTelnetClient() {
+    this.telnetClient = new TelnetClientService();
   }
 
   initializeServices() {
@@ -604,32 +615,44 @@ class KrakenCalibrationController {
    * Start calibration process
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async startCalibration() {
+  async startCalibration(sweepValue, testerName) {
+    this.sweepValue = sweepValue;
+    this.testerName = testerName;
     try {
       if (!this.globalState.areAllDevicesReady()) {
         throw new Error('Not all devices are ready for calibration');
       }
       this.sendToRenderer('calibration-started');
+      this.globalState.isCalibrationActive = true;
+      this.disableBackButton();
+      this.showAndEnableStopCalibrationButton();
+      this.hideResultsButton();
+      this.clearCalibrationLogs();
+      this.clearKrakenSweepData();
 
-      disableBackButton();
-      showStopCalibrationButton();
-      hideResultsButton();
-      clearCalibrationLogs();
-      clearKrakenSweepData();
+      const telnetResponse = await this.connectToTelnet();
 
-      await runPreReqs();
-      calibrateAllSensors(this.globalState.connectedDevices);
+      if (telnetResponse.success) {
+        await this.runPreReqs();
+      }
+      await this.checkZeroPressure();
+      await this.waitForFlukeToReachZeroPressure();
 
-      await setFlukeToZero();
-      await waitForFlukePressure();
+      this.showLogOnScreen('2s delay...');
+      await addDelay(2000);
+      await this.globalState.unSubscribeAllkrakens();
+      await this.calibrateAllSensors();
 
-      await subscribeAgainToKrakens(this.globalState.connectedDevices);
+      await this.checkZeroPressure();
+      await this.waitForFlukeToReachZeroPressure();
+      await this.subscribeAgainToKrakens();
 
-      markAsReadyForVerificationProcess();
-      hideStopButton();
+      // this.markAsReadyForVerificationProcess();
+      // hideStopButton();
 
-      saveDataToDatabase();
+      // saveDataToDatabase();
     } catch (error) {
+      this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
       Sentry.captureException(error);
     }
@@ -1094,41 +1117,183 @@ class KrakenCalibrationController {
       },
       {
         check: FlukeUtil.flukeCheckToleranceCommand,
-        validate: response => parseFloat(response) === flukeTolerance,
+        validate: response => parseFloat(response) === FLUKE_CONSTANTS.TOLERANCE,
         action: FlukeUtil.flukeSetToleranceCommand,
         name: 'Tolerance',
       },
     ];
 
     for (const command of commands) {
-      if (isCalibrationOrVerificationStopped()) return;
+      if (!this.globalState.isCalibrationActive) return;
       await addDelay(1000);
 
-      if (data) {
-        console.log(`Checking ${command.name}...`);
-        showLogOnScreen(`Checking ${command.name}...`);
+      console.log(`Checking ${command.name}...`);
+      this.showLogOnScreen(`Checking ${command.name}...`);
 
-        const response = await telnet.send(command.check);
-        console.log(`Response for ${command.name}: ${response}`);
-        showLogOnScreen(`Response for ${command.name}: ${response}`);
+      const response = await this.telnetClient.sendCommand(command.check);
+      console.log(`Response for ${command.name}: ${response}`);
+      this.showLogOnScreen(`Response for ${command.name}: ${response}`);
 
-        if (!command.validate(response)) {
-          console.log(`Setting ${command.name}...`);
-          showLogOnScreen(`Setting ${command.name}...`);
+      if (!command.validate(response)) {
+        console.log(`Setting ${command.name}...`);
+        this.showLogOnScreen(`Setting ${command.name}...`);
 
-          telnet.send(command.action);
-          await addDelay(1000);
-        } else {
-          console.log(`${command.name} already set correctly.`);
-          showLogOnScreen(`${command.name} already set correctly.`);
-        }
+        await this.telnetClient.sendCommand(command.action);
+        await addDelay(1000);
       } else {
-        stopCalibrationAndEnableBackButton();
+        console.log(`${command.name} already set correctly.`);
+        this.showLogOnScreen(`${command.name} already set correctly.`);
       }
     }
 
     console.log('All commands executed.');
-    showLogOnScreen('All commands executed.');
+    this.showLogOnScreen('All commands executed.');
+  }
+
+  disableBackButton() {
+    this.sendToRenderer('disable-kraken-back-button');
+  }
+
+  showAndEnableStopCalibrationButton() {
+    this.sendToRenderer('show-kraken-stop-calibration-button');
+    this.sendToRenderer('enable-kraken-stop-calibration-button');
+  }
+
+  hideResultsButton() {
+    this.sendToRenderer('hide-kraken-results-button');
+  }
+
+  clearCalibrationLogs() {
+    this.sendToRenderer('clear-kraken-calibration-logs');
+  }
+
+  clearKrakenSweepData() {
+    this.globalState.clearKrakenSweepData();
+  }
+
+  showLogOnScreen(log) {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('kraken-calibration-logs-data', log);
+    } else {
+      console.log('Window is destroyed!');
+    }
+  }
+
+  async connectToTelnet() {
+    let log = '';
+    log = 'Connecting to Telnet server...';
+    this.showLogOnScreen(log);
+    if (this.telnetClient.isConnected) {
+      log = 'Telnet already connected.';
+      this.showLogOnScreen(log);
+      return { success: true, message: log };
+    }
+
+    let response = await this.telnetClient.connect();
+    this.showLogOnScreen(response.message);
+    return response;
+  }
+
+  // check 0 pressure to fluke
+  async checkZeroPressure() {
+    const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
+    const pressure = parseFloat(response).toFixed(1);
+    if (pressure < FLUKE_CONSTANTS.TOLERANCE) {
+      this.showLogOnScreen('Pressure already set to 0');
+    } else {
+      this.setZeroPressureToFluke();
+    }
+  }
+
+  // Set 0 to Fluke
+  setZeroPressureToFluke(silent = false) {
+    if (!silent) {
+      this.showLogOnScreen('Pressure setting to 0 ...');
+    }
+    this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} 0`);
+  }
+
+  async waitForFlukeToReachZeroPressure(silent = false) {
+    return new Promise(resolve => {
+      let check = setInterval(async () => {
+        const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
+        if (response === '16') {
+          if (!silent) {
+            this.showLogOnScreen('Pressure set to 0');
+          }
+          clearInterval(check);
+          resolve();
+        }
+      }, 2000);
+    });
+  }
+
+  async calibrateAllSensors() {
+    await this.sendZeroCommandToAllSensors();
+    await addDelay(2000);
+    await this.sendLowCommandToAllSensors();
+    await addDelay(2000);
+    await this.sendHighCommandToAllSensors();
+    await addDelay(2000);
+    await this.markSensorsAsCalibrated();
+    this.sendToRenderer(`✅ Calibration succeeded for all sensors`);
+  }
+
+  async markSensorsAsCalibrated() {
+    for (const device of this.globalState.getConnectedDevices()) {
+      this.globalState.setDeviceCalibrated(device.id);
+    }
+  }
+
+  async sendZeroCommandToAllSensors() {
+    for (const device of this.globalState.getConnectedDevices()) {
+      await this.writeZeroToSensor(device, device?.advertisement?.localName || device.id);
+      await addDelay(1000);
+    }
+  }
+
+  async sendLowCommandToAllSensors() {
+    for (const device of this.globalState.getConnectedDevices()) {
+      await this.writeLowToSensor(device, device?.advertisement?.localName || device.id);
+      await addDelay(1000);
+    }
+  }
+
+  async sendHighCommandToAllSensors() {
+    for (const device of this.globalState.getConnectedDevices()) {
+      await this.writeHighToSensor(device, device?.advertisement?.localName || device.id);
+      await addDelay(1000);
+    }
+  }
+
+  async writeZeroToSensor(device, name) {
+    this.showLogOnScreen(`Starting psi.calibrate.zero command for ${name}...`);
+    await UART_service(device, 'psi.calibrate.zero');
+    this.showLogOnScreen(`✅ psi.calibrate.zero command completed for ${name}`);
+  }
+
+  async writeLowToSensor(device, name) {
+    this.showLogOnScreen(`Starting psi.calibrate.lower command for ${name}...`);
+    await UART_service(device, 'psi.calibrate.lower', 0);
+    this.showLogOnScreen(`✅ psi.calibrate.lower command completed for ${name}`);
+  }
+
+  async writeHighToSensor(device, name) {
+    this.showLogOnScreen(
+      `Setting max pressure (${this.sweepValue}) to fluke... (for testing we give pressure to sensors from pump manually)`
+    );
+    this.telnetClient.writeCommand(`${FlukeUtil.flukeSetPressureCommand} ${this.sweepValue}\r\n`);
+    await this.waitForFlukeToReachZeroPressure();
+
+    this.showLogOnScreen(`Starting psi.calibrate.upper command for ${name}...`);
+    await UART_service(device, 'psi.calibrate.upper', undefined, this.sweepValue * 1000);
+    this.showLogOnScreen(`✅ psi.calibrate.upper command completed for ${name}`);
+  }
+
+  async subscribeAgainToKrakens() {
+    for (const device of this.globalState.getConnectedDevices()) {
+      await this.globalState.setupDevice(device.id);
+    }
   }
 
   isCalibrationOrVerificationStopped() {
