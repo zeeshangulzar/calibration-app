@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 import noble from '@abandonware/noble';
-import { KRAKEN_CONSTANTS } from '../constants/kraken.constants.js';
+import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 
 class KrakenScannerService extends EventEmitter {
   constructor() {
@@ -9,21 +9,21 @@ class KrakenScannerService extends EventEmitter {
     this.isScanning = false;
     this.scanTimeout = null;
     this.bluetoothState = null;
-    
+
     this.setupNobleEvents();
   }
 
   setupNobleEvents() {
-    noble.on('stateChange', (state) => {
+    noble.on('stateChange', state => {
       this.bluetoothState = state;
       this.emit('bluetoothStateChanged', state);
-      
+
       if (state !== 'poweredOn') {
         this.stopScanning();
       }
     });
 
-    noble.on('discover', (peripheral) => {
+    noble.on('discover', peripheral => {
       this.handleDeviceDiscovery(peripheral);
     });
   }
@@ -33,15 +33,17 @@ class KrakenScannerService extends EventEmitter {
       const deviceId = peripheral.id;
       const deviceName = peripheral.advertisement?.localName || 'Unknown';
       const serviceUuids = peripheral.advertisement?.serviceUuids || [];
-      
+
       // Check if this is a Kraken device
-      const hasKrakenService = serviceUuids.some(uuid => 
-        uuid?.toLowerCase().replace(/-/g, '') === KRAKEN_CONSTANTS.SERVICE_UUID.toLowerCase().replace(/-/g, '')
+      const hasKrakenService = serviceUuids.some(
+        uuid =>
+          uuid?.toLowerCase().replace(/-/g, '') ===
+          KRAKEN_CONSTANTS.SERVICE_UUID.toLowerCase().replace(/-/g, '')
       );
-      
+
       // Also check by device name as fallback (for Windows BLE issues)
       const isKrakenByName = deviceName.toLowerCase().includes('kraken');
-      
+
       if (!hasKrakenService && !isKrakenByName) {
         return;
       }
@@ -57,21 +59,19 @@ class KrakenScannerService extends EventEmitter {
         rssi: peripheral.rssi,
         address: peripheral.address,
         serviceUuids,
-        peripheral
+        peripheral,
       };
 
       // Always update device info for continuous live updates
       const isNewDevice = !this.discoveredDevices.has(deviceId);
       this.discoveredDevices.set(deviceId, deviceInfo);
-      
+
       if (isNewDevice) {
         this.emit('deviceDiscovered', deviceInfo);
       } else {
         // Always emit update for live signal strength (like old app)
         this.emit('deviceUpdated', deviceInfo);
       }
-
-
     } catch (error) {
       console.error('Error handling device discovery:', error);
     }
@@ -89,11 +89,11 @@ class KrakenScannerService extends EventEmitter {
 
       this.isScanning = true;
       this.discoveredDevices.clear();
-      
+
       await noble.startScanningAsync([], true); // Allow duplicates for RSSI updates
-      
+
       this.emit('scanStarted');
-      
+
       return true;
     } catch (error) {
       this.isScanning = false;
@@ -143,7 +143,7 @@ class KrakenScannerService extends EventEmitter {
     return {
       isScanning: this.isScanning,
       bluetoothState: this.bluetoothState,
-      deviceCount: this.discoveredDevices.size
+      deviceCount: this.discoveredDevices.size,
     };
   }
 
@@ -164,4 +164,4 @@ export function getKrakenScanner() {
   return scannerInstance;
 }
 
-export { KrakenScannerService }; 
+export { KrakenScannerService };

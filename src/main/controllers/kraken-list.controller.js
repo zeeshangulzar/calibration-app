@@ -1,7 +1,8 @@
 import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
-import { getSignalStrengthInfo, KRAKEN_CONSTANTS } from '../constants/kraken.constants.js';
+import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import { getSignalStrengthInfo } from '../../shared/helpers/signal-strength.helper.js';
 
 class KrakenListController {
   constructor(mainWindow) {
@@ -260,6 +261,9 @@ class KrakenListController {
 
       this.sendToRenderer('show-loader');
 
+      // Ensure connection service is ready for fresh connections
+      await this.connection.prepareForReconnection();
+
       // Create device info map
       const deviceInfoMap = new Map();
       for (const deviceId of deviceIds) {
@@ -305,14 +309,26 @@ class KrakenListController {
   }
 
   async cleanup() {
-    await this.scanner.cleanup();
-    await this.connection.cleanup();
-    this.selectedDeviceIds.clear();
+    try {
+      // Ensure connection service is properly reset for fresh connections
+      await this.connection.prepareForReconnection();
+
+      // Clean up scanner and other resources
+      await this.scanner.cleanup();
+      await this.connection.cleanup();
+      this.selectedDeviceIds.clear();
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error during kraken list cleanup:', error);
+    }
   }
 
   // Initialize the controller when the window loads
   async initialize() {
     try {
+      // Ensure connection service is ready for fresh connections
+      await this.connection.prepareForReconnection();
+
       // Load the kraken list page
       await this.loadKrakenListPage();
 

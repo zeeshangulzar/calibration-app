@@ -1,7 +1,7 @@
 {
   "name": "sm-calibration",
   "productName": "SmartMonster Calibration",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "description": "Smartmonster Calibration App for Sensors and Meters",
   "main": "src/main/main.js",
   "type": "module",
@@ -51,6 +51,9 @@
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
     "better-sqlite3": "^12.2.0",
+    "@sentry/browser": "^10.5.0",
+    "@sentry/electron": "^6.11.0",
+    "@sentry/node": "^10.5.0",
     "dotenv": "^16.5.0",
     "handlebars": "^4.7.8"
   },

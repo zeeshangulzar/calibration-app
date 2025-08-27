@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { KRAKEN_CONSTANTS } from '../constants/kraken.constants.js';
+import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { discoverWithTimeout } from '../utils/ble.utils.js';
 
 class KrakenConnectionService extends EventEmitter {
@@ -11,10 +11,10 @@ class KrakenConnectionService extends EventEmitter {
 
   async connectToDevice(deviceInfo) {
     const { id, peripheral } = deviceInfo;
-    
+
     try {
       this.emit('connectionStarted', { deviceId: id });
-      
+
       // Check if already connected or connecting
       if (this.isDeviceConnected(id) || this.isDeviceConnecting(id)) {
         return this.getConnectedDevice(id);
@@ -30,36 +30,29 @@ class KrakenConnectionService extends EventEmitter {
 
       // Connect to the peripheral
       await this.connectWithTimeout(peripheral, KRAKEN_CONSTANTS.CONNECTION_TIMEOUT);
-      
-      // Discover services and characteristics
-      const { services, characteristics } = await discoverWithTimeout(peripheral, KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT);
-      
-      // Get device information
-      const deviceDetails = await this.gatherDeviceDetails(services, characteristics, deviceInfo);
-      
+
       // Create connected device object (without Noble objects to avoid cloning issues)
       const connectedDevice = {
         id: deviceInfo.id,
         name: deviceInfo.name,
         address: deviceInfo.address,
         rssi: deviceInfo.rssi,
-        ...deviceDetails,
         connectionState: KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED,
         connectedAt: new Date().toISOString(),
         // Store peripheral reference separately for internal use
-        peripheral: peripheral
+        peripheral: peripheral,
       };
 
       this.connectedDevices.set(id, connectedDevice);
       this.connectionAttempts.delete(id);
-      
 
       this.emit('deviceConnected', connectedDevice);
-      
+
       return connectedDevice;
-      
     } catch (error) {
-      this.connectionAttempts.delete(id);
+      // Use the new error handling method
+      await this.handleConnectionError(id, error, peripheral);
+
       console.error(`Failed to connect to device ${id}:`, error);
       this.emit('connectionFailed', { deviceId: id, error: error.message });
       throw error;
@@ -69,58 +62,62 @@ class KrakenConnectionService extends EventEmitter {
   async connectToMultipleDevices(deviceIds, deviceInfoMap) {
     const results = {
       successful: [],
-      failed: []
+      failed: [],
     };
 
     // Connect to devices sequentially with delays to prevent BLE interference
     for (let i = 0; i < deviceIds.length; i++) {
       const deviceId = deviceIds[i];
-      
+
       const deviceInfo = deviceInfoMap.get(deviceId);
       if (!deviceInfo) {
         console.error(`Device info not found for ${deviceId}`);
-        results.failed.push({ 
-          id: deviceId, 
-          name: 'Unknown', 
-          error: 'Device info not found' 
+        results.failed.push({
+          id: deviceId,
+          name: 'Unknown',
+          error: 'Device info not found',
         });
         continue;
       }
-      
+
       console.log(`Connecting to device ${i + 1}/${deviceIds.length}: ${deviceId}`);
-      this.emit('deviceConnectionStarted', { 
-        deviceId, 
-        currentIndex: i + 1, 
+      this.emit('deviceConnectionStarted', {
+        deviceId,
+        currentIndex: i + 1,
         totalCount: deviceIds.length,
-        deviceName: deviceInfo.name || 'Unknown'
+        deviceName: deviceInfo.name || 'Unknown',
       });
-      
+
       // Try connecting with up to MAX_RETRIES_PER_KRAKEN retries
       let connectedDevice = null;
       let lastError = null;
-      
+
       for (let retry = 0; retry < KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN; retry++) {
         try {
           if (retry > 0) {
-            console.log(`Retry ${retry}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} for device ${deviceId}`);
-            this.emit('deviceConnectionRetry', { 
-              deviceId, 
+            console.log(
+              `Retry ${retry}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} for device ${deviceId}`
+            );
+            this.emit('deviceConnectionRetry', {
+              deviceId,
               retryAttempt: retry + 1,
               maxRetries: KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN,
-              deviceName: deviceInfo.name || 'Unknown'
+              deviceName: deviceInfo.name || 'Unknown',
             });
             // Wait a bit longer between retries
             await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_RETRIES);
           }
-          
+
           connectedDevice = await this.connectToDevice(deviceInfo);
           console.log(`Successfully connected to device: ${deviceId} on attempt ${retry + 1}`);
           break; // Success, exit retry loop
-          
         } catch (error) {
           lastError = error;
-          console.warn(`Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`, error.message);
-          
+          console.warn(
+            `Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`,
+            error.message
+          );
+
           // Clean up any partial connection state
           if (deviceInfo.peripheral) {
             try {
@@ -132,47 +129,57 @@ class KrakenConnectionService extends EventEmitter {
           }
         }
       }
-      
+
       if (connectedDevice) {
         results.successful.push(connectedDevice);
-        this.emit('deviceConnectionSuccess', { 
-          deviceId, 
-          currentIndex: i + 1, 
+        this.emit('deviceConnectionSuccess', {
+          deviceId,
+          currentIndex: i + 1,
           totalCount: deviceIds.length,
-          connectedCount: results.successful.length
+          connectedCount: results.successful.length,
         });
-        
+
         // Add delay after successful connection
         if (i < deviceIds.length - 1) {
-          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection...`);
+          console.log(
+            `Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection...`
+          );
           await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
         }
       } else {
         // All retries failed
-        console.error(`Failed to connect to device ${deviceId} after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} attempts`);
-        results.failed.push({ 
-          ...deviceInfo, 
-          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`
+        console.error(
+          `Failed to connect to device ${deviceId} after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} attempts`
+        );
+        results.failed.push({
+          ...deviceInfo,
+          error: lastError
+            ? lastError.message
+            : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
         });
-        
-        this.emit('deviceConnectionFailed', { 
-          deviceId, 
-          currentIndex: i + 1, 
+
+        this.emit('deviceConnectionFailed', {
+          deviceId,
+          currentIndex: i + 1,
           totalCount: deviceIds.length,
-          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
-          deviceName: deviceInfo.name || 'Unknown'
+          error: lastError
+            ? lastError.message
+            : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
+          deviceName: deviceInfo.name || 'Unknown',
         });
-        
+
         // Still wait before trying next device
         if (i < deviceIds.length - 1) {
-          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection attempt...`);
+          console.log(
+            `Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection attempt...`
+          );
           await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
         }
       }
     }
 
     this.emit('multipleConnectionsComplete', results);
-    
+
     return results;
   }
 
@@ -183,10 +190,9 @@ class KrakenConnectionService extends EventEmitter {
         return;
       }
       await this.disconnectPeripheral(connectedDevice.peripheral);
-      
+
       this.connectedDevices.delete(deviceId);
       this.emit('deviceDisconnected', { deviceId });
-      
     } catch (error) {
       console.error(`Error disconnecting device ${deviceId}:`, error);
       this.emit('disconnectionError', { deviceId, error: error.message });
@@ -196,10 +202,9 @@ class KrakenConnectionService extends EventEmitter {
   async disconnectAll() {
     const connectedIds = Array.from(this.connectedDevices.keys());
 
-    
     const disconnectionPromises = connectedIds.map(id => this.disconnectDevice(id));
     await Promise.allSettled(disconnectionPromises);
-    
+
     this.connectedDevices.clear();
     this.emit('allDevicesDisconnected');
   }
@@ -209,7 +214,7 @@ class KrakenConnectionService extends EventEmitter {
       firmwareVersion: 'Unknown',
       displayName: deviceInfo.name,
       minPressure: 0,
-      maxPressure: 100
+      maxPressure: 100,
     };
 
     try {
@@ -217,7 +222,7 @@ class KrakenConnectionService extends EventEmitter {
       const firmwareChar = characteristics.find(
         c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID
       );
-      
+
       if (firmwareChar) {
         const data = await this.safeReadCharacteristic(firmwareChar);
         if (data && data.length > 0) {
@@ -229,7 +234,7 @@ class KrakenConnectionService extends EventEmitter {
       const nameChar = characteristics.find(
         c => c.uuid === KRAKEN_CONSTANTS.DISPLAY_NAME_CHARACTERISTIC_UUID
       );
-      
+
       if (nameChar) {
         const data = await this.safeReadCharacteristic(nameChar);
         if (data && data.length > 0) {
@@ -239,7 +244,6 @@ class KrakenConnectionService extends EventEmitter {
 
       // Skip pressure characteristics to avoid buffer issues
       // These will be handled during calibration setup if needed
-
     } catch (error) {
       console.warn('Error gathering device details:', error);
     }
@@ -248,7 +252,7 @@ class KrakenConnectionService extends EventEmitter {
   }
 
   async safeReadCharacteristic(characteristic) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const timeout = setTimeout(() => {
         resolve(null);
       }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
@@ -287,8 +291,8 @@ class KrakenConnectionService extends EventEmitter {
 
       peripheral.once('connect', onConnect);
       peripheral.once('disconnect', onDisconnect);
-      
-      peripheral.connect((error) => {
+
+      peripheral.connect(error => {
         if (error) {
           clearTimeout(timeoutId);
           peripheral.removeListener('connect', onConnect);
@@ -306,7 +310,7 @@ class KrakenConnectionService extends EventEmitter {
           reject(new Error('Disconnect timeout'));
         }, KRAKEN_CONSTANTS.DISCONNECT_TIMEOUT);
 
-        peripheral.disconnect((error) => {
+        peripheral.disconnect(error => {
           clearTimeout(timeout);
           if (error) {
             reject(new Error(`Disconnect failed: ${error.message}`));
@@ -338,7 +342,7 @@ class KrakenConnectionService extends EventEmitter {
     return {
       connectedCount: this.connectedDevices.size,
       connectingCount: this.connectionAttempts.size,
-      connectedDeviceIds: Array.from(this.connectedDevices.keys())
+      connectedDeviceIds: Array.from(this.connectedDevices.keys()),
     };
   }
 
@@ -349,6 +353,63 @@ class KrakenConnectionService extends EventEmitter {
   async cleanup() {
     await this.disconnectAll();
     this.removeAllListeners();
+    this.resetState();
+  }
+
+  /**
+   * Reset the connection service state completely
+   * This ensures no stale connections remain when reconnecting to the same devices
+   */
+  resetState() {
+    console.log('Connection service: Resetting state...');
+    this.connectedDevices.clear();
+    this.connectionAttempts.clear();
+    console.log('Connection service: State reset complete');
+  }
+
+  /**
+   * Prepare for reconnection by ensuring clean state
+   * This is called when navigating back to the device list to ensure fresh connections
+   */
+  async prepareForReconnection() {
+    console.log('Connection service: Preparing for reconnection...');
+
+    // Disconnect all current connections
+    await this.disconnectAll();
+
+    // Reset state
+    this.resetState();
+
+    // Allow BLE stack to fully release
+    await this.delay(KRAKEN_CONSTANTS.DELAY_BLE_STACK_RELEASE);
+
+    console.log('Connection service: Ready for reconnection');
+  }
+
+  /**
+   * Handle connection errors more gracefully
+   * This method attempts to recover from common connection issues
+   */
+  async handleConnectionError(deviceId, error, peripheral) {
+    console.log(`Connection service: Handling error for device ${deviceId}:`, error.message);
+
+    try {
+      // Attempt to disconnect the peripheral if it's in a bad state
+      if (peripheral && (peripheral.state === 'connected' || peripheral.state === 'connecting')) {
+        await this.disconnectPeripheral(peripheral);
+        await this.delay(1000); // Wait for clean disconnect
+      }
+
+      // Remove any stale connection attempts
+      this.connectionAttempts.delete(deviceId);
+
+      console.log(`Connection service: Error handling completed for device ${deviceId}`);
+    } catch (cleanupError) {
+      console.warn(
+        `Connection service: Error during error handling for device ${deviceId}:`,
+        cleanupError.message
+      );
+    }
   }
 }
 
@@ -362,4 +423,4 @@ export function getKrakenConnection() {
   return connectionInstance;
 }
 
-export { KrakenConnectionService }; 
+export { KrakenConnectionService };
