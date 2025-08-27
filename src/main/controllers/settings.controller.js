@@ -108,19 +108,6 @@ class SettingsController {
   }
 
   /**
-   * Disconnect from Fluke device
-   * @returns {Object} Disconnect result
-   */
-  async disconnectFromFluke() {
-    try {
-      return await this.telnetClient.disconnect();
-    } catch (error) {
-      console.error('Error disconnecting from Fluke:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
    * Send command to Fluke device
    * @param {string} command - Command to send
    * @returns {Object} Command result
