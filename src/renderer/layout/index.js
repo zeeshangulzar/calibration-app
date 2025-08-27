@@ -10,6 +10,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Add click handler for Settings button
+  const settingsBtn = document.getElementById("settingsBtn");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      if (window.electronAPI && window.electronAPI.loadSettings) {
+        window.electronAPI.loadSettings();
+      }
+    });
+  }
 });
 
 window.electronAPI.onShowAppVersion(version => {
