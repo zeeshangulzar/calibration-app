@@ -2,6 +2,7 @@
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
 import { populateSelectOptions } from '../../shared/helpers/ui-helper.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import { getLocalTimestamp } from '../../main/utils/general.utils.js';
 
 const connectedDevices = new Map();
 let allDevicesReady = false;
@@ -29,10 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (allDevicesReady) {
         try {
-          const result = await window.electronAPI.krakenCalibrationStart();
-          if (!result.success) {
-            NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
-          }
+          const result = await window.electronAPI.krakenCalibrationStart(sweepValue, testerName);
+          // if (!result.success) {
+          //   NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
+          // }
         } catch (error) {
           NotificationHelper.showError(`Error starting calibration: ${error.message}`);
         }
@@ -260,6 +261,21 @@ window.electronAPI.onDeviceDisconnected(data => {
 window.electronAPI.onCalibrationStarted(() => {
   // Handle calibration start
   NotificationHelper.showInfo('Calibration started successfully!');
+});
+
+window.electronAPI.onKrakenCalibrationLogsData(log => {
+  const logContainer = document.getElementById('log-messages');
+
+  const newLog = document.createElement('p');
+  newLog.className = 'font-mono';
+  newLog.textContent = `[${getLocalTimestamp()}] ${log}`;
+  logContainer.appendChild(newLog);
+
+  // Auto-scroll to bottom
+  const scrollContainer = document.getElementById('calibration-log-content');
+  if (scrollContainer) {
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }
 });
 
 // Initialize device widgets in the grid

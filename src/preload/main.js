@@ -96,7 +96,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('kraken-calibration-reconnect-device', deviceId),
   krakenCalibrationDisconnectDevice: deviceId =>
     ipcRenderer.invoke('kraken-calibration-disconnect-device', deviceId),
-  krakenCalibrationStart: () => ipcRenderer.invoke('kraken-calibration-start'),
+  krakenCalibrationStart: (sweepValue, testerName) =>
+    ipcRenderer.invoke('kraken-calibration-start', sweepValue, testerName),
   krakenCalibrationGetStatus: () => ipcRenderer.invoke('kraken-calibration-get-status'),
   krakenCalibrationGoBack: () => ipcRenderer.send('kraken-calibration-go-back'),
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
@@ -196,4 +197,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFlukeResponse: callback => ipcRenderer.on('fluke-response', (event, data) => callback(data)),
   onCommandHistoryCleared: callback =>
     ipcRenderer.on('command-history-cleared', event => callback()),
+
+  // Kraken Calibration
+  onKrakenCalibrationLogsData: callback =>
+    ipcRenderer.on('kraken-calibration-logs-data', (event, data) => callback(data)),
 });

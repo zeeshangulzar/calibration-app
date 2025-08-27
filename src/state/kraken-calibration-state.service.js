@@ -16,6 +16,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.deviceRetryCount = new Map(); // Track retry attempts per device
     this.activeSubscriptions = new Map(); // Track active characteristic subscriptions
     this.deviceCharacteristics = new Map(); // Track device characteristics for cleanup
+    this.deviceSweepData = new Map(); // Track device sweep data
     this.isCalibrationActive = false;
     this.isVerificationActive = false;
     this.setupQueue = [];
@@ -28,6 +29,9 @@ class KrakenCalibrationStateService extends EventEmitter {
     // Retry settings (like old app)
     this.maxRetries = 3;
     this.baseDelay = 2000;
+
+    // Kraken sweep selection
+    this.sweepMaxValue = null;
   }
 
   // Set the current connected devices
@@ -37,6 +41,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.deviceRetryCount.clear();
     this.activeSubscriptions.clear();
     this.deviceCharacteristics.clear();
+    this.deviceSweepData.clear();
 
     devices.forEach(device => {
       this.connectedDevices.set(device.id, device);
@@ -53,7 +58,7 @@ class KrakenCalibrationStateService extends EventEmitter {
 
     this.setupQueue = devices.map(d => d.id);
     this.currentSetupIndex = 0;
-    this.isCalibrationActive = true;
+    // this.isCalibrationActive = true;
 
     console.log(`Global state: Set ${devices.length} connected devices`);
   }
@@ -454,6 +459,35 @@ class KrakenCalibrationStateService extends EventEmitter {
 
   async addDelay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  clearKrakenSweepData() {
+    this.deviceSweepData.clear();
+  }
+
+  async unSubscribeAllkrakens() {
+    const subscriptionCleanupPromises = [];
+    for (const deviceId of this.activeSubscriptions.keys()) {
+      subscriptionCleanupPromises.push(this.cleanupDeviceSubscription(deviceId));
+    }
+
+    if (subscriptionCleanupPromises.length > 0) {
+      await Promise.allSettled(subscriptionCleanupPromises);
+      console.log('Global state: All subscriptions cleaned up');
+    }
+  }
+
+  setDeviceCalibrated(deviceId, value = true) {
+    const device = this.connectedDevices.get(deviceId);
+    if (device) {
+      device.isCalibrated = value;
+      this.connectedDevices.set(deviceId, device);
+    }
+  }
+
+  isDeviceCalibrated(deviceId) {
+    const device = this.connectedDevices.get(deviceId);
+    return device ? !!device.isCalibrated : false;
   }
 }
 
