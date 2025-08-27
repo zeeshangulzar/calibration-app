@@ -151,4 +151,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateCalibrationButtonState: callback =>
     ipcRenderer.on('update-calibration-button-state', (event, data) => callback(data)),
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', event => callback()),
+
+  //======== Settings APIs ========
+  loadSettings: () => ipcRenderer.send('load-settings'),
+  settingsGoBack: () => ipcRenderer.send('settings-go-back'),
+
+  // Fluke settings (backward compatibility)
+  getFlukeSettings: () => ipcRenderer.invoke('settings-get-fluke-settings'),
+  saveFlukeSettings: (ip, port) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port),
+
+  // Database operations (new API)
+  db: {
+    getFlukeSettings: () => ipcRenderer.invoke('db:get-fluke-settings'),
+    saveFlukeSettings: (ip, port) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port }),
+    addCommandToHistory: (type, content, relatedCommand) =>
+      ipcRenderer.invoke('db:add-command-to-history', { type, content, relatedCommand }),
+    getCommandHistory: limit => ipcRenderer.invoke('db:get-command-history', { limit }),
+    clearCommandHistory: () => ipcRenderer.invoke('db:clear-command-history'),
+  },
+
+  // Fluke connection
+  testFlukeConnection: () => ipcRenderer.invoke('settings-test-fluke-connection'),
+  connectFluke: () => ipcRenderer.invoke('settings-connect-fluke'),
+  disconnectFluke: () => ipcRenderer.invoke('settings-disconnect-fluke'),
+  getFlukeStatus: () => ipcRenderer.invoke('settings-get-fluke-status'),
+
+  // Fluke commands
+  sendFlukeCommand: command => ipcRenderer.invoke('settings-send-fluke-command', command),
+  getCommandHistory: limit => ipcRenderer.invoke('settings-get-command-history', limit),
+  clearCommandHistory: () => ipcRenderer.invoke('settings-clear-command-history'),
+
+  // Settings event listeners
+  onSettingsLoaded: callback =>
+    ipcRenderer.on('settings-loaded', (event, settings) => callback(settings)),
+  onSettingsSaved: callback =>
+    ipcRenderer.on('settings-saved', (event, settings) => callback(settings)),
+  onFlukeConnected: callback => ipcRenderer.on('fluke-connected', (event, data) => callback(data)),
+  onFlukeDisconnected: callback => ipcRenderer.on('fluke-disconnected', event => callback()),
+  onFlukeError: callback => ipcRenderer.on('fluke-error', (event, data) => callback(data)),
+  onFlukeTestResult: callback =>
+    ipcRenderer.on('fluke-test-result', (event, result) => callback(result)),
+  onFlukeCommandSent: callback =>
+    ipcRenderer.on('fluke-command-sent', (event, data) => callback(data)),
+  onFlukeResponse: callback => ipcRenderer.on('fluke-response', (event, data) => callback(data)),
+  onCommandHistoryCleared: callback =>
+    ipcRenderer.on('command-history-cleared', event => callback()),
 });
