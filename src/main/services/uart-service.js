@@ -20,129 +20,403 @@ import {
   UART_TIMEOUT_MS,
 } from '../../config/constants/uart.constants.js';
 
-let mainWindowObj;
-let deviceCalibrateLogsArr;
+/**
+ * UART Service Configuration
+ */
+const CONFIG = {
+  MAX_RETRY_ATTEMPTS: 3,
+  RETRY_DELAY_MS: 1000,
+  INITIAL_DELAY_MS: 3000,
+  COMMAND_TIMEOUT_MS: UART_TIMEOUT_MS || 10000,
+  BACKOFF_MULTIPLIER: 1.5,
+};
 
-async function UART_service(
-  mainWindow,
-  deviceCalibrateLogs,
-  peripheral,
-  command,
-  minPressure = 0,
-  maxPressure = 0
-) {
-  mainWindowObj = mainWindow;
-  deviceCalibrateLogsArr = deviceCalibrateLogs;
-  let commandData;
-  let rawData;
-  console.log(`Executing command: ${command}`);
-  await addDelay(3000);
-
-  return new Promise(async (resolve, reject) => {
-    try {
-      switch (command) {
-        case 'mem.localname.set':
-          const newDeviceName = 'Kraken 1.5';
-          commandData = { localName: newDeviceName };
-          rawData = createWriteNameCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          resolve(); // Resolve after execution
-          break;
-
-        case 'mem.localname.get':
-          commandData = {};
-          rawData = createReadNameCommand(commandData);
-          await executeGetCommand(peripheral, rawData);
-          resolve();
-          break;
-
-        case 'psi.calibrate.zero':
-          commandData = {};
-          rawData = createZeroOffestWriteCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          resolve();
-          break;
-
-        case 'psi.calibrate.upper':
-          const upperPressure = maxPressure;
-          commandData = { measuredPressure_PSIG: upperPressure };
-          rawData = createCalibMaxPressureWriteCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          mainWindow.webContents.send(
-            'calibration-logs-data',
-            `Set upper pressure calibration value ${maxPressure} mPSIG`
-          );
-          resolve();
-          break;
-
-        case 'psi.calibrate.lower':
-          const lowerPressure = minPressure;
-          commandData = { measuredPressure_PSIG: lowerPressure };
-          rawData = createCalibMinPressureWriteCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          mainWindow.webContents.send(
-            'calibration-logs-data',
-            `Set lower pressure calibration value ${minPressure} mPSIG`
-          );
-          resolve();
-          break;
-
-        case 'psi.calibrate.ram.get':
-          commandData = {};
-          rawData = createCalibRamWriteCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          resolve();
-          break;
-
-        case 'mem.calibrate.flash.get':
-          commandData = {};
-          rawData = createCalibFlashWriteCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          resolve();
-          break;
-
-        case 'con.softreset':
-          commandData = {};
-          rawData = createSoftResetCommand(commandData);
-          await executeSetCommand(peripheral, rawData, command);
-          resolve();
-          break;
-
-        default:
-          reject(new Error('Unknown command'));
-          break;
-      }
-    } catch (error) {
-      reject(error); // Reject if an error occurs
-    }
-  });
+/**
+ * Custom error classes for better error handling
+ */
+class UARTError extends Error {
+  constructor(message, code, retryable = true) {
+    super(message);
+    this.name = 'UARTError';
+    this.code = code;
+    this.retryable = retryable;
+  }
 }
 
-// Device Name
+class UARTTimeoutError extends UARTError {
+  constructor(command, timeoutMs) {
+    super(`Command '${command}' timed out after ${timeoutMs}ms`, 'TIMEOUT');
+  }
+}
+
+class UARTValidationError extends UARTError {
+  constructor(message) {
+    super(message, 'VALIDATION', false);
+  }
+}
+
+/**
+ * Command registry for better organization
+ */
+const COMMAND_REGISTRY = {
+  'mem.localname.set': {
+    createCommand: createWriteNameCommand,
+    responseHandler: null,
+    requiresResponse: true,
+    serverId: SID_MEMORY_MANAGER,
+  },
+  'mem.localname.get': {
+    createCommand: createReadNameCommand,
+    responseHandler: readNameResponse,
+    requiresResponse: true,
+    serverId: SID_MEMORY_MANAGER,
+  },
+  'psi.calibrate.zero': {
+    createCommand: createZeroOffestWriteCommand,
+    responseHandler: readZeroOffsetResponse,
+    requiresResponse: true,
+    serverId: SID_PRESSURE_SENSOR,
+  },
+  'psi.calibrate.upper': {
+    createCommand: createCalibMaxPressureWriteCommand,
+    responseHandler: readUpperCalibPressureResponse,
+    requiresResponse: true,
+    serverId: SID_PRESSURE_SENSOR,
+  },
+  'psi.calibrate.lower': {
+    createCommand: createCalibMinPressureWriteCommand,
+    responseHandler: readLowerCalibPressureResponse,
+    requiresResponse: true,
+    serverId: SID_PRESSURE_SENSOR,
+  },
+  'psi.calibrate.ram.get': {
+    createCommand: createCalibRamWriteCommand,
+    responseHandler: readCalibRamResponse,
+    requiresResponse: true,
+    serverId: SID_PRESSURE_SENSOR,
+  },
+  'mem.calibrate.flash.get': {
+    createCommand: createCalibFlashWriteCommand,
+    responseHandler: readCalibFlashResponse,
+    requiresResponse: true,
+    serverId: SID_MEMORY_MANAGER,
+  },
+  'con.softreset': {
+    createCommand: createSoftResetCommand,
+    responseHandler: null,
+    requiresResponse: false,
+    serverId: SID_CONTROL,
+  },
+};
+
+/**
+ * Main UART Service Class
+ */
+class UARTService {
+  constructor(mainWindow) {
+    this.mainWindow = mainWindow;
+    this.deviceCalibrateLogs = [];
+    this.isConnected = false;
+  }
+
+  /**
+   * Execute a command with retry mechanism
+   */
+  async executeCommand(peripheral, command, options = {}) {
+    const { minPressure = 0, maxPressure = 0, retryAttempts = CONFIG.MAX_RETRY_ATTEMPTS } = options;
+
+    if (!COMMAND_REGISTRY[command]) {
+      throw new UARTValidationError(`Unknown command: ${command}`);
+    }
+
+    console.log(`Executing command: ${command}`);
+    await addDelay(CONFIG.INITIAL_DELAY_MS);
+
+    return this.executeWithRetry(
+      () => this._executeCommandInternal(peripheral, command, { minPressure, maxPressure }),
+      retryAttempts,
+      command
+    );
+  }
+
+  /**
+   * Internal command execution logic
+   */
+  async _executeCommandInternal(peripheral, command, { minPressure, maxPressure }) {
+    const commandConfig = COMMAND_REGISTRY[command];
+    const commandData = this._prepareCommandData(command, { minPressure, maxPressure });
+    const rawData = commandConfig.createCommand(commandData);
+
+    return this._communicateWithDevice(peripheral, command, rawData, commandConfig);
+  }
+
+  /**
+   * Prepare command data based on command type
+   */
+  _prepareCommandData(command, { minPressure, maxPressure }) {
+    switch (command) {
+      case 'mem.localname.set':
+        return { localName: 'Kraken 1.5' };
+      case 'psi.calibrate.upper':
+        return { measuredPressure_PSIG: maxPressure };
+      case 'psi.calibrate.lower':
+        return { measuredPressure_PSIG: minPressure };
+      default:
+        return {};
+    }
+  }
+
+  /**
+   * Execute function with retry mechanism and exponential backoff
+   */
+  async executeWithRetry(fn, maxAttempts, context = '') {
+    let lastError;
+    let delay = CONFIG.RETRY_DELAY_MS;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/${maxAttempts} for ${context}`);
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        console.warn(`Attempt ${attempt} failed for ${context}:`, error.message);
+
+        // Don't retry non-retryable errors
+        if (error instanceof UARTError && !error.retryable) {
+          throw error;
+        }
+
+        // If this was the last attempt, throw the error
+        if (attempt === maxAttempts) {
+          break;
+        }
+
+        // Wait before retrying with exponential backoff
+        console.log(`Retrying in ${delay}ms...`);
+        await addDelay(delay);
+        delay *= CONFIG.BACKOFF_MULTIPLIER;
+      }
+    }
+
+    throw new UARTError(
+      `Command failed after ${maxAttempts} attempts. Last error: ${lastError.message}`,
+      'MAX_RETRIES_EXCEEDED'
+    );
+  }
+
+  /**
+   * Handle BLE communication with device
+   */
+  async _communicateWithDevice(peripheral, command, rawData, commandConfig) {
+    const { services, characteristics } = await this._discoverServices(peripheral);
+    const { rxCharacteristic, txCharacteristic } = await this._getCharacteristics(
+      services,
+      characteristics
+    );
+
+    if (!commandConfig.requiresResponse) {
+      return this._writeCommand(rxCharacteristic, rawData, command);
+    }
+
+    return this._writeCommandWithResponse(
+      rxCharacteristic,
+      txCharacteristic,
+      rawData,
+      command,
+      commandConfig
+    );
+  }
+
+  /**
+   * Discover BLE services with validation
+   */
+  async _discoverServices(peripheral) {
+    try {
+      const { services, characteristics } = await discoverWithTimeout(peripheral);
+
+      if (!services || !characteristics) {
+        throw new UARTError('No services or characteristics found', 'DISCOVERY_FAILED');
+      }
+
+      return { services, characteristics };
+    } catch (error) {
+      throw new UARTError(`Service discovery failed: ${error.message}`, 'DISCOVERY_FAILED');
+    }
+  }
+
+  /**
+   * Get required BLE characteristics
+   */
+  async _getCharacteristics(services, characteristics) {
+    const nusService = services.find(s => s.uuid === NUS_SERVICE_UUID);
+    if (!nusService) {
+      throw new UARTError('NUS service not found', 'SERVICE_NOT_FOUND');
+    }
+
+    const rxCharacteristic = characteristics.find(char => char.uuid === NUS_RX_CHARACTERISTIC_UUID);
+    const txCharacteristic = characteristics.find(char => char.uuid === NUS_TX_CHARACTERISTIC_UUID);
+
+    if (!rxCharacteristic) {
+      throw new UARTError('RX characteristic not found', 'CHARACTERISTIC_NOT_FOUND');
+    }
+
+    if (!txCharacteristic) {
+      throw new UARTError('TX characteristic not found', 'CHARACTERISTIC_NOT_FOUND');
+    }
+
+    return { rxCharacteristic, txCharacteristic };
+  }
+
+  /**
+   * Write command without expecting response
+   */
+  async _writeCommand(rxCharacteristic, rawData, command) {
+    return new Promise((resolve, reject) => {
+      rxCharacteristic.write(Buffer.from(rawData), false, err => {
+        if (err) {
+          reject(new UARTError(`Write error for command '${command}': ${err}`, 'WRITE_FAILED'));
+        } else {
+          console.log(`Command '${command}' written successfully`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Write command and wait for response
+   */
+  async _writeCommandWithResponse(
+    rxCharacteristic,
+    txCharacteristic,
+    rawData,
+    command,
+    commandConfig
+  ) {
+    return new Promise((resolve, reject) => {
+      let timeout;
+      let isResolved = false;
+
+      const cleanup = error => {
+        if (isResolved) return;
+        isResolved = true;
+
+        if (timeout) clearTimeout(timeout);
+
+        txCharacteristic.unsubscribe(err => {
+          if (err) console.warn('Error unsubscribing from txCharacteristic:', err);
+        });
+
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+
+      // Set up timeout
+      timeout = setTimeout(() => {
+        cleanup(new UARTTimeoutError(command, CONFIG.COMMAND_TIMEOUT_MS));
+      }, CONFIG.COMMAND_TIMEOUT_MS);
+
+      // Subscribe to responses
+      txCharacteristic.subscribe(err => {
+        if (err) {
+          return cleanup(new UARTError(`Subscribe failed: ${err}`, 'SUBSCRIBE_FAILED'));
+        }
+
+        console.log(`Subscribed to TX for command: ${command}`);
+
+        txCharacteristic.once('data', data => {
+          try {
+            console.log(`Received response for '${command}':`, data);
+            const response = this._processResponse(data, command, commandConfig);
+            cleanup();
+          } catch (error) {
+            cleanup(
+              new UARTError(`Response processing failed: ${error.message}`, 'RESPONSE_FAILED')
+            );
+          }
+        });
+
+        // Write the command
+        rxCharacteristic.write(Buffer.from(rawData), false, err => {
+          if (err) {
+            cleanup(new UARTError(`Write error for command '${command}': ${err}`, 'WRITE_FAILED'));
+          } else {
+            console.log(`Command '${command}' written, awaiting response`);
+          }
+        });
+      });
+    });
+  }
+
+  /**
+   * Process device response based on command type
+   */
+  _processResponse(data, command, commandConfig) {
+    if (!commandConfig.responseHandler) {
+      return null;
+    }
+
+    const response = commandConfig.responseHandler(data);
+
+    // Handle specific command responses
+    switch (command) {
+      case 'psi.calibrate.upper':
+        this._sendCalibrationLog(`Set upper pressure calibration value`);
+        break;
+      case 'psi.calibrate.lower':
+        this._sendCalibrationLog(`Set lower pressure calibration value`);
+        break;
+      case 'psi.calibrate.ram.get':
+      case 'mem.calibrate.flash.get':
+        this._sendCalibrationLog(JSON.stringify(response));
+        break;
+    }
+
+    return response;
+  }
+
+  /**
+   * Send calibration log to main window
+   */
+  _sendCalibrationLog(message) {
+    if (this.mainWindow && this.mainWindow.webContents) {
+      this.mainWindow.webContents.send('calibration-logs-data', message);
+    }
+  }
+
+  /**
+   * Get connection status
+   */
+  getConnectionStatus() {
+    return this.isConnected;
+  }
+
+  /**
+   * Set connection status
+   */
+  setConnectionStatus(status) {
+    this.isConnected = status;
+  }
+}
+
+// Command creation functions (unchanged from original)
 function createWriteNameCommand(data) {
   let index = 0;
   const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_SET_LOCAL_BLE_NAME >> 8) & 0xff;
-  index += 1;
-  retData[index] = (CID_SET_LOCAL_BLE_NAME >> 0) & 0xff;
-  index += 1;
+  retData[index++] = (CID_SET_LOCAL_BLE_NAME >> 8) & 0xff;
+  retData[index++] = (CID_SET_LOCAL_BLE_NAME >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
 
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
-  index += 1;
-
-  // --- DATA (localName, STR16) ---
   const charArray = Array.from(data.localName);
   charArray.forEach(c => {
-    retData[index] = c.charCodeAt(0);
-    index += 1;
+    retData[index++] = c.charCodeAt(0);
   });
 
-  // --- SERVER ID ---
   retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER;
-
   return retData;
 }
 
@@ -150,530 +424,262 @@ function createReadNameCommand(data) {
   let index = 0;
   const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_GET_LOCAL_BLE_NAME >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_GET_LOCAL_BLE_NAME >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the entire packet
-  index += 1;
-
-  // --- DATA ---
-  // Leave any zero's as padding (no data here)
-
-  // --- SERVER ID ---
-  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER; // Server ID
+  retData[index++] = (CID_GET_LOCAL_BLE_NAME >> 8) & 0xff;
+  retData[index++] = (CID_GET_LOCAL_BLE_NAME >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER;
 
   return retData;
 }
 
 function readNameResponse(data) {
-  // Find the start of the name (typically after the command ID and length bytes)
-  const nameStart = 3; // The name starts after the first 3 bytes (command ID and length)
-  // Find the end of the name (the first 0x00 byte represents the end of the name)
+  const nameStart = 3;
   let nameEnd = nameStart;
   while (data[nameEnd] !== 0x00 && nameEnd < data.length) {
     nameEnd++;
   }
-  // Extract the part of the buffer that represents the human-readable string
-  const name = data.slice(nameStart, nameEnd).toString('utf8').trim(); // Start from byte 3 to byte 13 (ignoring the header and padding)
+  const name = data.slice(nameStart, nameEnd).toString('utf8').trim();
   console.log('Read Kraken Name:', name);
+  return { name };
 }
 
-// Zero Offset
 function createZeroOffestWriteCommand(data) {
   let index = 0;
   const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_PRESSURE_CALIB_ZERO_OFFSET >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_PRESSURE_CALIB_ZERO_OFFSET >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the entire packet
-  index += 1;
-
-  // --- DATA ---
-  // Leave any zero's as padding (no data here)
-
-  // --- SERVER ID ---
-  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR; // Server ID
-
-  return retData;
-}
-
-function readZeroOffsetResponse(data) {
-  // Command ID check: Combine the first two bytes (high byte + low byte)
-  const commandId = (data[0] << 8) | data[1];
-  if (commandId !== CID_PRESSURE_CALIB_ZERO_OFFSET) {
-    console.error('Unexpected command ID:', commandId);
-    return;
-  }
-
-  // Server ID check
-  const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
-  if (serverId !== SID_PRESSURE_SENSOR) {
-    console.error('Unexpected server ID:', serverId);
-    return;
-  }
-
-  // Extract zeroOffsetValue (UINT16)
-  let index = 3; // Start after the first 3 bytes (command ID and length)
-  let zeroOffsetValue = data[index];
-  index += 1;
-  zeroOffsetValue = (zeroOffsetValue << 8) | data[index]; // Combine the next byte to form the full 16-bit value
-
-  // Return the result as an object
-  const retData = {
-    zeroOffsetValue: zeroOffsetValue, // Uint16 value
-  };
-
-  console.log('Response Zero Offest:', retData);
-}
-
-// Max Pressure
-function createCalibMaxPressureWriteCommand(data) {
-  const ret_data = new Array(20).fill(0);
-  let index = 0;
-
-  // --- COMMAND ID ---
-  ret_data[index++] = (CID_PRESSURE_CALIB_UPPER >> 8) & 0xff;
-  ret_data[index++] = (CID_PRESSURE_CALIB_UPPER >> 0) & 0xff;
-
-  // --- LENGTH ---
-  ret_data[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
-
-  // --- DATA ---
-  const measured = data.measuredPressure_PSIG;
-
-  ret_data[index++] = (measured >> 24) & 0xff;
-  ret_data[index++] = (measured >> 16) & 0xff;
-  ret_data[index++] = (measured >> 8) & 0xff;
-  ret_data[index++] = measured & 0xff;
-
-  // --- SERVER ID ---
-  ret_data[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR;
-
-  return ret_data;
-}
-
-function readUpperCalibPressureResponse(rawData) {
-  const commandId = (rawData[0] << 8) | rawData[1];
-  if (commandId !== CID_PRESSURE_CALIB_UPPER) {
-    throw new Error(
-      `Unexpected command ID: ${commandId} (expected ${CID_PRESSURE_CALIB_UPPER}) while reading upper calibration pressure response`
-    );
-  }
-
-  // Validate server ID
-  const serverId = rawData[STANDARD_PACKET_SERVER_ID_INDEX];
-  if (serverId !== SID_PRESSURE_SENSOR) {
-    throw new Error(
-      `Unexpected server ID: ${serverId} (expected ${SID_PRESSURE_SENSOR}) while reading upper calibration pressure response`
-    );
-  }
-
-  // Extract rawValue (UINT16, Big-Endian)
-  let index = 3;
-  let rawValue = (rawData[index] << 8) | rawData[index + 1];
-  index += 2;
-
-  return { rawValue };
-}
-
-// Min Pressure
-function createCalibMinPressureWriteCommand(data) {
-  // Initialize an array of 20 elements filled with 0
-  const retData = new Array(20).fill(0);
-  let index = 0;
-
-  // --- COMMAND ID ---
-  retData[index] = (CID_PRESSURE_CALIB_LOWER >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_PRESSURE_CALIB_LOWER >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-  index += 1;
-
-  // --- DATA (measuredPressure_PSIG - INT16) ---
-  const measuredPressure_PSIG = data.measuredPressure_PSIG;
-
-  // Split the 16-bit measuredPressure_PSIG into two bytes
-  retData[index] = (measuredPressure_PSIG >> 8) & 0xff; // High byte
-  index += 1;
-  retData[index] = measuredPressure_PSIG & 0xff; // Low byte
-  index += 1;
-
-  // --- SERVER ID ---
-
+  retData[index++] = (CID_PRESSURE_CALIB_ZERO_OFFSET >> 8) & 0xff;
+  retData[index++] = (CID_PRESSURE_CALIB_ZERO_OFFSET >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
   retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR;
 
   return retData;
 }
 
-function readLowerCalibPressureResponse(data) {
-  // Command ID check: Combine the first two bytes (high byte + low byte)
+function readZeroOffsetResponse(data) {
   const commandId = (data[0] << 8) | data[1];
-  if (commandId !== CID_PRESSURE_CALIB_LOWER) {
-    console.error('Unexpected command ID:', commandId);
-    return;
+  if (commandId !== CID_PRESSURE_CALIB_ZERO_OFFSET) {
+    throw new UARTValidationError(`Unexpected command ID: ${commandId}`);
   }
 
-  // Server ID check
   const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
   if (serverId !== SID_PRESSURE_SENSOR) {
-    console.error('Unexpected server ID:', serverId);
-    return;
+    throw new UARTValidationError(`Unexpected server ID: ${serverId}`);
   }
 
-  // Extract rawValue (UINT16)
-  let index = 3; // Start after the first 3 bytes (command ID and length)
+  let index = 3;
+  let zeroOffsetValue = data[index];
+  index += 1;
+  zeroOffsetValue = (zeroOffsetValue << 8) | data[index];
+
+  const retData = { zeroOffsetValue };
+  console.log('Response Zero Offset:', retData);
+  return retData;
+}
+
+function createCalibMaxPressureWriteCommand(data) {
+  const retData = new Array(20).fill(0);
+  let index = 0;
+
+  retData[index++] = (CID_PRESSURE_CALIB_UPPER >> 8) & 0xff;
+  retData[index++] = (CID_PRESSURE_CALIB_UPPER >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+
+  const measured = data.measuredPressure_PSIG;
+  retData[index++] = (measured >> 24) & 0xff;
+  retData[index++] = (measured >> 16) & 0xff;
+  retData[index++] = (measured >> 8) & 0xff;
+  retData[index++] = measured & 0xff;
+
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR;
+  return retData;
+}
+
+function readUpperCalibPressureResponse(rawData) {
+  const commandId = (rawData[0] << 8) | rawData[1];
+  if (commandId !== CID_PRESSURE_CALIB_UPPER) {
+    throw new UARTValidationError(
+      `Unexpected command ID: ${commandId} (expected ${CID_PRESSURE_CALIB_UPPER})`
+    );
+  }
+
+  const serverId = rawData[STANDARD_PACKET_SERVER_ID_INDEX];
+  if (serverId !== SID_PRESSURE_SENSOR) {
+    throw new UARTValidationError(
+      `Unexpected server ID: ${serverId} (expected ${SID_PRESSURE_SENSOR})`
+    );
+  }
+
+  let index = 3;
+  let rawValue = (rawData[index] << 8) | rawData[index + 1];
+
+  return { rawValue };
+}
+
+function createCalibMinPressureWriteCommand(data) {
+  const retData = new Array(20).fill(0);
+  let index = 0;
+
+  retData[index++] = (CID_PRESSURE_CALIB_LOWER >> 8) & 0xff;
+  retData[index++] = (CID_PRESSURE_CALIB_LOWER >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+
+  const measuredPressure_PSIG = data.measuredPressure_PSIG;
+  retData[index++] = (measuredPressure_PSIG >> 8) & 0xff;
+  retData[index++] = measuredPressure_PSIG & 0xff;
+
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR;
+  return retData;
+}
+
+function readLowerCalibPressureResponse(data) {
+  const commandId = (data[0] << 8) | data[1];
+  if (commandId !== CID_PRESSURE_CALIB_LOWER) {
+    throw new UARTValidationError(`Unexpected command ID: ${commandId}`);
+  }
+
+  const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
+  if (serverId !== SID_PRESSURE_SENSOR) {
+    throw new UARTValidationError(`Unexpected server ID: ${serverId}`);
+  }
+
+  let index = 3;
   let rawValue = data[index];
   index += 1;
-  rawValue = (rawValue << 8) | data[index]; // Combine the next byte to form the full 16-bit value
+  rawValue = (rawValue << 8) | data[index];
 
-  // Return the result as an object
-  const retData = {
-    rawValue: rawValue, // Uint16 value
-  };
-
+  const retData = { rawValue };
   console.log('Response Lower Pressure:', retData);
   return retData;
 }
 
-// Get Calibration Ram Data
 function createCalibRamWriteCommand(data) {
-  // Initialize an array of 20 elements filled with 0
   const retData = new Array(20).fill(0);
   let index = 0;
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_PRESSURE_GET_CALIB_RAM >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_PRESSURE_GET_CALIB_RAM >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-  index += 1;
-
-  // --- DATA ---
-  // Leave any zero's as padding (there is no actual data)
-
-  // --- SERVER ID ---
-  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR; // Server ID
+  retData[index++] = (CID_PRESSURE_GET_CALIB_RAM >> 8) & 0xff;
+  retData[index++] = (CID_PRESSURE_GET_CALIB_RAM >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR;
 
   return retData;
 }
 
 function readCalibRamResponse(data) {
-  // Command ID check: Combine the first two bytes (high byte + low byte)
   const commandId = (data[0] << 8) | data[1];
   if (commandId !== CID_PRESSURE_GET_CALIB_RAM) {
-    console.error('Unexpected command ID:', commandId);
-    return;
+    throw new UARTValidationError(`Unexpected command ID: ${commandId}`);
   }
 
-  // Server ID check
   const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
   if (serverId !== SID_PRESSURE_SENSOR) {
-    console.error('Unexpected server ID:', serverId);
-    return;
+    throw new UARTValidationError(`Unexpected server ID: ${serverId}`);
   }
 
   let index = 3;
   const retData = {};
 
-  // Extract upper_pressure_value_mPSIG (INT32)
   retData['upper_pressure_value_mPSIG'] =
     (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
   index += 4;
-  retData['upper_pressure_value_mPSIG'] = (retData['upper_pressure_value_mPSIG'] << 0) >> 0; // To mimic np.int32
+  retData['upper_pressure_value_mPSIG'] = (retData['upper_pressure_value_mPSIG'] << 0) >> 0;
 
-  // Extract upper_pressure_rawValue (UINT16)
   retData['upper_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0; // To mimic np.uint16
+  retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0;
 
-  // Extract lower_pressure_value_mPSIG (INT32)
   retData['lower_pressure_value_mPSIG'] =
     (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
   index += 4;
-  retData['lower_pressure_value_mPSIG'] = (retData['lower_pressure_value_mPSIG'] << 0) >> 0; // To mimic np.int32
+  retData['lower_pressure_value_mPSIG'] = (retData['lower_pressure_value_mPSIG'] << 0) >> 0;
 
-  // Extract lower_pressure_rawValue (UINT16)
   retData['lower_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0; // To mimic np.uint16
+  retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0;
 
-  // Extract zeroOffsetValue (UINT16)
   retData['zeroOffsetValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0; // To mimic np.uint16
+  retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0;
 
   console.log('Response Calib Ram:', retData);
   return retData;
 }
 
-// Get Calibration Flash Data
 function createCalibFlashWriteCommand(data) {
-  // Initialize an array of 20 elements filled with 0
   const retData = new Array(20).fill(0);
   let index = 0;
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_PRESSURE_GET_CALIB_FLASH >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_PRESSURE_GET_CALIB_FLASH >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-  index += 1;
-
-  // --- DATA ---
-  // Leave any zero's as padding (there is no actual data)
-
-  // --- SERVER ID ---
-  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER; // Server ID
+  retData[index++] = (CID_PRESSURE_GET_CALIB_FLASH >> 8) & 0xff;
+  retData[index++] = (CID_PRESSURE_GET_CALIB_FLASH >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER;
 
   return retData;
 }
 
 function readCalibFlashResponse(data) {
-  // Command ID check: Combine the first two bytes (high byte + low byte)
   const commandId = (data[0] << 8) | data[1];
   if (commandId !== CID_PRESSURE_GET_CALIB_FLASH) {
-    console.error('Unexpected command ID:', commandId);
-    return;
+    throw new UARTValidationError(`Unexpected command ID: ${commandId}`);
   }
 
-  // Server ID check
   const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
   if (serverId !== SID_MEMORY_MANAGER) {
-    console.error('Unexpected server ID:', serverId);
-    return;
+    throw new UARTValidationError(`Unexpected server ID: ${serverId}`);
   }
 
   let index = 3;
   const retData = {};
 
-  // Extract upper_pressure_value_mPSIG (INT32)
   retData['upper_pressure_value_mPSIG'] =
     (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
   index += 4;
-  retData['upper_pressure_value_mPSIG'] = retData['upper_pressure_value_mPSIG'] >> 0; // To mimic np.int32 (sign extension)
+  retData['upper_pressure_value_mPSIG'] = retData['upper_pressure_value_mPSIG'] >> 0;
 
-  // Extract upper_pressure_rawValue (UINT16)
   retData['upper_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0; // To mimic np.uint16
+  retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0;
 
-  // Extract lower_pressure_value_mPSIG (INT32)
   retData['lower_pressure_value_mPSIG'] =
     (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
   index += 4;
-  retData['lower_pressure_value_mPSIG'] = retData['lower_pressure_value_mPSIG'] >> 0; // To mimic np.int32 (sign extension)
+  retData['lower_pressure_value_mPSIG'] = retData['lower_pressure_value_mPSIG'] >> 0;
 
-  // Extract lower_pressure_rawValue (UINT16)
   retData['lower_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0; // To mimic np.uint16
+  retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0;
 
-  // Extract zeroOffsetValue (UINT16)
   retData['zeroOffsetValue'] = (data[index] << 8) | data[index + 1];
   index += 2;
-  retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0; // To mimic np.uint16
+  retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0;
 
   console.log('Response Calib Flash:', retData);
   return retData;
 }
 
-// Soft Reset Device
 function createSoftResetCommand(data) {
   const retData = new Array(20).fill(0);
   let index = 0;
 
-  // --- COMMAND ID ---
-  retData[index] = (CID_SOFTWARE_RESET >> 8) & 0xff; // Command ID high byte
-  index += 1;
-  retData[index] = (CID_SOFTWARE_RESET >> 0) & 0xff; // Command ID low byte
-  index += 1;
-
-  // --- LENGTH ---
-  retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-  index += 1;
-
-  // --- DATA ---
-  // Leave any zero's as padding (there is no actual data)
-
-  // --- SERVER ID ---
-  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_CONTROL; // Server ID
+  retData[index++] = (CID_SOFTWARE_RESET >> 8) & 0xff;
+  retData[index++] = (CID_SOFTWARE_RESET >> 0) & 0xff;
+  retData[index++] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
+  retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_CONTROL;
 
   return retData;
 }
 
-// ************************************************************** //
-async function executeSetCommand(peripheral, rawData, command) {
-  try {
-    console.log('Finding services and characteristics... for command -->', command);
-    const { services, characteristics } = await discoverWithTimeout(peripheral);
-    if (!services || !characteristics) {
-      console.log('No services or characteristics found');
-      return reject('No services or characteristics found');
-    }
-    const nusService = services?.find(s => s.uuid === NUS_SERVICE_UUID);
-    if (!nusService) {
-      console.log('NUS service not found');
-      return reject('NUS service not found');
-    }
-    const rxCharacteristic = characteristics?.find(
-      char => char.uuid === NUS_RX_CHARACTERISTIC_UUID
-    );
+// Export both the class and a legacy function for backward compatibility
+export { UARTService };
 
-    if (rxCharacteristic) {
-      console.log(`Raw read command data: ${rawData}`);
-      const txCharacteristic = characteristics.find(
-        char => char.uuid === NUS_TX_CHARACTERISTIC_UUID
-      );
-
-      return new Promise((resolve, reject) => {
-        let timeout;
-
-        txCharacteristic.subscribe(err => {
-          if (err) return reject('Subscribe failed: ' + err);
-
-          console.log('Subscribed to TX');
-
-          // ⏱ Timeout to reject if no response
-          timeout = setTimeout(() => {
-            reject(
-              `Timeout: No response received for '${command}' within ${
-                UART_TIMEOUT_MS / 1000
-              } seconds`
-            );
-          }, UART_TIMEOUT_MS);
-
-          txCharacteristic.once('data', data => {
-            clearTimeout(timeout); // ✅ Prevent hanging
-            console.log('TX raw data:', data);
-            switch (command) {
-              case 'psi.calibrate.zero':
-                readZeroOffsetResponse(data);
-                break;
-              case 'psi.calibrate.upper':
-                readUpperCalibPressureResponse(data);
-                break;
-              case 'psi.calibrate.lower':
-                readLowerCalibPressureResponse(data);
-                break;
-              case 'psi.calibrate.ram.get':
-                let ramResponse = readCalibRamResponse(data);
-                //deviceCalibrateLogsArr.push(JSON.stringify(ramResponse));
-                mainWindowObj.webContents.send(
-                  'calibration-logs-data',
-                  JSON.stringify(ramResponse)
-                );
-                break;
-              case 'mem.calibrate.flash.get':
-                let flashResponse = readCalibFlashResponse(data);
-                //deviceCalibrateLogsArr.push(JSON.stringify(flashResponse));
-                mainWindowObj.webContents.send(
-                  'calibration-logs-data',
-                  JSON.stringify(flashResponse)
-                );
-                break;
-              case 'con.softreset':
-                break;
-              default:
-                break;
-            }
-            txCharacteristic.unsubscribe(err => {
-              if (err) {
-                console.error('Error unsubscribing from txCharacteristic', err);
-              } else {
-                console.log('Unsubscribed from txCharacteristic Updates');
-              }
-            });
-
-            resolve(); // Resolve once data is processed
-          });
-
-          rxCharacteristic.write(Buffer.from(rawData), false, err => {
-            if (err) {
-              clearTimeout(timeout);
-              return reject('Write error: ' + err);
-            }
-            console.log(`Rx command (${command}) write`);
-
-            // For soft reset, no response expected
-            if (command === 'con.softreset') {
-              clearTimeout(timeout);
-              resolve();
-            }
-          });
-        });
-      });
-    } else {
-      console.log('NUS RX characteristic not found');
-      return reject('NUS RX characteristic not found');
-    }
-  } catch (error) {
-    console.error('Failed to communicate with Kraken:', error);
-    throw error;
-  }
+// Legacy function wrapper for backward compatibility
+export async function UART_service(
+  mainWindow,
+  deviceCalibrateLogs,
+  peripheral,
+  command,
+  minPressure = 0,
+  maxPressure = 0
+) {
+  const uartService = new UARTService(mainWindow);
+  return uartService.executeCommand(peripheral, command, { minPressure, maxPressure });
 }
-
-async function executeGetCommand(peripheral, rawData) {
-  try {
-    console.log('Finding services and characteristics...');
-    const { services, characteristics } = await discoverWithTimeout(peripheral);
-    if (!services || !characteristics) {
-      console.log('No services or characteristics found');
-      return reject('No services or characteristics found');
-    }
-    const nusService = services?.find(s => s.uuid === NUS_SERVICE_UUID);
-    if (!nusService) {
-      console.log('NUS service not found');
-      return reject('NUS service not found');
-    }
-
-    const rxCharacteristic = characteristics.find(char => char.uuid === NUS_RX_CHARACTERISTIC_UUID);
-
-    if (rxCharacteristic) {
-      console.log(`Raw read command data: ${rawData}`);
-
-      const txCharacteristic = characteristics.find(
-        char => char.uuid === NUS_TX_CHARACTERISTIC_UUID
-      );
-
-      return new Promise((resolve, reject) => {
-        txCharacteristic.subscribe(err => {
-          if (err) return reject('Subscribe failed: ' + err);
-
-          console.log('Subscribed to TX');
-          txCharacteristic.on('data', data => {
-            console.log('TX raw data:', data);
-            readZeroOffsetResponse(data); // Modify as necessary for your use case
-            resolve(); // Resolve when data is read
-          });
-          rxCharacteristic.write(Buffer.from(rawData), false, err => {
-            if (err) return reject('Write error: ' + err);
-            console.log('Read command sent');
-          });
-        });
-      });
-    }
-  } catch (error) {
-    console.error('Failed to communicate with Kraken:', error);
-    throw error; // Propagate the error
-  }
-}
-
-export { UART_service };
