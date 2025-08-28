@@ -5,13 +5,10 @@ export const KRAKEN_CONSTANTS = {
 
   // Pressure-related characteristics
   PRESSURE_CHARACTERISTIC_UUID: 'dab8fe8e75d948f3a6a09bdfb9435121',
-  MIN_PRESSURE_CHARACTERISTIC_UUID: 'f55867407cf34aafbfb4748b12f3f525',
-  MAX_PRESSURE_CHARACTERISTIC_UUID: '0747a448372948a4a105559078ad7d35',
 
   // Device information characteristics
   DISPLAY_NAME_CHARACTERISTIC_UUID: 'c91a9bbe24700ce481ed818844bdca4e',
   FIRMWARE_REVISION_CHARACTERISTIC_UUID: '2a26',
-  INFORMATION_SERVICE_UUID: '180a',
 
   // Connection and discovery timeouts (in milliseconds)
   CONNECTION_TIMEOUT: 30000, // 30 seconds
