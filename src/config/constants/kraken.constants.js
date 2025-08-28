@@ -60,12 +60,4 @@ export const KRAKEN_CONSTANTS = {
     300: '300',
   },
   TESTER_NAMES: { Gabriel: 'Gabriel' },
-
-  // Default calibration settings
-  DEFAULT_CALIBRATION: {
-    SWEEP_VALUE: 100,
-    TESTER_NAME: '',
-    MAX_DISCREPANCY: 5.0,
-    TOLERANCE: 0.5,
-  },
 };
