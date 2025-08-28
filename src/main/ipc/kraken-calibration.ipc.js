@@ -66,6 +66,17 @@ export function registerKrakenCalibrationIpcHandlers() {
     return await krakenCalibrationController.startCalibration(sweepValue, testerName);
   });
 
+  ipcMain.handle('kraken-verification-start', async (event, sweepValue, testerName) => {
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+    // For now, return a placeholder - verification logic can be implemented later
+    return { 
+      success: false, 
+      error: 'Verification functionality not yet implemented. This will be added in future updates.' 
+    };
+  });
+
   // Status and data retrieval
   ipcMain.handle('kraken-calibration-get-status', () => {
     if (!krakenCalibrationController) {
@@ -143,4 +154,20 @@ export function registerKrakenCalibrationIpcHandlers() {
       krakenCalibrationController = null;
     }
   });
+}
+
+/**
+ * Cleanup kraken calibration resources (called on app quit)
+ */
+export async function cleanupKrakenCalibration() {
+  if (krakenCalibrationController) {
+    try {
+      console.log('Cleaning up Kraken calibration on app quit...');
+      await krakenCalibrationController.cleanup();
+      krakenCalibrationController = null;
+      console.log('Kraken calibration cleanup completed');
+    } catch (error) {
+      console.error('Error during Kraken calibration cleanup on app quit:', error);
+    }
+  }
 }

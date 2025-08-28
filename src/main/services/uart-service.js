@@ -29,60 +29,36 @@ class UARTService {
   constructor() {
     this.timeout = UART_TIMEOUT_MS;
     this.maxRetries = 3; // Default to 3 retries
-    this.retryDelay = 2000; // Default to 1 second delay between retries
-  }
-
-  async checkConnectivity(device) {
-    try {
-      console.log(`Checking connectivity with device: ${device.id}`);
-
-      const { rxChar, txChar } = this.getDeviceCharacteristics(device);
-      if (!rxChar || !txChar) {
-        console.warn('Device missing required UART characteristics');
-        return false;
-      }
-
-      // Try to get device name as a connectivity test (simple read operation)
-      const commandData = {};
-      const rawData = this.createReadNameCommand(commandData);
-
-      // Use a shorter timeout for connectivity check
-      const connectivityTimeout = 5000; // 5 seconds for connectivity check
-
-      const result = await this.executeCommandWithTimeout(
-        rxChar,
-        txChar,
-        rawData,
-        'mem.localname.get',
-        connectivityTimeout
-      );
-
-      console.log(`Connectivity check successful for device: ${device.id}`);
-      return true;
-    } catch (error) {
-      console.warn(`Connectivity check failed for device: ${device.id}:`, error.message);
-      return false;
-    }
+    this.retryDelay = 5000; // Default to 5 seconds delay between retries
   }
 
   async executeCommand(device, command, minPressure = 0, maxPressure = 0) {
+    const deviceName = device.name || device.id;
     console.log(`Executing command: ${command} on device: ${device.id}`);
 
     let lastError;
-    // Check connectivity before attempting command
-    console.log(`Performing initial connectivity check for device: ${device.id}`);
-    const isConnected = await this.checkConnectivity(device);
-    if (!isConnected) {
-      throw new Error(
-        `Device ${device.id} is not responsive. Please check connection and try again.`
-      );
-    }
-    // console.log(`Initial connectivity check passed for device: ${device.id}`);
 
     // Retry logic with max 3 attempts
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         console.log(`Attempt ${attempt}/${this.maxRetries} for command: ${command}`);
+
+        // Show log for each attempt (including first)
+        if (attempt === 1) {
+          this.showLogOnScreen(`🔧 Executing ${command} command on ${deviceName}...`);
+        } else {
+          this.showLogOnScreen(`🔄 Retry ${attempt}/${this.maxRetries} - ${command} command on ${deviceName}...`);
+        }
+
+        // Check device connectivity before each attempt (including first)
+        if (!this.isDeviceConnectedInGlobalState(device.id)) {
+          console.log(`Device ${device.id} is not connected in global state, removing from calibration`);
+          this.showLogOnScreen(`🔌 Device ${deviceName} disconnected, stopping ${command} command`);
+          
+          // Throw a special error type to indicate device disconnection
+          // Note: Controller will handle notification to avoid duplicates
+          throw new Error(`DEVICE_DISCONNECTED: Device ${device.id} is no longer connected`);
+        }
 
         // Validate device has required characteristics from global state
         const { rxChar, txChar } = this.getDeviceCharacteristics(device);
@@ -98,37 +74,89 @@ class UARTService {
         const result = await this.executeCommandWithTimeout(rxChar, txChar, rawData, command);
 
         console.log(`Command ${command} executed successfully on attempt ${attempt}`);
+        this.showLogOnScreen(`✅ ${command} command completed successfully on ${deviceName}`);
         return { success: true, data: result, attempts: attempt };
       } catch (error) {
         lastError = error;
+        
+        // If this is a device disconnection error, don't retry
+        if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
+          console.log(`Device ${device.id} disconnected, stopping retry attempts`);
+          this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during ${command} command`);
+          throw error; // Propagate the disconnection error immediately
+        }
+        
         console.warn(
           `Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`,
           error.message
         );
+        
+        this.showLogOnScreen(`⚠️ ${command} command failed on ${deviceName} (attempt ${attempt}/${this.maxRetries}): ${error.message}`);
 
         // If this is not the last attempt, wait before retrying
         if (attempt < this.maxRetries) {
           console.log(`Waiting ${this.retryDelay}ms before retry...`);
+          this.showLogOnScreen(`⏳ Waiting ${this.retryDelay/1000}s before retry...`);
           await addDelay(this.retryDelay);
-
-          // Re-check connectivity before retry
-          console.log(`Re-checking connectivity before retry attempt ${attempt + 1}`);
-          const isStillConnected = await this.checkConnectivity(device);
-          if (!isStillConnected) {
-            throw new Error(
-              `Device ${device.id} lost connectivity during retry attempts. Please check connection.`
-            );
+          
+          // Check device connectivity again after delay, before next retry
+          if (!this.isDeviceConnectedInGlobalState(device.id)) {
+            console.log(`Device ${device.id} disconnected during retry delay, stopping further attempts`);
+            this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during retry delay, stopping ${command} attempts`);
+            
+            // Throw a special error type to indicate device disconnection
+            // Note: Controller will handle notification to avoid duplicates
+            throw new Error(`DEVICE_DISCONNECTED: Device ${device.id} disconnected during retry`);
           }
-          console.log(`Connectivity check passed before retry attempt ${attempt + 1}`);
+        } else {
+          this.showLogOnScreen(`❌ ${command} command failed on ${deviceName} after ${this.maxRetries} attempts`);
         }
       }
     }
 
     // All retries exhausted
     console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
+    this.showLogOnScreen(`❌ ${command} command failed completely on ${deviceName} - all retries exhausted`);
     throw new Error(
       `Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`
     );
+  }
+
+  /**
+   * Check if device is connected in global state
+   * @param {string} deviceId - Device ID to check
+   * @returns {boolean} True if device is connected
+   */
+  isDeviceConnectedInGlobalState(deviceId) {
+    const state = getKrakenCalibrationState();
+    const device = state.connectedDevices.get(deviceId);
+    if (!device) {
+      return false;
+    }
+
+    // Check if peripheral exists and is connected
+    const isPeripheralConnected = device.peripheral && device.peripheral.state === 'connected';
+
+    // Check if device status is ready or in-progress (not failed or disconnected)
+    const deviceStatus = state.getDeviceStatus(deviceId);
+    const isStatusValid = deviceStatus && !['failed', 'disconnected'].includes(deviceStatus.status);
+
+    return isPeripheralConnected && isStatusValid;
+  }
+
+
+
+  /**
+   * Show log message on screen through the main window
+   * @param {string} message - Log message to display
+   */
+  showLogOnScreen(message) {
+    const state = getKrakenCalibrationState();
+    const mainWindow = state.mainWindow;
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('kraken-calibration-logs-data', message);
+    }
   }
 
   /**
@@ -204,77 +232,49 @@ class UARTService {
     return new Promise((resolve, reject) => {
       let timeoutId;
       let isResolved = false;
-      let subscriptionActive = false;
 
-      // Cleanup function
-      const cleanup = () => {
+      // Clean finish helper
+      const finish = (success, result) => {
+        if (isResolved) return;
+        isResolved = true;
+        
         if (timeoutId) clearTimeout(timeoutId);
-        if (subscriptionActive) {
-          txChar.unsubscribe(err => {
-            if (err) console.warn('Unsubscribe warning:', err.message);
-          });
-        }
+        txChar.unsubscribe(() => {}); // Silent cleanup
+        
+        if (success) resolve(result);
+        else reject(result);
       };
 
-      // Timeout handler
+      // Set timeout
       timeoutId = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          cleanup();
-          reject(new Error(`Command timeout: ${command} (${timeout}ms)`));
-        }
+        finish(false, new Error(`Command timeout: ${command} (${timeout}ms)`));
       }, timeout);
 
-      // Subscribe to TX characteristic
+      // Subscribe and send command
       txChar.subscribe(err => {
-        if (err) {
-          if (!isResolved) {
-            isResolved = true;
-            cleanup();
-            reject(new Error(`Subscription failed: ${err.message}`));
-          }
-          return;
-        }
+        if (err) return finish(false, new Error(`Subscription failed: ${err.message}`));
 
-        subscriptionActive = true;
         console.log(`Subscribed to TX for command: ${command}`);
 
-        // Handle incoming data
-        const dataHandler = data => {
-          if (isResolved) return;
-
+        // Handle response
+        txChar.once('data', data => {
           try {
             const result = this.processResponse(command, data);
-            isResolved = true;
-            cleanup();
-            resolve(result);
+            finish(true, result);
           } catch (error) {
-            isResolved = true;
-            cleanup();
-            reject(error);
+            finish(false, error);
           }
-        };
+        });
 
-        txChar.once('data', dataHandler);
-
-        // Send command via RX characteristic
+        // Send command
         rxChar.write(Buffer.from(rawData), false, err => {
-          if (err) {
-            if (!isResolved) {
-              isResolved = true;
-              cleanup();
-              reject(new Error(`Write failed: ${err.message}`));
-            }
-            return;
-          }
-
+          if (err) return finish(false, new Error(`Write failed: ${err.message}`));
+          
           console.log(`Command sent: ${command}`);
 
-          // For soft reset, no response expected
+          // Soft reset needs no response
           if (command === 'con.softreset') {
-            isResolved = true;
-            cleanup();
-            resolve({ success: true });
+            finish(true, { success: true });
           }
         });
       });

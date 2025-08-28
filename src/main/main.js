@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createMainWindow } from './windows/main.js';
-import { registerIpcHandlers } from './ipc/index.js';
+import { registerIpcHandlers, cleanupIpcResources } from './ipc/index.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
 
 // Initialize Sentry for crash tracking (must be done early)
@@ -68,6 +68,24 @@ app.whenReady().then(async () => {
 });
 
 // Cleanup on app exit
-app.on('before-quit', () => {
-  closeDatabase();
+app.on('before-quit', async (event) => {
+  console.log('App is quitting, performing cleanup...');
+  
+  // Prevent immediate quit to allow async cleanup
+  event.preventDefault();
+  
+  try {
+    // Cleanup IPC resources (includes Fluke disconnection)
+    await cleanupIpcResources();
+    
+    // Close database
+    closeDatabase();
+    
+    console.log('App cleanup completed, quitting...');
+  } catch (error) {
+    console.error('Error during app cleanup:', error);
+  } finally {
+    // Force quit after cleanup (or timeout)
+    app.exit(0);
+  }
 });

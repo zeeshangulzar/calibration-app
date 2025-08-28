@@ -146,6 +146,17 @@ function setupElectronEventListeners() {
     updateCommandHistoryDisplay();
     showNotification('Command history cleared', 'info');
   });
+
+  // Handle notifications from main process
+  window.electronAPI.onShowNotification(data => {
+    const { type, message } = data;
+    
+    // Use the existing showNotification function
+    showNotification(message, type);
+    
+    // Also log to console for debugging
+    console.log(`[Notification ${type.toUpperCase()}] ${message}`);
+  });
 }
 
 /**
