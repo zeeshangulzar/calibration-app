@@ -29,14 +29,6 @@ class UARTService {
     this.timeout = UART_TIMEOUT_MS;
   }
 
-  /**
-   * Execute UART command using device characteristics from global state
-   * @param {Object} device - Device object with characteristics from global state
-   * @param {string} command - Command to execute
-   * @param {number} minPressure - Minimum pressure for calibration (default: 0)
-   * @param {number} maxPressure - Maximum pressure for calibration (default: 0)
-   * @returns {Promise<Object>} Command execution result
-   */
   async executeCommand(device, command, minPressure = 0, maxPressure = 0) {
     console.log(`Executing command: ${command} on device: ${device.id}`);
 
@@ -68,10 +60,6 @@ class UARTService {
    * @returns {Object} RX and TX characteristics
    */
   getDeviceCharacteristics(device) {
-    // Use characteristics from global state instead of peripheral
-    // if (!device.characteristics) {
-    //   throw new Error('Device characteristics not available in global state');
-    // }
     let state = getKrakenCalibrationState();
 
     let characteristics = state.deviceCharacteristics.get(device.id);

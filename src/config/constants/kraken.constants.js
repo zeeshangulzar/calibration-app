@@ -38,6 +38,9 @@ export const KRAKEN_CONSTANTS = {
   CLEANUP_TIMEOUT: 3000, // 3 seconds for cleanup operations
   SCANNER_REFRESH_DELAY: 1000, // 1 second delay for scanner refresh
 
+  // DELAY BETWEEN commands snet to kraken
+  DELAY_BETWEEN_COMMANDS: 2000,
+
   // Device connection states
   CONNECTION_STATES: {
     DISCONNECTED: 'disconnected',
