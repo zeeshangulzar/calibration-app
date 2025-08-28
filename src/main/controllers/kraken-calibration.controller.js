@@ -3,10 +3,8 @@ import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
-import { FLUKE_CONSTANTS } from '../../config/constants/fluke.constants.js';
 import { parsePressureData, discoverWithTimeout } from '../utils/ble.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-// import { getLocalTimestamp } from '../utils/general.utils.js';
 import { TelnetClientService } from '../services/telnet-client.service.js';
 
 import { UART_service } from '../services/uart-service.js';
@@ -680,7 +678,7 @@ class KrakenCalibrationController {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
       Sentry.captureException(error);
-      
+
       // Restore UI state on error
       this.sendToRenderer('show-notification', {
         type: 'error',
@@ -713,7 +711,7 @@ class KrakenCalibrationController {
       if (errorDetails) {
         this.showLogOnScreen(`Error details: ${errorDetails}`);
       }
-      
+
       // Restore UI state - enable buttons and hide stop button
       this.sendToRenderer('enable-kraken-calibration-button'); // Re-enable after stop
       this.sendToRenderer('enable-kraken-back-button');
@@ -753,8 +751,6 @@ class KrakenCalibrationController {
       return false;
     }
   }
-
-
 
   /**
    * Format device data for renderer consumption
@@ -948,8 +944,6 @@ class KrakenCalibrationController {
       return { success: false, error: error.message };
     }
   }
-
-
 
   /**
    * Manually disconnect a device and remove it from the connected list
@@ -1202,7 +1196,7 @@ class KrakenCalibrationController {
       },
       {
         check: FlukeUtil.flukeCheckToleranceCommand,
-        validate: response => parseFloat(response) === FLUKE_CONSTANTS.TOLERANCE,
+        validate: response => parseFloat(response) === FlukeUtil.flukeTolerance,
         action: FlukeUtil.flukeSetToleranceCommand,
         name: 'Tolerance',
       },
@@ -1287,7 +1281,7 @@ class KrakenCalibrationController {
   async checkZeroPressure() {
     const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
     const pressure = parseFloat(response).toFixed(1);
-    if (pressure < FLUKE_CONSTANTS.TOLERANCE) {
+    if (pressure < FlukeUtil.flukeTolerance) {
       this.showLogOnScreen('Pressure already set to 0');
     } else {
       this.setZeroPressureToFluke();
@@ -1304,7 +1298,7 @@ class KrakenCalibrationController {
 
   // Set high pressure to Fluke (simple, like old app)
   setHighPressureToFluke(silent = false) {
-          if (!silent) {
+    if (!silent) {
       this.showLogOnScreen(`Setting max pressure (${this.sweepValue}) to fluke for all sensors...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${this.sweepValue}`);
@@ -1314,12 +1308,12 @@ class KrakenCalibrationController {
     return new Promise(resolve => {
       let check = setInterval(async () => {
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
-          if (response === '16') {
-            if (!silent) {
-              this.showLogOnScreen('Pressure set to 0');
-            }
-            clearInterval(check);
-            resolve();
+        if (response === '16') {
+          if (!silent) {
+            this.showLogOnScreen('Pressure set to 0');
+          }
+          clearInterval(check);
+          resolve();
         }
       }, 2000);
     });
@@ -1349,13 +1343,7 @@ class KrakenCalibrationController {
   }
 
   async sendZeroCommandToAllSensors() {
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('🔄 STARTING ZERO COMMAND CALIBRATION');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
+    this.showLogOnScreen('---------------🔄 STARTING ZERO COMMAND CALIBRATION-----------------');
 
     const devicesToRemove = [];
     const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
@@ -1375,7 +1363,7 @@ class KrakenCalibrationController {
         if (!success) {
           devicesToRemove.push(device.id);
         } else {
-        await addDelay(1000);
+          await addDelay(1000);
         }
       } catch (error) {
         console.error(`Zero command failed for device ${device.name}:`, error.message);
@@ -1386,25 +1374,11 @@ class KrakenCalibrationController {
 
     // Remove failed devices
     await this.removeFailedDevicesFromCalibration(devicesToRemove, 'zero command');
-
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('✅ ZERO COMMAND CALIBRATION COMPLETED');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
+    this.showLogOnScreen('----------------✅ ZERO COMMAND CALIBRATION COMPLETED---------------');
   }
 
   async sendLowCommandToAllSensors() {
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('🔄 STARTING LOW COMMAND CALIBRATION');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-
+    this.showLogOnScreen('----------------🔄 STARTING LOW COMMAND CALIBRATION-----------------');
     const devicesToRemove = [];
     const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
 
@@ -1423,7 +1397,7 @@ class KrakenCalibrationController {
         if (!success) {
           devicesToRemove.push(device.id);
         } else {
-        await addDelay(1000);
+          await addDelay(1000);
         }
       } catch (error) {
         console.error(`Low command failed for device ${device.id}:`, error.message);
@@ -1435,23 +1409,11 @@ class KrakenCalibrationController {
     // Remove failed devices
     await this.removeFailedDevicesFromCalibration(devicesToRemove, 'low command');
 
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('✅ LOW COMMAND CALIBRATION COMPLETED');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
+    this.showLogOnScreen('--------------✅ LOW COMMAND CALIBRATION COMPLETED--------------');
   }
 
   async sendHighCommandToAllSensors() {
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('🔄 STARTING HIGH COMMAND CALIBRATION');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
+    this.showLogOnScreen('----------------🔄 STARTING HIGH COMMAND CALIBRATION-----------------');
 
     const devicesToRemove = [];
     const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
@@ -1486,7 +1448,7 @@ class KrakenCalibrationController {
         if (!success) {
           devicesToRemove.push(device.id);
         } else {
-        await addDelay(1000);
+          await addDelay(1000);
         }
       } catch (error) {
         console.error(`High command failed for device ${device.id}:`, error.message);
@@ -1511,13 +1473,7 @@ class KrakenCalibrationController {
     // Remove failed devices
     await this.removeFailedDevicesFromCalibration(devicesToRemove, 'high command');
 
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
-    this.showLogOnScreen('✅ HIGH COMMAND CALIBRATION COMPLETED');
-    this.showLogOnScreen(
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-    );
+    this.showLogOnScreen('--------------✅ HIGH COMMAND CALIBRATION COMPLETED--------------');
   }
 
   /**
@@ -1739,8 +1695,8 @@ class KrakenCalibrationController {
 
     // Send consolidated notification for removed devices
     if (deviceIds.length > 0) {
-        this.sendToRenderer('show-notification', {
-          type: 'warning',
+      this.sendToRenderer('show-notification', {
+        type: 'warning',
         message: `${deviceIds.length} device(s) removed from calibration due to ${commandType} failures. Check logs for details.`,
       });
     }
@@ -1760,8 +1716,6 @@ class KrakenCalibrationController {
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
     );
   }
-
-
 
   async waitForFlukeToReachTargetPressure(targetPressure) {
     return new Promise(resolve => {
@@ -1838,7 +1792,7 @@ class KrakenCalibrationController {
 
         this.showLogOnScreen(`✅ Successfully re-setup ${device.name || device.id}`);
         successCount++;
-        } catch (error) {
+      } catch (error) {
         console.error(`Failed to re-setup device ${device.id}:`, error.message);
         this.showLogOnScreen(`❌ Failed to re-setup ${device.name || device.id}: ${error.message}`);
 
@@ -1910,10 +1864,10 @@ class KrakenCalibrationController {
   async cleanup() {
     try {
       console.log('Starting calibration controller cleanup...');
-      
+
       // Stop connectivity monitoring
-    this.stopConnectivityMonitoring();
-      
+      this.stopConnectivityMonitoring();
+
       // Disconnect from Fluke if connected
       if (this.telnetClient && this.telnetClient.isConnected) {
         console.log('Disconnecting from Fluke...');
@@ -1921,15 +1875,15 @@ class KrakenCalibrationController {
         await this.telnetClient.disconnect();
         console.log('Fluke disconnected successfully');
       }
-      
+
       // Cleanup global state
       await this.globalState.cleanup();
-      
+
       console.log('Calibration controller cleanup completed');
     } catch (error) {
       console.error('Error during calibration controller cleanup:', error);
       // Continue cleanup even if Fluke disconnection fails
-    await this.globalState.cleanup();
+      await this.globalState.cleanup();
     }
   }
 }

@@ -13,7 +13,8 @@ const flukeCheckStaticModeCommand = 'SOURce:PRESsure:STATic?';
 const flukeSetStaticModeCommand = 'SOURce:PRESsure:STATic 0';
 
 const flukeCheckToleranceCommand = 'SOURce:PRESsure:TOLerance?';
-const flukeSetToleranceCommand = 'SOURce:PRESsure:TOLerance 0.1';
+const flukeTolerance = 0.1;
+const flukeSetToleranceCommand = `SOURce:PRESsure:TOLerance ${flukeTolerance}`;
 
 const flukeGetPressureCommand = 'MEASure:PRESsure?';
 
@@ -39,4 +40,5 @@ export {
   flukeStatusOperationCommand,
   flukeSetPressureCommand,
   flukeCheckSystemErrorCommand,
+  flukeTolerance,
 };

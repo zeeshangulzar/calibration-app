@@ -1,4 +1,0 @@
-export const FLUKE_CONSTANTS = {
-  TOLERANCE_RANGE: 1.5,
-  TOLERANCE: 0.1,
-};
