@@ -1230,11 +1230,11 @@ class KrakenCalibrationController {
 
   async calibrateAllSensors() {
     await this.sendZeroCommandToAllSensors();
-    await addDelay(2000);
+    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
     await this.sendLowCommandToAllSensors();
-    await addDelay(2000);
+    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
     await this.sendHighCommandToAllSensors();
-    await addDelay(2000);
+    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
     await this.markSensorsAsCalibrated();
     this.sendToRenderer(`✅ Calibration succeeded for all sensors`);
   }

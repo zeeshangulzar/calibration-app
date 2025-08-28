@@ -23,6 +23,7 @@ const CID_PRESSURE_GET_CALIB_FLASH = 48;
 const CID_SOFTWARE_RESET = 33;
 
 const UART_TIMEOUT_MS = 30000; // Default timeout for UART commands in milliseconds
+const MAX_RETRIES = 3;
 
 export {
   NUS_SERVICE_UUID,
@@ -42,4 +43,5 @@ export {
   CID_PRESSURE_GET_CALIB_FLASH,
   CID_SOFTWARE_RESET,
   UART_TIMEOUT_MS,
+  MAX_RETRIES,
 };
