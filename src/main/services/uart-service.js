@@ -23,35 +23,112 @@ import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.
 /**
  * UART Service for Kraken device communication
  * Uses device characteristics from global state (no re-discovery needed)
+ * Includes connectivity checking and retry functionality
  */
 class UARTService {
   constructor() {
     this.timeout = UART_TIMEOUT_MS;
+    this.maxRetries = 3; // Default to 3 retries
+    this.retryDelay = 2000; // Default to 1 second delay between retries
+  }
+
+  async checkConnectivity(device) {
+    try {
+      console.log(`Checking connectivity with device: ${device.id}`);
+
+      const { rxChar, txChar } = this.getDeviceCharacteristics(device);
+      if (!rxChar || !txChar) {
+        console.warn('Device missing required UART characteristics');
+        return false;
+      }
+
+      // Try to get device name as a connectivity test (simple read operation)
+      const commandData = {};
+      const rawData = this.createReadNameCommand(commandData);
+
+      // Use a shorter timeout for connectivity check
+      const connectivityTimeout = 5000; // 5 seconds for connectivity check
+
+      const result = await this.executeCommandWithTimeout(
+        rxChar,
+        txChar,
+        rawData,
+        'mem.localname.get',
+        connectivityTimeout
+      );
+
+      console.log(`Connectivity check successful for device: ${device.id}`);
+      return true;
+    } catch (error) {
+      console.warn(`Connectivity check failed for device: ${device.id}:`, error.message);
+      return false;
+    }
   }
 
   async executeCommand(device, command, minPressure = 0, maxPressure = 0) {
     console.log(`Executing command: ${command} on device: ${device.id}`);
 
-    try {
-      // Validate device has required characteristics from global state
-      const { rxChar, txChar } = this.getDeviceCharacteristics(device);
-      if (!rxChar || !txChar) {
-        throw new Error('Device missing required UART characteristics');
-      }
-
-      // Create command data
-      const commandData = this.createCommandData(command, minPressure, maxPressure);
-      const rawData = this.createRawCommand(command, commandData);
-
-      // Execute command
-      const result = await this.executeCommandWithTimeout(rxChar, txChar, rawData, command);
-
-      console.log(`Command ${command} executed successfully`);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error(`Command ${command} failed:`, error.message);
-      throw error;
+    let lastError;
+    // Check connectivity before attempting command
+    console.log(`Performing initial connectivity check for device: ${device.id}`);
+    const isConnected = await this.checkConnectivity(device);
+    if (!isConnected) {
+      throw new Error(
+        `Device ${device.id} is not responsive. Please check connection and try again.`
+      );
     }
+    // console.log(`Initial connectivity check passed for device: ${device.id}`);
+
+    // Retry logic with max 3 attempts
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/${this.maxRetries} for command: ${command}`);
+
+        // Validate device has required characteristics from global state
+        const { rxChar, txChar } = this.getDeviceCharacteristics(device);
+        if (!rxChar || !txChar) {
+          throw new Error('Device missing required UART characteristics');
+        }
+
+        // Create command data
+        const commandData = this.createCommandData(command, minPressure, maxPressure);
+        const rawData = this.createRawCommand(command, commandData);
+
+        // Execute command
+        const result = await this.executeCommandWithTimeout(rxChar, txChar, rawData, command);
+
+        console.log(`Command ${command} executed successfully on attempt ${attempt}`);
+        return { success: true, data: result, attempts: attempt };
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`,
+          error.message
+        );
+
+        // If this is not the last attempt, wait before retrying
+        if (attempt < this.maxRetries) {
+          console.log(`Waiting ${this.retryDelay}ms before retry...`);
+          await addDelay(this.retryDelay);
+
+          // Re-check connectivity before retry
+          console.log(`Re-checking connectivity before retry attempt ${attempt + 1}`);
+          const isStillConnected = await this.checkConnectivity(device);
+          if (!isStillConnected) {
+            throw new Error(
+              `Device ${device.id} lost connectivity during retry attempts. Please check connection.`
+            );
+          }
+          console.log(`Connectivity check passed before retry attempt ${attempt + 1}`);
+        }
+      }
+    }
+
+    // All retries exhausted
+    console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
+    throw new Error(
+      `Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`
+    );
   }
 
   /**
@@ -123,15 +200,7 @@ class UARTService {
     }
   }
 
-  /**
-   * Execute command with proper timeout and cleanup
-   * @param {Object} rxChar - RX characteristic
-   * @param {Object} txChar - TX characteristic
-   * @param {Buffer} rawData - Raw command data
-   * @param {string} command - Command name
-   * @returns {Promise<Object>} Command result
-   */
-  async executeCommandWithTimeout(rxChar, txChar, rawData, command) {
+  async executeCommandWithTimeout(rxChar, txChar, rawData, command, timeout = this.timeout) {
     return new Promise((resolve, reject) => {
       let timeoutId;
       let isResolved = false;
@@ -152,9 +221,9 @@ class UARTService {
         if (!isResolved) {
           isResolved = true;
           cleanup();
-          reject(new Error(`Command timeout: ${command} (${this.timeout}ms)`));
+          reject(new Error(`Command timeout: ${command} (${timeout}ms)`));
         }
-      }, this.timeout);
+      }, timeout);
 
       // Subscribe to TX characteristic
       txChar.subscribe(err => {

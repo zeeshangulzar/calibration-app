@@ -625,6 +625,7 @@ class KrakenCalibrationController {
       this.sendToRenderer('calibration-started');
       this.globalState.isCalibrationActive = true;
       this.disableBackButton();
+      this.disableCalibrationButton();
       this.showAndEnableStopCalibrationButton();
       this.hideResultsButton();
       this.clearCalibrationLogs();
@@ -1163,6 +1164,10 @@ class KrakenCalibrationController {
     this.sendToRenderer('hide-kraken-results-button');
   }
 
+  disableCalibrationButton() {
+    this.sendToRenderer('disable-kraken-calibration-start-button');
+  }
+
   clearCalibrationLogs() {
     this.sendToRenderer('clear-kraken-calibration-logs');
   }
@@ -1229,14 +1234,21 @@ class KrakenCalibrationController {
   }
 
   async calibrateAllSensors() {
-    await this.sendZeroCommandToAllSensors();
-    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
-    await this.sendLowCommandToAllSensors();
-    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
-    await this.sendHighCommandToAllSensors();
-    await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
-    await this.markSensorsAsCalibrated();
-    this.sendToRenderer(`✅ Calibration succeeded for all sensors`);
+    try {
+      await this.sendZeroCommandToAllSensors();
+      await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
+      await this.sendLowCommandToAllSensors();
+      await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
+      await this.sendHighCommandToAllSensors();
+      await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
+      await this.markSensorsAsCalibrated();
+      this.sendToRenderer(`✅ Calibration succeeded for all sensors`);
+    } catch (error) {
+      console.error('Error calibrating sensors:', error);
+      this.sendToRenderer(`❌ Calibration failed: ${error.message}`);
+      this.sendToRenderer('enable-kraken-calibration-button');
+      this.sendToRenderer('enable-kraken-back-button');
+    }
   }
 
   async markSensorsAsCalibrated() {
