@@ -5,12 +5,10 @@ import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import { parsePressureData, discoverWithTimeout } from '../utils/ble.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-import { TelnetClientService } from '../services/telnet-client.service.js';
+import { FlukeManager } from '../services/fluke.manager.js';
 
 import { UART_service } from '../services/uart-service.js';
 
-// Fluke commands
-import * as FlukeUtil from '../utils/fluke.utils.js';
 import * as Sentry from '@sentry/electron/main';
 
 /**
@@ -30,11 +28,14 @@ class KrakenCalibrationController {
 
     this.initializeServices();
     this.setupEventListeners();
-    this.initializeTelnetClient();
+    this.initializeFlukeManager();
   }
 
-  initializeTelnetClient() {
-    this.telnetClient = new TelnetClientService();
+  initializeFlukeManager() {
+    this.flukeManager = new FlukeManager(
+      log => this.showLogOnScreen(log),
+      () => this.globalState.isCalibrationActive
+    );
   }
 
   initializeServices() {
@@ -637,13 +638,12 @@ class KrakenCalibrationController {
       // Update all device widgets to show calibration in progress
       this.updateDeviceWidgetsForCalibration(true);
 
-      const telnetResponse = await this.connectToTelnet();
+      const telnetResponse = await this.flukeManager.connect();
 
       if (telnetResponse.success) {
-        await this.runPreReqs();
+        await this.flukeManager.runPreReqs();
       }
-      await this.checkZeroPressure();
-      await this.waitForFlukeToReachZeroPressure();
+      await this.flukeManager.ensureZeroPressure();
 
       this.showLogOnScreen('2s delay...');
       await addDelay(2000);
@@ -654,8 +654,7 @@ class KrakenCalibrationController {
       await this.reSetupKrakensAfterCalibration();
       this.updateDeviceWidgetsForCalibration(false);
 
-      await this.checkZeroPressure();
-      await this.waitForFlukeToReachZeroPressure();
+      await this.flukeManager.ensureZeroPressure();
 
       // Re-setup all krakens properly (like during initial setup)
 
@@ -729,27 +728,6 @@ class KrakenCalibrationController {
 
       // Update all device widgets to show calibration failed (error during stop)
       this.updateDeviceWidgetsForCalibration(false, true);
-    }
-  }
-
-  /**
-   * Check if Fluke is responding to basic commands
-   * @returns {Promise<boolean>} True if Fluke is responding
-   */
-  async checkFlukeResponsiveness() {
-    try {
-      // Try a simple command with short timeout
-      const response = await Promise.race([
-        this.telnetClient.sendCommand('*IDN?'),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Fluke not responding')), 5000)
-        ),
-      ]);
-
-      return response && response.length > 0;
-    } catch (error) {
-      console.warn('Fluke responsiveness check failed:', error.message);
-      return false;
     }
   }
 
@@ -1175,61 +1153,6 @@ class KrakenCalibrationController {
     }
   }
 
-  async runPreReqs() {
-    const commands = [
-      {
-        check: FlukeUtil.flukeCheckOutputStateCommand,
-        validate: response => response === '1',
-        action: FlukeUtil.flukeSetOutputStateCommand,
-        name: 'Output State',
-      },
-      {
-        check: FlukeUtil.flukeCheckOutputPressureModeCommand,
-        validate: response => response.toUpperCase() === 'CONTROL',
-        action: FlukeUtil.flukeSetOutputPressureModeControlCommand,
-        name: 'Output Mode',
-      },
-      {
-        check: FlukeUtil.flukeCheckStaticModeCommand,
-        validate: response => response === '0',
-        action: FlukeUtil.flukeSetStaticModeCommand,
-        name: 'Static Mode',
-      },
-      {
-        check: FlukeUtil.flukeCheckToleranceCommand,
-        validate: response => parseFloat(response) === FlukeUtil.flukeTolerance,
-        action: FlukeUtil.flukeSetToleranceCommand,
-        name: 'Tolerance',
-      },
-    ];
-
-    for (const command of commands) {
-      if (!this.globalState.isCalibrationActive) return;
-      await addDelay(1000);
-
-      console.log(`Checking ${command.name}...`);
-      this.showLogOnScreen(`Checking ${command.name}...`);
-
-      const response = await this.telnetClient.sendCommand(command.check);
-      console.log(`Response for ${command.name}: ${response}`);
-      this.showLogOnScreen(`Response for ${command.name}: ${response}`);
-
-      if (!command.validate(response)) {
-        console.log(`Setting ${command.name}...`);
-        this.showLogOnScreen(`Setting ${command.name}...`);
-
-        await this.telnetClient.sendCommand(command.action);
-        await addDelay(1000);
-      } else {
-        console.log(`${command.name} already set correctly.`);
-        this.showLogOnScreen(`${command.name} already set correctly.`);
-      }
-    }
-
-    console.log('All commands executed.');
-    this.showLogOnScreen('All commands executed.');
-  }
-
   disableBackButton() {
     this.sendToRenderer('disable-kraken-back-button');
   }
@@ -1261,63 +1184,6 @@ class KrakenCalibrationController {
     } else {
       console.log('Window is destroyed!');
     }
-  }
-
-  async connectToTelnet() {
-    let log = '';
-    log = 'Connecting to Telnet server...';
-    this.showLogOnScreen(log);
-    if (this.telnetClient.isConnected) {
-      log = 'Telnet already connected.';
-      this.showLogOnScreen(log);
-      return { success: true, message: log };
-    }
-
-    let response = await this.telnetClient.connect();
-    this.showLogOnScreen(response.message);
-    return response;
-  }
-
-  // check 0 pressure to fluke
-  async checkZeroPressure() {
-    const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
-    const pressure = parseFloat(response).toFixed(1);
-    if (pressure < FlukeUtil.flukeTolerance) {
-      this.showLogOnScreen('Pressure already set to 0');
-    } else {
-      this.setZeroPressureToFluke();
-    }
-  }
-
-  // Set 0 to Fluke (simple, like old app)
-  setZeroPressureToFluke(silent = false) {
-    if (!silent) {
-      this.showLogOnScreen('Pressure setting to 0 ...');
-    }
-    this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} 0`);
-  }
-
-  // Set high pressure to Fluke (simple, like old app)
-  setHighPressureToFluke(silent = false) {
-    if (!silent) {
-      this.showLogOnScreen(`Setting max pressure (${this.sweepValue}) to fluke for all sensors...`);
-    }
-    this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${this.sweepValue}`);
-  }
-
-  async waitForFlukeToReachZeroPressure(silent = false) {
-    return new Promise(resolve => {
-      let check = setInterval(async () => {
-        const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
-        if (response === '16') {
-          if (!silent) {
-            this.showLogOnScreen('Pressure set to 0');
-          }
-          clearInterval(check);
-          resolve();
-        }
-      }, 2000);
-    });
   }
 
   async calibrateAllSensors() {
@@ -1421,8 +1287,7 @@ class KrakenCalibrationController {
 
     // Set Fluke to high pressure ONCE before processing all devices
     try {
-      await this.setHighPressureToFluke();
-      await this.waitForFlukeToReachTargetPressure(this.sweepValue);
+      await this.flukeManager.setHighPressureToFlukeWithVerification(this.sweepValue);
       this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
     } catch (error) {
       this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
@@ -1718,19 +1583,6 @@ class KrakenCalibrationController {
     );
   }
 
-  async waitForFlukeToReachTargetPressure(targetPressure) {
-    return new Promise(resolve => {
-      let check = setInterval(async () => {
-        const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
-        if (response === '16') {
-          this.showLogOnScreen(`Pressure set to ${targetPressure}`);
-          clearInterval(check);
-          resolve();
-        }
-      }, 2000);
-    });
-  }
-
   /**
    * Re-setup all Kraken devices after calibration (full setup like initial page load)
    */
@@ -1830,34 +1682,6 @@ class KrakenCalibrationController {
     // Update progress summary to reflect new states
     this.updateProgressSummary();
   }
-
-  /**
-   * Manually stop calibration process (called from UI)
-   */
-  async stopCalibrationManually() {
-    try {
-      console.log('Manual calibration stop requested by user');
-
-      await this.stopCalibration('Calibration stopped manually by user');
-
-      // Show success message
-      this.sendToRenderer('show-notification', {
-        type: 'info',
-        message:
-          'Calibration has been stopped successfully. All devices have been restored to normal operation.',
-      });
-    } catch (error) {
-      console.error('Error stopping calibration manually:', error);
-      this.sendToRenderer('show-notification', {
-        type: 'error',
-        message: `Failed to stop calibration: ${error.message}`,
-      });
-    }
-  }
-
-  isCalibrationOrVerificationStopped() {
-    return !this.globalState.isCalibrationActive || !this.globalState.isVerificationActive;
-  }
   /**
    * Cleanup all resources and connections
    * @returns {Promise<void>}
@@ -1870,10 +1694,10 @@ class KrakenCalibrationController {
       this.stopConnectivityMonitoring();
 
       // Disconnect from Fluke if connected
-      if (this.telnetClient && this.telnetClient.isConnected) {
+      if (this.flukeManager) {
         console.log('Disconnecting from Fluke...');
         // this.showLogOnScreen('🔌 Disconnecting from Fluke calibrator...');
-        await this.telnetClient.disconnect();
+        await this.flukeManager.disconnect();
         console.log('Fluke disconnected successfully');
       }
 
