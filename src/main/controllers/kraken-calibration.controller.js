@@ -61,7 +61,29 @@ class KrakenCalibrationController {
     try {
       this.sendToRenderer('show-page-loader');
 
-      const devices = this.globalState.getConnectedDevices();
+      // Hydrate global state from passed device IDs if state is empty
+      let devices = this.globalState.getConnectedDevices();
+      if (
+        devices.length === 0 &&
+        Array.isArray(connectedDeviceIds) &&
+        connectedDeviceIds.length > 0
+      ) {
+        const hydratedDevices = [];
+        for (const deviceId of connectedDeviceIds) {
+          const connectedDevice = this.connection.getConnectedDevice(deviceId);
+          if (
+            connectedDevice &&
+            connectedDevice.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED
+          ) {
+            hydratedDevices.push(connectedDevice);
+          }
+        }
+        if (hydratedDevices.length > 0) {
+          this.globalState.setConnectedDevices(hydratedDevices);
+        }
+        devices = this.globalState.getConnectedDevices();
+      }
+
       if (devices.length === 0) {
         throw new Error('No connected devices found in global state');
       }
