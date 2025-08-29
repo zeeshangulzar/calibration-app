@@ -57,7 +57,7 @@ class KrakenCalibrationController {
     });
   }
 
-  async initialize() {
+  async initialize(connectedDeviceIds = []) {
     try {
       this.sendToRenderer('show-page-loader');
 

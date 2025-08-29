@@ -211,9 +211,9 @@ class UARTService {
       case 'psi.calibrate.zero':
         return this.createZeroOffsetWriteCommand(data);
       case 'psi.calibrate.upper':
-        return this.createCalibMaxPressureWriteCommand(data);
+        return this.createCalibUpperPressureWriteCommand(data);
       case 'psi.calibrate.lower':
-        return this.createCalibMinPressureWriteCommand(data);
+        return this.createCalibLowerPressureWriteCommand(data);
       default:
         throw new Error(`Unknown command: ${command}`);
     }
@@ -290,21 +290,6 @@ class UARTService {
         return { rawData: data };
     }
   }
-
-  readNameResponse(data) {
-    // Find the start of the name (typically after the command ID and length bytes)
-    const nameStart = 3; // The name starts after the first 3 bytes (command ID and length)
-    // Find the end of the name (the first 0x00 byte represents the end of the name)
-    let nameEnd = nameStart;
-    while (data[nameEnd] !== 0x00 && nameEnd < data.length) {
-      nameEnd++;
-    }
-    // Extract the part of the buffer that represents the human-readable string
-    const name = data.slice(nameStart, nameEnd).toString('utf8').trim(); // Start from byte 3 to byte 13 (ignoring the header and padding)
-    console.log('Read Kraken Name:', name);
-    return { name };
-  }
-
   // Zero Offset
   createZeroOffsetWriteCommand(data) {
     let index = 0;
@@ -360,7 +345,7 @@ class UARTService {
   }
 
   // Max Pressure
-  createCalibMaxPressureWriteCommand(data) {
+  createCalibUpperPressureWriteCommand(data) {
     const ret_data = new Array(20).fill(0);
     let index = 0;
 
@@ -410,7 +395,7 @@ class UARTService {
   }
 
   // Min Pressure
-  createCalibMinPressureWriteCommand(data) {
+  createCalibLowerPressureWriteCommand(data) {
     // Initialize an array of 20 elements filled with 0
     const retData = new Array(20).fill(0);
     let index = 0;
