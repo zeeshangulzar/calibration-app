@@ -647,8 +647,18 @@ class KrakenCalibrationController {
 
       this.showLogOnScreen('2s delay...');
       await addDelay(2000);
+
       await this.globalState.unSubscribeAllkrakens();
+
       await this.calibrateAllSensors();
+
+      // Check if calibration was stopped due to failures
+      if (!this.globalState.isCalibrationActive) {
+        this.showLogOnScreen(
+          '⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.'
+        );
+        return; // Exit early if calibration was already stopped
+      }
 
       this.globalState.isCalibrationActive = false;
       await this.reSetupKrakensAfterCalibration();
@@ -717,8 +727,14 @@ class KrakenCalibrationController {
       this.sendToRenderer('enable-kraken-back-button');
       this.sendToRenderer('hide-kraken-stop-calibration-button');
 
-      // Update all device widgets to show calibration stopped
-      this.updateDeviceWidgetsForCalibration(false);
+      // Update all device widgets to show calibration failed
+      this.updateDeviceWidgetsForCalibration(false, true);
+
+      // Send error notification to user
+      this.sendToRenderer('show-notification', {
+        type: 'error',
+        message: `Calibration failed: ${reason}`,
+      });
     } catch (error) {
       console.error('Error stopping calibration:', error);
       // Even if cleanup fails, ensure UI is restored
@@ -1200,6 +1216,9 @@ class KrakenCalibrationController {
 
       // Stop calibration and restore UI (notification handled in stopCalibration)
       await this.stopCalibration('Calibration process failed', error.message);
+
+      // Re-throw the error to prevent continuation of the main calibration flow
+      throw error;
     }
   }
 
@@ -1217,6 +1236,7 @@ class KrakenCalibrationController {
 
     for (const device of connectedDevices) {
       try {
+        // TODO: implement device retry connect logic
         // Check if device is still connected before sending command
         if (!this.isDeviceConnectedInGlobalState(device.id)) {
           this.showLogOnScreen(
@@ -1295,7 +1315,7 @@ class KrakenCalibrationController {
         'Critical Fluke communication failure during high pressure setup',
         error.message
       );
-      return;
+      throw new Error('Critical Fluke failure during high pressure setup');
     }
 
     // Now send high commands to each device without changing Fluke pressure
@@ -1329,7 +1349,7 @@ class KrakenCalibrationController {
             'Critical Fluke communication failure during high pressure operation',
             error.message
           );
-          return; // Exit the loop
+          throw new Error('Critical Fluke failure during high pressure operation'); // Exit the loop
         }
 
         devicesToRemove.push(device.id);
@@ -1572,6 +1592,7 @@ class KrakenCalibrationController {
     if (remainingDevices.length === 0) {
       this.showLogOnScreen(`❌ No devices remaining for calibration. Stopping process.`);
       await this.stopCalibration('All devices failed calibration commands');
+      throw new Error('All devices failed calibration commands');
     } else {
       this.showLogOnScreen(
         `✅ Continuing calibration with ${remainingDevices.length} remaining devices`

@@ -472,7 +472,15 @@ class KrakenCalibrationStateService extends EventEmitter {
     }
 
     if (subscriptionCleanupPromises.length > 0) {
-      await Promise.allSettled(subscriptionCleanupPromises);
+      const results = await Promise.allSettled(subscriptionCleanupPromises);
+
+      // Log any failures but continue
+      results.forEach(result => {
+        if (result.status === 'rejected') {
+          console.error('Global state: Failed to cleanup subscription:', result.reason);
+        }
+      });
+
       console.log('Global state: All subscriptions cleaned up');
     }
   }
