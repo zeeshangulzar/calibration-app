@@ -26,107 +26,105 @@ class UARTService {
 
   async executeCommand(device, command, minPressure = 0, maxPressure = 0) {
     const deviceName = device.name || device.id;
-
     let lastError;
 
-    // Retry logic with max 3 attempts
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         console.log(`Attempt ${attempt}/${this.maxRetries} for command: ${command}`);
 
-        // Show log for each attempt (including first)
-        if (attempt === 1) {
-          // Log removed - no longer showing execution start
-        } else {
-          this.showLogOnScreen(
-            `🔄 Retry ${attempt}/${this.maxRetries} - ${command} command on ${deviceName}...`
-          );
-        }
+        this.logAttempt(attempt, command, deviceName);
+        this.validateDeviceConnection(device.id, deviceName, command);
 
-        // Check device connectivity before each attempt (including first)
-        if (!this.isDeviceConnectedInGlobalState(device.id)) {
-          console.log(
-            `Device ${device.id} is not connected in global state, removing from calibration`
-          );
-          this.showLogOnScreen(`🔌 Device ${deviceName} disconnected, stopping ${command} command`);
-
-          // Throw a special error type to indicate device disconnection
-          // Note: Controller will handle notification to avoid duplicates
-          throw new Error(`DEVICE_DISCONNECTED: Device ${device.id} is no longer connected`);
-        }
-
-        // Validate device has required characteristics from global state
         const { rxChar, txChar } = this.getDeviceCharacteristics(device);
         if (!rxChar || !txChar) {
           throw new Error('Device missing required UART characteristics');
         }
 
-        // Create command data
         const commandData = this.createCommandData(command, minPressure, maxPressure);
         const rawData = this.createRawCommand(command, commandData);
-
-        // Execute command
         const result = await this.executeCommandWithTimeout(rxChar, txChar, rawData, command);
 
         console.log(`Command ${command} executed successfully on attempt ${attempt}`);
         this.showLogOnScreen(`✅ ${command} command completed successfully on ${deviceName}`);
+
         return { success: true, data: result, attempts: attempt };
       } catch (error) {
         lastError = error;
 
-        // If this is a device disconnection error, don't retry
-        if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-          console.log(`Device ${device.id} disconnected, stopping retry attempts`);
-          this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during ${command} command`);
-          throw error; // Propagate the disconnection error immediately
+        // Device disconnection errors should not be retried
+        if (this.isDeviceDisconnectionError(error)) {
+          this.handleDeviceDisconnection(error, deviceName, command);
+          throw error;
         }
 
-        console.warn(
-          `Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`,
-          error.message
-        );
+        this.logFailedAttempt(attempt, command, deviceName, error);
 
-        this.showLogOnScreen(
-          `⚠️ ${command} command failed on ${deviceName} (attempt ${attempt}/${this.maxRetries}): ${error.message}`
-        );
-
-        // If this is not the last attempt, wait before retrying
+        // Wait and check connectivity before next retry (except on last attempt)
         if (attempt < this.maxRetries) {
-          console.log(`Waiting ${this.retryDelay}ms before retry...`);
-          this.showLogOnScreen(`⏳ Waiting ${this.retryDelay / 1000}s before retry...`);
-          await addDelay(this.retryDelay);
-
-          // Check device connectivity again after delay, before next retry
-          if (!this.isDeviceConnectedInGlobalState(device.id)) {
-            console.log(
-              `Device ${device.id} disconnected during retry delay, stopping further attempts`
-            );
-            this.showLogOnScreen(
-              `🔌 Device ${deviceName} disconnected during retry delay, stopping ${command} attempts`
-            );
-
-            // Throw a special error type to indicate device disconnection
-            // Note: Controller will handle notification to avoid duplicates
-            throw new Error(`DEVICE_DISCONNECTED: Device ${device.id} disconnected during retry`);
-          }
-        } else {
-          this.showLogOnScreen(
-            `❌ ${command} command failed on ${deviceName} after ${this.maxRetries} attempts`
-          );
+          await this.handleRetryDelay(device.id, deviceName, command);
         }
       }
     }
 
     // All retries exhausted
-    console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
-    this.showLogOnScreen(
-      `❌ ${command} command failed completely on ${deviceName} - all retries exhausted`
-    );
+    this.handleAllRetriesExhausted(command, deviceName, lastError);
     throw new Error(
       `Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`
     );
   }
 
+  // Helper methods to extract and simplify logic
+  logAttempt(attempt, command, deviceName) {
+    if (attempt > 1) {
+      this.showLogOnScreen(
+        `🔄 Retry ${attempt}/${this.maxRetries} - ${command} command on ${deviceName}...`
+      );
+    }
+  }
+
+  validateDeviceConnection(deviceId, deviceName, command) {
+    if (!this.isDeviceConnectedInGlobalState(deviceId)) {
+      console.log(`Device ${deviceId} is not connected in global state, removing from calibration`);
+      this.showLogOnScreen(`🔌 Device ${deviceName} disconnected, stopping ${command} command`);
+      throw new Error(`DEVICE_DISCONNECTED: Device ${deviceId} is no longer connected`);
+    }
+  }
+
+  isDeviceDisconnectionError(error) {
+    return error.message.startsWith('DEVICE_DISCONNECTED:');
+  }
+
+  handleDeviceDisconnection(error, deviceName, command) {
+    console.log(`Device disconnected, stopping retry attempts`);
+    this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during ${command} command`);
+  }
+
+  logFailedAttempt(attempt, command, deviceName, error) {
+    console.warn(
+      `Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`,
+      error.message
+    );
+    this.showLogOnScreen(
+      `⚠️ ${command} command failed on ${deviceName} (attempt ${attempt}/${this.maxRetries}): ${error.message}`
+    );
+  }
+
+  async handleRetryDelay(deviceId, deviceName, command) {
+    console.log(`Waiting ${this.retryDelay}ms before retry...`);
+    this.showLogOnScreen(`⏳ Waiting ${this.retryDelay / 1000}s before retry...`);
+
+    await addDelay(this.retryDelay);
+
+    // Validate connection after delay
+    this.validateDeviceConnection(deviceId, deviceName, command);
+  }
+
+  handleAllRetriesExhausted(command, deviceName, lastError) {
+    console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
+    this.showLogOnScreen(
+      `❌ ${command} command failed completely on ${deviceName} - all retries exhausted`
+    );
+  }
   /**
    * Check if device is connected in global state
    * @param {string} deviceId - Device ID to check
