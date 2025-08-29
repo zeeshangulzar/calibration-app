@@ -1250,11 +1250,31 @@ class KrakenCalibrationController {
     }
   }
 
-  async sendZeroCommandToAllSensors() {
-    this.showLogOnScreen('---------------🔄 STARTING ZERO COMMAND CALIBRATION-----------------');
+  /**
+   * Generic method to send commands to all sensors with specific logging and error handling
+   * @param {string} commandType - Type of command ('zero', 'low', 'high')
+   * @param {Function} commandFunction - Function to execute for each device
+   * @param {string} startMessage - Starting log message
+   * @param {string} endMessage - Completion log message
+   * @param {Function} [beforeDeviceLoop] - Optional function to run before device loop
+   * @returns {Promise<void>}
+   */
+  async sendCommandToAllSensors(
+    commandType,
+    commandFunction,
+    startMessage,
+    endMessage,
+    beforeDeviceLoop = null
+  ) {
+    this.showLogOnScreen(startMessage);
 
     const devicesToRemove = [];
     const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
+
+    // Execute any pre-processing (like Fluke setup for high commands)
+    if (beforeDeviceLoop) {
+      await beforeDeviceLoop();
+    }
 
     for (const device of connectedDevices) {
       try {
@@ -1262,126 +1282,115 @@ class KrakenCalibrationController {
         // Check if device is still connected before sending command
         if (!this.isDeviceConnectedInGlobalState(device.id)) {
           this.showLogOnScreen(
-            `⚠️ Device ${device.name || device.id} is not connected, skipping zero command`
+            `⚠️ Device ${device.name || device.id} is not connected, skipping ${commandType} command`
           );
+
+          // Update device widget to show disconnected state immediately
+          this.sendToRenderer('device-calibration-status-update', {
+            deviceId: device.id,
+            isCalibrating: false,
+            hasError: true,
+            message: 'Calibration failed',
+          });
+
           devicesToRemove.push(device.id);
           continue;
         }
 
-        const success = await this.writeZeroToSensorWithRetries(device);
+        const success = await commandFunction(device);
         if (!success) {
+          // Update device widget to show failed state immediately
+          this.sendToRenderer('device-calibration-status-update', {
+            deviceId: device.id,
+            isCalibrating: false,
+            hasError: true,
+            message: 'Calibration failed',
+          });
           devicesToRemove.push(device.id);
         } else {
           await addDelay(1000);
         }
       } catch (error) {
-        console.error(`Zero command failed for device ${device.name}:`, error.message);
-        this.showLogOnScreen(`❌ Zero command failed for ${device.name}: ${error.message}`);
-        devicesToRemove.push(device.id);
-      }
-    }
+        console.error(
+          `${commandType} command failed for device ${device.name || device.id}:`,
+          error.message
+        );
+        this.showLogOnScreen(
+          `❌ ${commandType} command failed for ${device.name || device.id}: ${error.message}`
+        );
 
-    // Remove failed devices
-    await this.removeFailedDevicesFromCalibration(devicesToRemove, 'zero command');
-    this.showLogOnScreen('----------------✅ ZERO COMMAND CALIBRATION COMPLETED---------------');
-  }
-
-  async sendLowCommandToAllSensors() {
-    this.showLogOnScreen('----------------🔄 STARTING LOW COMMAND CALIBRATION-----------------');
-    const devicesToRemove = [];
-    const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
-
-    for (const device of connectedDevices) {
-      try {
-        // Check if device is still connected before sending command
-        if (!this.isDeviceConnectedInGlobalState(device.id)) {
-          this.showLogOnScreen(
-            `⚠️ Device ${device.name || device.id} is not connected, skipping low command`
-          );
-          devicesToRemove.push(device.id);
-          continue;
-        }
-
-        const success = await this.writeLowToSensorWithRetries(device);
-        if (!success) {
-          devicesToRemove.push(device.id);
-        } else {
-          await addDelay(1000);
-        }
-      } catch (error) {
-        console.error(`Low command failed for device ${device.id}:`, error.message);
-        this.showLogOnScreen(`❌ Low command failed for ${device?.name}: ${error.message}`);
-        devicesToRemove.push(device.id);
-      }
-    }
-
-    // Remove failed devices
-    await this.removeFailedDevicesFromCalibration(devicesToRemove, 'low command');
-
-    this.showLogOnScreen('--------------✅ LOW COMMAND CALIBRATION COMPLETED--------------');
-  }
-
-  async sendHighCommandToAllSensors() {
-    this.showLogOnScreen('----------------🔄 STARTING HIGH COMMAND CALIBRATION-----------------');
-
-    const devicesToRemove = [];
-    const connectedDevices = [...this.globalState.getConnectedDevices()]; // Create a copy to avoid iteration issues
-
-    // Set Fluke to high pressure ONCE before processing all devices
-    try {
-      await this.flukeManager.setHighPressureToFlukeWithVerification(this.sweepValue);
-      this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
-    } catch (error) {
-      this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
-      await this.stopCalibration(
-        'Critical Fluke communication failure during high pressure setup',
-        error.message
-      );
-      throw new Error('Critical Fluke failure during high pressure setup');
-    }
-
-    // Now send high commands to each device without changing Fluke pressure
-    for (const device of connectedDevices) {
-      try {
-        // Check if device is still connected before sending command
-        if (!this.isDeviceConnectedInGlobalState(device.id)) {
-          this.showLogOnScreen(
-            `⚠️ Device ${device.name || device.id} is not connected, skipping high command`
-          );
-          devicesToRemove.push(device.id);
-          continue;
-        }
-
-        const success = await this.writeHighToSensorWithRetries(device);
-        if (!success) {
-          devicesToRemove.push(device.id);
-        } else {
-          await addDelay(1000);
-        }
-      } catch (error) {
-        console.error(`High command failed for device ${device.id}:`, error.message);
-        this.showLogOnScreen(`❌ High command failed for ${device.name}: ${error.message}`);
-
-        // If this is a critical Fluke failure, stop the entire calibration
+        // Special handling for critical Fluke failures in high command
         if (
-          error.message.includes('Fluke is not responding') ||
-          error.message.includes('timeout')
+          commandType === 'High' &&
+          (error.message.includes('Fluke is not responding') || error.message.includes('timeout'))
         ) {
           await this.stopCalibration(
             'Critical Fluke communication failure during high pressure operation',
             error.message
           );
-          throw new Error('Critical Fluke failure during high pressure operation'); // Exit the loop
+          throw new Error('Critical Fluke failure during high pressure operation');
         }
+
+        // Update device widget to show failed state immediately
+        this.sendToRenderer('device-calibration-status-update', {
+          deviceId: device.id,
+          isCalibrating: false,
+          hasError: true,
+          message: 'Calibration failed',
+        });
 
         devicesToRemove.push(device.id);
       }
     }
 
     // Remove failed devices
-    await this.removeFailedDevicesFromCalibration(devicesToRemove, 'high command');
+    await this.removeFailedDevicesFromCalibration(
+      devicesToRemove,
+      `${commandType.toLowerCase()} command`
+    );
+    this.showLogOnScreen(endMessage);
+  }
 
-    this.showLogOnScreen('--------------✅ HIGH COMMAND CALIBRATION COMPLETED--------------');
+  async sendZeroCommandToAllSensors() {
+    return this.sendCommandToAllSensors(
+      'Zero',
+      this.writeZeroToSensorWithRetries.bind(this),
+      '🔄 STARTING ZERO COMMAND CALIBRATION-----------------',
+      '✅ ZERO COMMAND CALIBRATION COMPLETED---------------'
+    );
+  }
+
+  async sendLowCommandToAllSensors() {
+    return this.sendCommandToAllSensors(
+      'Low',
+      this.writeLowToSensorWithRetries.bind(this),
+      '🔄 STARTING LOW COMMAND CALIBRATION-----------------',
+      '✅ LOW COMMAND CALIBRATION COMPLETED--------------'
+    );
+  }
+
+  async sendHighCommandToAllSensors() {
+    const flukeSetup = async () => {
+      try {
+        await this.flukeManager.setHighPressureToFlukeWithVerification(this.sweepValue);
+        this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
+      } catch (error) {
+        this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
+        await this.stopCalibration(
+          'Critical Fluke communication failure during high pressure setup',
+          error.message
+        );
+        throw new Error('Critical Fluke failure during high pressure setup');
+      }
+    };
+
+    return this.sendCommandToAllSensors(
+      'High',
+      this.writeHighToSensorWithRetries.bind(this),
+      '🔄 STARTING HIGH COMMAND CALIBRATION-----------------',
+      '✅ HIGH COMMAND CALIBRATION COMPLETED--------------',
+      flukeSetup
+    );
   }
 
   /**
@@ -1503,6 +1512,14 @@ class KrakenCalibrationController {
     try {
       this.showLogOnScreen(`🗑️ Removing disconnected device: ${deviceName}`);
 
+      // Update device widget to show disconnected/failed state before removal
+      this.sendToRenderer('device-calibration-status-update', {
+        deviceId,
+        isCalibrating: false,
+        hasError: true,
+        message: 'Calibration failed',
+      });
+
       // Clean up device subscriptions
       await this.globalState.cleanupDeviceSubscription(deviceId);
 
@@ -1546,14 +1563,6 @@ class KrakenCalibrationController {
     if (deviceIds.length === 0) {
       return;
     }
-
-    this.showLogOnScreen(
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-    );
-    this.showLogOnScreen(`🗑️ REMOVING ${deviceIds.length} FAILED DEVICES FROM CALIBRATION`);
-    this.showLogOnScreen(
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-    );
 
     for (const deviceId of deviceIds) {
       const device = this.globalState.connectedDevices.get(deviceId);
@@ -1620,10 +1629,6 @@ class KrakenCalibrationController {
         `✅ Continuing calibration with ${remainingDevices.length} remaining devices`
       );
     }
-
-    this.showLogOnScreen(
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-    );
   }
 
   /**
