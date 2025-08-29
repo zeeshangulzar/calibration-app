@@ -1,21 +1,13 @@
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import {
-  NUS_SERVICE_UUID,
   NUS_RX_CHARACTERISTIC_UUID,
   NUS_TX_CHARACTERISTIC_UUID,
   PROPIUSCOMMS_STANDARD_PACKET_LEN,
   STANDARD_PACKET_SERVER_ID_INDEX,
-  SID_MEMORY_MANAGER,
   SID_PRESSURE_SENSOR,
-  SID_CONTROL,
-  CID_SET_LOCAL_BLE_NAME,
-  CID_GET_LOCAL_BLE_NAME,
   CID_PRESSURE_CALIB_ZERO_OFFSET,
   CID_PRESSURE_CALIB_UPPER,
   CID_PRESSURE_CALIB_LOWER,
-  CID_PRESSURE_GET_CALIB_RAM,
-  CID_PRESSURE_GET_CALIB_FLASH,
-  CID_SOFTWARE_RESET,
   UART_TIMEOUT_MS,
 } from '../../config/constants/uart.constants.js';
 
@@ -199,8 +191,6 @@ class UARTService {
    */
   createCommandData(command, minPressure, maxPressure) {
     switch (command) {
-      case 'mem.localname.set':
-        return { localName: 'Kraken 1.5' };
       case 'psi.calibrate.upper':
         return { measuredPressure_PSIG: maxPressure };
       case 'psi.calibrate.lower':
@@ -218,22 +208,12 @@ class UARTService {
    */
   createRawCommand(command, data) {
     switch (command) {
-      case 'mem.localname.set':
-        return this.createWriteNameCommand(data);
-      case 'mem.localname.get':
-        return this.createReadNameCommand(data);
       case 'psi.calibrate.zero':
         return this.createZeroOffsetWriteCommand(data);
       case 'psi.calibrate.upper':
         return this.createCalibMaxPressureWriteCommand(data);
       case 'psi.calibrate.lower':
         return this.createCalibMinPressureWriteCommand(data);
-      case 'psi.calibrate.ram.get':
-        return this.createCalibRamWriteCommand(data);
-      case 'mem.calibrate.flash.get':
-        return this.createCalibFlashWriteCommand(data);
-      case 'con.softreset':
-        return this.createSoftResetCommand(data);
       default:
         throw new Error(`Unknown command: ${command}`);
     }
@@ -306,66 +286,9 @@ class UARTService {
         return this.readUpperCalibPressureResponse(data);
       case 'psi.calibrate.lower':
         return this.readLowerCalibPressureResponse(data);
-      case 'psi.calibrate.ram.get':
-        return this.readCalibRamResponse(data);
-      case 'mem.calibrate.flash.get':
-        return this.readCalibFlashResponse(data);
-      case 'mem.localname.get':
-        return this.readNameResponse(data);
       default:
         return { rawData: data };
     }
-  }
-
-  // Device Name
-  createWriteNameCommand(data) {
-    let index = 0;
-    const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
-
-    // --- COMMAND ID ---
-    retData[index] = (CID_SET_LOCAL_BLE_NAME >> 8) & 0xff;
-    index += 1;
-    retData[index] = (CID_SET_LOCAL_BLE_NAME >> 0) & 0xff;
-    index += 1;
-
-    // --- LENGTH ---
-    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN;
-    index += 1;
-
-    // --- DATA (localName, STR16) ---
-    const charArray = Array.from(data.localName);
-    charArray.forEach(c => {
-      retData[index] = c.charCodeAt(0);
-      index += 1;
-    });
-
-    // --- SERVER ID ---
-    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER;
-
-    return retData;
-  }
-
-  createReadNameCommand(data) {
-    let index = 0;
-    const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
-
-    // --- COMMAND ID ---
-    retData[index] = (CID_GET_LOCAL_BLE_NAME >> 8) & 0xff; // Command ID high byte
-    index += 1;
-    retData[index] = (CID_GET_LOCAL_BLE_NAME >> 0) & 0xff; // Command ID low byte
-    index += 1;
-
-    // --- LENGTH ---
-    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the entire packet
-    index += 1;
-
-    // --- DATA ---
-    // Leave any zero's as padding (no data here)
-
-    // --- SERVER ID ---
-    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER; // Server ID
-
-    return retData;
   }
 
   readNameResponse(data) {
@@ -546,178 +469,6 @@ class UARTService {
     };
 
     console.log('Response Lower Pressure:', retData);
-    return retData;
-  }
-
-  // Get Calibration Ram Data
-  createCalibRamWriteCommand(data) {
-    // Initialize an array of 20 elements filled with 0
-    const retData = new Array(20).fill(0);
-    let index = 0;
-
-    // --- COMMAND ID ---
-    retData[index] = (CID_PRESSURE_GET_CALIB_RAM >> 8) & 0xff; // Command ID high byte
-    index += 1;
-    retData[index] = (CID_PRESSURE_GET_CALIB_RAM >> 0) & 0xff; // Command ID low byte
-    index += 1;
-
-    // --- LENGTH ---
-    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-    index += 1;
-
-    // --- DATA ---
-    // Leave any zero's as padding (there is no actual data)
-
-    // --- SERVER ID ---
-    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_PRESSURE_SENSOR; // Server ID
-
-    return retData;
-  }
-
-  readCalibRamResponse(data) {
-    // Command ID check: Combine the first two bytes (high byte + low byte)
-    const commandId = (data[0] << 8) | data[1];
-    if (commandId !== CID_PRESSURE_GET_CALIB_RAM) {
-      console.error('Unexpected command ID:', commandId);
-      return;
-    }
-
-    // Server ID check
-    const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
-    if (serverId !== SID_PRESSURE_SENSOR) {
-      console.error('Unexpected server ID:', serverId);
-      return;
-    }
-
-    let index = 3;
-    const retData = {};
-
-    // Extract upper_pressure_value_mPSIG (INT32)
-    retData['upper_pressure_value_mPSIG'] =
-      (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
-    index += 4;
-    retData['upper_pressure_value_mPSIG'] = (retData['upper_pressure_value_mPSIG'] << 0) >> 0; // To mimic np.int32
-
-    // Extract upper_pressure_rawValue (UINT16)
-    retData['upper_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0; // To mimic np.uint16
-
-    // Extract lower_pressure_value_mPSIG (INT32)
-    retData['lower_pressure_value_mPSIG'] =
-      (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
-    index += 4;
-    retData['lower_pressure_value_mPSIG'] = (retData['lower_pressure_value_mPSIG'] << 0) >> 0; // To mimic np.int32
-
-    // Extract lower_pressure_rawValue (UINT16)
-    retData['lower_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0; // To mimic np.uint16
-
-    // Extract zeroOffsetValue (UINT16)
-    retData['zeroOffsetValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0; // To mimic np.uint16
-
-    console.log('Response Calib Ram:', retData);
-    return retData;
-  }
-
-  // Get Calibration Flash Data
-  createCalibFlashWriteCommand(data) {
-    // Initialize an array of 20 elements filled with 0
-    const retData = new Array(20).fill(0);
-    let index = 0;
-
-    // --- COMMAND ID ---
-    retData[index] = (CID_PRESSURE_GET_CALIB_FLASH >> 8) & 0xff; // Command ID high byte
-    index += 1;
-    retData[index] = (CID_PRESSURE_GET_CALIB_FLASH >> 0) & 0xff; // Command ID low byte
-    index += 1;
-
-    // --- LENGTH ---
-    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-    index += 1;
-
-    // --- DATA ---
-    // Leave any zero's as padding (there is no actual data)
-
-    // --- SERVER ID ---
-    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER; // Server ID
-
-    return retData;
-  }
-
-  readCalibFlashResponse(data) {
-    // Command ID check: Combine the first two bytes (high byte + low byte)
-    const commandId = (data[0] << 8) | data[1];
-    if (commandId !== CID_PRESSURE_GET_CALIB_FLASH) {
-      console.error('Unexpected command ID:', commandId);
-      return;
-    }
-
-    // Server ID check
-    const serverId = data[STANDARD_PACKET_SERVER_ID_INDEX];
-    if (serverId !== SID_MEMORY_MANAGER) {
-      console.error('Unexpected server ID:', serverId);
-      return;
-    }
-
-    let index = 3;
-    const retData = {};
-
-    // Extract upper_pressure_value_mPSIG (INT32)
-    retData['upper_pressure_value_mPSIG'] =
-      (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
-    index += 4;
-    retData['upper_pressure_value_mPSIG'] = retData['upper_pressure_value_mPSIG'] >> 0; // To mimic np.int32 (sign extension)
-
-    // Extract upper_pressure_rawValue (UINT16)
-    retData['upper_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['upper_pressure_rawValue'] = retData['upper_pressure_rawValue'] >>> 0; // To mimic np.uint16
-
-    // Extract lower_pressure_value_mPSIG (INT32)
-    retData['lower_pressure_value_mPSIG'] =
-      (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
-    index += 4;
-    retData['lower_pressure_value_mPSIG'] = retData['lower_pressure_value_mPSIG'] >> 0; // To mimic np.int32 (sign extension)
-
-    // Extract lower_pressure_rawValue (UINT16)
-    retData['lower_pressure_rawValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['lower_pressure_rawValue'] = retData['lower_pressure_rawValue'] >>> 0; // To mimic np.uint16
-
-    // Extract zeroOffsetValue (UINT16)
-    retData['zeroOffsetValue'] = (data[index] << 8) | data[index + 1];
-    index += 2;
-    retData['zeroOffsetValue'] = retData['zeroOffsetValue'] >>> 0; // To mimic np.uint16
-
-    console.log('Response Calib Flash:', retData);
-    return retData;
-  }
-
-  // Soft Reset Device
-  createSoftResetCommand(data) {
-    const retData = new Array(20).fill(0);
-    let index = 0;
-
-    // --- COMMAND ID ---
-    retData[index] = (CID_SOFTWARE_RESET >> 8) & 0xff; // Command ID high byte
-    index += 1;
-    retData[index] = (CID_SOFTWARE_RESET >> 0) & 0xff; // Command ID low byte
-    index += 1;
-
-    // --- LENGTH ---
-    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the packet
-    index += 1;
-
-    // --- DATA ---
-    // Leave any zero's as padding (there is no actual data)
-
-    // --- SERVER ID ---
-    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_CONTROL; // Server ID
-
     return retData;
   }
 }
