@@ -650,14 +650,16 @@ class KrakenCalibrationController {
       await this.globalState.unSubscribeAllkrakens();
       await this.calibrateAllSensors();
 
+      this.globalState.isCalibrationActive = false;
+      await this.reSetupKrakensAfterCalibration();
+      this.updateDeviceWidgetsForCalibration(false);
+
       await this.checkZeroPressure();
       await this.waitForFlukeToReachZeroPressure();
 
       // Re-setup all krakens properly (like during initial setup)
-      await this.reSetupKrakensAfterCalibration();
 
       // Calibration completed successfully - restore UI state and show verification option
-      this.globalState.isCalibrationActive = false;
       this.sendToRenderer('show-notification', {
         type: 'success',
         message: 'Calibration completed successfully!',
@@ -670,7 +672,6 @@ class KrakenCalibrationController {
       this.showLogOnScreen('📋 Devices are ready for verification process');
 
       // Update all device widgets to show calibration completed
-      this.updateDeviceWidgetsForCalibration(false);
 
       // this.markAsReadyForVerificationProcess();
       // saveDataToDatabase();
