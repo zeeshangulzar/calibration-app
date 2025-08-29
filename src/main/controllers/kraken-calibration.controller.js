@@ -614,8 +614,8 @@ class KrakenCalibrationController {
    * Start calibration process
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async startCalibration(sweepValue, testerName) {
-    this.sweepValue = sweepValue;
+  async startCalibration(testerName) {
+    this.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
     this.testerName = testerName;
     try {
       if (!this.globalState.areAllDevicesReady()) {

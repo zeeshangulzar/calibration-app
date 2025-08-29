@@ -38,6 +38,9 @@ export const KRAKEN_CONSTANTS = {
   // DELAY BETWEEN commands snet to kraken
   DELAY_BETWEEN_COMMANDS: 2000,
 
+  // Sweep value
+  SWEEP_VALUE: 300,
+
   // Device connection states
   CONNECTION_STATES: {
     DISCONNECTED: 'disconnected',
@@ -51,10 +54,5 @@ export const KRAKEN_CONSTANTS = {
   MAX_PRESSURE: 300,
 
   // Calibration settings
-  SWEEP_OPTIONS: {
-    100: '100',
-    250: '250',
-    300: '300',
-  },
   TESTER_NAMES: { Gabriel: 'Gabriel' },
 };

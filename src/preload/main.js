@@ -96,10 +96,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('kraken-calibration-reconnect-device', deviceId),
   krakenCalibrationDisconnectDevice: deviceId =>
     ipcRenderer.invoke('kraken-calibration-disconnect-device', deviceId),
-  krakenCalibrationStart: (sweepValue, testerName) =>
-    ipcRenderer.invoke('kraken-calibration-start', sweepValue, testerName),
-  krakenVerificationStart: (sweepValue, testerName) =>
-    ipcRenderer.invoke('kraken-verification-start', sweepValue, testerName),
+  krakenCalibrationStart: testerName => ipcRenderer.invoke('kraken-calibration-start', testerName),
+  krakenVerificationStart: testerName =>
+    ipcRenderer.invoke('kraken-verification-start', testerName),
   krakenCalibrationGetStatus: () => ipcRenderer.invoke('kraken-calibration-get-status'),
   krakenCalibrationGoBack: () => ipcRenderer.send('kraken-calibration-go-back'),
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
@@ -217,6 +216,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('hide-kraken-calibration-button', event => callback()),
   onDeviceCalibrationStatusUpdate: callback =>
     ipcRenderer.on('device-calibration-status-update', (event, data) => callback(data)),
+
+  // Back button events
+  onDisableKrakenBackButton: callback =>
+    ipcRenderer.on('disable-kraken-back-button', event => callback()),
+  onEnableKrakenBackButton: callback =>
+    ipcRenderer.on('enable-kraken-back-button', event => callback()),
 
   // Notifications
   onShowNotification: callback =>

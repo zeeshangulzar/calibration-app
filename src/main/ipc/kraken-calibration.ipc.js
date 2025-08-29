@@ -59,21 +59,22 @@ export function registerKrakenCalibrationIpcHandlers() {
   });
 
   // Calibration operations
-  ipcMain.handle('kraken-calibration-start', async (event, sweepValue, testerName) => {
+  ipcMain.handle('kraken-calibration-start', async (event, testerName) => {
     const error = checkControllerInitialized();
 
     if (error) return error;
-    return await krakenCalibrationController.startCalibration(sweepValue, testerName);
+    return await krakenCalibrationController.startCalibration(testerName);
   });
 
-  ipcMain.handle('kraken-verification-start', async (event, sweepValue, testerName) => {
+  ipcMain.handle('kraken-verification-start', async (event, testerName) => {
     const error = checkControllerInitialized();
 
     if (error) return error;
     // For now, return a placeholder - verification logic can be implemented later
-    return { 
-      success: false, 
-      error: 'Verification functionality not yet implemented. This will be added in future updates.' 
+    return {
+      success: false,
+      error:
+        'Verification functionality not yet implemented. This will be added in future updates.',
     };
   });
 
