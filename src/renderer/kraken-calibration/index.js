@@ -696,12 +696,12 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         break;
       case 'in-progress':
         {
-        let progress = 25;
-        if (stage === 'discovering') progress = 50;
-        if (stage === 'subscribing') progress = 75;
+          let progress = 25;
+          if (stage === 'discovering') progress = 50;
+          if (stage === 'subscribing') progress = 75;
 
-        progressBar.style.width = `${progress}%`;
-        progressBar.className = 'bg-blue-600 h-2 rounded-full transition-all duration-500';
+          progressBar.style.width = `${progress}%`;
+          progressBar.className = 'bg-blue-600 h-2 rounded-full transition-all duration-500';
           widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
         }
         break;
