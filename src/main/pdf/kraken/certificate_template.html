@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Calibration Certificate</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+      .container { border: 2px solid #004a99; padding: 20px; border-radius: 10px; }
+      .header { text-align: center; border-bottom: 2px solid #004a99; padding-bottom: 10px; margin-bottom: 20px; }
+      .header h1 { margin: 0; color: #004a99; }
+      .details-section { display: flex; justify-content: space-between; margin-bottom: 20px; }
+      .results-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      .results-table th, .results-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      .results-table th { background-color: #f2f2f2; }
+      .summary { background-color: #e6f0ff; padding: 15px; border-radius: 5px; text-align: center; }
+      .footer { text-align: center; margin-top: 30px; font-size: 0.8em; color: #777; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header"><h1>Calibration Certificate</h1></div>
+      <div class="details-section">
+        <div>
+          <p><strong>Device Name:</strong> {{kraken_name}}</p>
+          <p><strong>Serial Number:</strong> {{serial_number}}</p>
+        </div>
+        <div>
+          <p><strong>Certificate ID:</strong> {{id}}</p>
+          <p><strong>Test Date:</strong> {{formatDate test_date}}</p>
+          <p><strong>Technician:</strong> {{tester_name}}</p>
+        </div>
+      </div>
+      <h2>Verification Results</h2>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Fluke Pressure (PSI)</th>
+            <th>Kraken Pressure (PSI)</th>
+            <th>Error (PSI)</th>
+            <th>Error (%FS)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each certification_data.points}}
+            <tr>
+              <td>{{this.flukePressure}}</td>
+              <td>{{this.krakenPressure}}</td>
+              <td>{{this.error}}</td>
+              <td>{{this.percentFS}}</td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      <div class="summary">
+        <h3>Certification Summary</h3>
+        <p><strong>Linearity:</strong> {{certification_data.linearity}}%</p>
+        <p><strong>Hysteresis:</strong> {{certification_data.hysteresis}} PSI</p>
+        <p><strong>Status:</strong> PASS</p>
+      </div>
+      <div class="footer"><p>SmartMonster Technologies</p></div>
+    </div>
+  </body>
+</html>

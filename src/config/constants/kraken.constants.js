@@ -41,6 +41,9 @@ export const KRAKEN_CONSTANTS = {
   // Sweep value
   SWEEP_VALUE: 300,
 
+  // delay after pressure is set
+  DELAY_AFTER_PRESSURE_SET: 3000,
+
   // Device connection states
   CONNECTION_STATES: {
     DISCONNECTED: 'disconnected',

@@ -85,15 +85,72 @@ function registerCalibrationHandlers() {
     return await krakenCalibrationController.stopCalibration('Calibration stopped', '', true);
   });
 
-  ipcMain.handle('kraken-verification-start', async () => {
+  ipcMain.handle('kraken-calibration-start-verification', async () => {
     const error = checkControllerInitialized();
 
     if (error) return error;
-    // For now, return a placeholder - verification logic can be implemented later
-    return {
-      success: false,
-      error: 'Verification functionality not yet implemented. This will be added in future updates.',
-    };
+    return await krakenCalibrationController.startVerification();
+  });
+
+  // Real-time verification updates
+  ipcMain.on('kraken-verification-realtime-update', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-verification-realtime-update', data);
+    }
+  });
+
+  ipcMain.on('kraken-verification-progress-update', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-verification-progress-update', data);
+    }
+  });
+
+  ipcMain.on('update-kraken-calibration-reference-pressure', (event, pressure) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('update-kraken-calibration-reference-pressure', pressure);
+    }
+  });
+
+  ipcMain.on('update-kraken-pressure', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('update-kraken-pressure', data);
+    }
+  });
+
+  ipcMain.on('kraken-certification-completed', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-certification-completed', data);
+    }
+  });
+
+  ipcMain.handle('kraken-calibration-start-certification', async (event, testerName) => {
+    console.log(`Received kraken-calibration-start-certification with tester: ${testerName}`);
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+    return await krakenCalibrationController.startCertification(testerName);
+  });
+
+  ipcMain.handle('kraken-verification-start', async (event, testerName) => {
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+
+    try {
+      await krakenCalibrationController.startVerification();
+      return { success: true };
+    } catch (error) {
+      console.error('Error starting verification:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to start verification process',
+      };
+    }
   });
 }
 
@@ -114,7 +171,7 @@ function registerStatusHandlers() {
 
 function registerCleanupHandlers() {
   // Navigation back to sensor list (with background cleanup like old app)
-  ipcMain.on('kraken-calibration-go-back', async () => {
+  ipcMain.handle('kraken-calibration-go-back', async () => {
     console.log('Back button clicked - starting background cleanup...');
 
     const mainWindow = getMainWindow();
@@ -168,6 +225,8 @@ function registerCleanupHandlers() {
         mainWindow.webContents.send('kraken-cleanup-completed');
       }
     }
+
+    return { success: true };
   });
 
   // Cleanup handler
