@@ -17,6 +17,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.activeSubscriptions = new Map(); // Track active characteristic subscriptions
     this.deviceCharacteristics = new Map(); // Track device characteristics for cleanup
     this.deviceSweepData = new Map(); // Track device sweep data
+    this.devicePressureData = new Map(); // Track device pressure readings
     this.isCalibrationActive = false;
     this.isVerificationActive = false;
     this.setupQueue = [];
@@ -42,6 +43,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.activeSubscriptions.clear();
     this.deviceCharacteristics.clear();
     this.deviceSweepData.clear();
+    this.devicePressureData.clear();
 
     devices.forEach(device => {
       this.connectedDevices.set(device.id, device);
@@ -474,6 +476,39 @@ class KrakenCalibrationStateService extends EventEmitter {
   isDeviceCalibrated(deviceId) {
     const device = this.connectedDevices.get(deviceId);
     return device ? !!device.isCalibrated : false;
+  }
+
+  // Pressure data management methods
+  setDevicePressure(deviceId, pressure) {
+    this.devicePressureData.set(deviceId, {
+      value: pressure,
+      timestamp: Date.now(),
+    });
+  }
+
+  getDevicePressure(deviceId) {
+    const pressureData = this.devicePressureData.get(deviceId);
+    return pressureData ? pressureData.value : null;
+  }
+
+  clearDevicePressures() {
+    this.devicePressureData.clear();
+  }
+
+  // Sweep data management methods
+  addKrakenSweepData(deviceId, dataPoint) {
+    if (!this.deviceSweepData.has(deviceId)) {
+      this.deviceSweepData.set(deviceId, []);
+    }
+    this.deviceSweepData.get(deviceId).push(dataPoint);
+  }
+
+  getKrakenSweepData() {
+    const sweepData = {};
+    for (const [deviceId, dataPoints] of this.deviceSweepData.entries()) {
+      sweepData[deviceId] = dataPoints;
+    }
+    return sweepData;
   }
 }
 

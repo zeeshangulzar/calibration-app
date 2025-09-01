@@ -84,6 +84,7 @@ export class FlukeManager {
       this.showLogOnScreen(`Checking ${command.name}...`);
 
       const initialResponse = await this.telnetClient.sendCommand(command.check);
+
       this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {
@@ -113,6 +114,7 @@ export class FlukeManager {
 
   async checkZeroPressure() {
     try {
+      this.showLogOnScreen('Checking zero pressure...');
       const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
       const pressure = parseFloat(response).toFixed(1);
 

@@ -115,6 +115,9 @@
                 <button id="start-verification-btn" class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-check-circle mr-2"></i>Start Verification
                 </button>
+                <button id="start-certification-btn" class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors hidden">
+                  <i class="fa-solid fa-certificate mr-2"></i>Generate Certificate
+                </button>
                 <button id="stop-calibration-button" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
                 </button>
@@ -165,6 +168,19 @@
               <!-- Tab Panels -->
               <div id="panel-verification" class="tab-panel"></div>
             </section>
+          </div>
+        </div>
+
+        <div id="verification-results-container" class="hidden mt-2">
+          <h2 class="text-xl font-semibold mb-2">Verification Sweep Results</h2>
+
+          <div class="flex flex-row">
+            <button id="remove-verification-button" class="self-end py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+              <i class="fa-solid fa-trash mr-2"></i>Clear Results
+            </button>
+          </div>
+          <div class="flex justify-between items-center mb-4">
+            <div id="results-table-wrapper" class="overflow-x-auto flex-1"></div>
           </div>
         </div>
       </main>
