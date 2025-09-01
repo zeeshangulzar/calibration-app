@@ -1,11 +1,6 @@
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
-// import { UART_service } from './uart-service.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-// import { parsePressureData } from '../utils/ble.utils.js';
-
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
-
-// const VERIFICATION_SWEEP_POINTS = generateStepArray(100);
 
 class KrakenVerificationService {
   constructor(globalState, flukeManager, sendToRenderer, showLogOnScreen) {
@@ -43,8 +38,7 @@ class KrakenVerificationService {
         break;
       }
 
-      // Send progress update
-      this.sendSweepProgressUpdate(i + 1, totalPoints);
+
 
       await this.setFlukeAndCaptureReadings(targetPressure);
     }
@@ -138,13 +132,7 @@ class KrakenVerificationService {
     }
   }
 
-  /**
-   * Stops the currently running verification sweep.
-   */
-  stopVerification() {
-    this.isSweepRunning = false;
-    this.showLogOnScreen('Verification process stopped by user.');
-  }
+
 
   /**
    * Update Kraken verification table in real-time
@@ -167,20 +155,7 @@ class KrakenVerificationService {
     });
   }
 
-  /**
-   * Send sweep progress update to renderer
-   * @param {number} currentPressure - Current pressure point being processed
-   * @param {number} totalPoints - Total pressure points in sweep
-   */
-  sendSweepProgressUpdate(currentPressure, totalPoints) {
-    const progress = Math.round((currentPressure / totalPoints) * 100);
-    this.sendToRenderer('kraken-verification-progress-update', {
-      currentPressure,
-      totalPoints,
-      progress,
-      isRunning: this.isSweepRunning,
-    });
-  }
+
 }
 
 export { KrakenVerificationService };
