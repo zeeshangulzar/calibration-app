@@ -100,12 +100,7 @@ function registerCalibrationHandlers() {
     }
   });
 
-  ipcMain.on('kraken-verification-progress-update', (event, data) => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send('kraken-verification-progress-update', data);
-    }
-  });
+
 
   ipcMain.on('update-kraken-calibration-reference-pressure', (event, pressure) => {
     const mainWindow = getMainWindow();

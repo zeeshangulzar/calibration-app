@@ -164,7 +164,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHideKrakenVerificationButton: callback => ipcRenderer.on('hide-kraken-verification-button', () => callback()),
   onKrakenVerificationSweepCompleted: callback => ipcRenderer.on('kraken-verification-sweep-completed', (_, data) => callback(data)),
   onKrakenVerificationRealtimeUpdate: callback => ipcRenderer.on('kraken-verification-realtime-update', (_, data) => callback(data)),
-  onKrakenVerificationProgressUpdate: callback => ipcRenderer.on('kraken-verification-progress-update', (_, data) => callback(data)),
+
   onUpdateKrakenCalibrationReferencePressure: callback => ipcRenderer.on('update-kraken-calibration-reference-pressure', (_, pressure) => callback(pressure)),
   onUpdateKrakenPressure: callback => ipcRenderer.on('update-kraken-pressure', (_, data) => callback(data)),
   onKrakenCertificationCompleted: callback => ipcRenderer.on('kraken-certification-completed', (_, data) => callback(data)),

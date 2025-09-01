@@ -509,11 +509,7 @@ window.electronAPI.onKrakenVerificationRealtimeUpdate(data => {
   updateVerificationResultsRealtime(data);
 });
 
-// Verification progress updates
-window.electronAPI.onKrakenVerificationProgressUpdate(data => {
-  console.log('Verification progress update received:', data);
-  updateVerificationProgress(data);
-});
+
 
 window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
   updateKrakenCalibrationReferencePressure(pressure);
@@ -1231,7 +1227,4 @@ function updateKrakenPressure(data) {
   }
 }
 
-function updateVerificationProgress(data) {
-  // Progress functionality removed - keeping function for compatibility
-  console.log('Verification progress update:', data);
-}
+
