@@ -18,6 +18,14 @@ function checkControllerInitialized() {
  * Register all kraken calibration related IPC handlers
  */
 export function registerKrakenCalibrationIpcHandlers() {
+  registerNavigationHandlers();
+  registerDeviceOperationHandlers();
+  registerCalibrationHandlers();
+  registerStatusHandlers();
+  registerCleanupHandlers();
+}
+
+function registerNavigationHandlers() {
   // Navigation handler - load calibration page with connected devices
   ipcMain.on('load-kraken-calibration', async (event, connectedDeviceIds) => {
     const mainWindow = getMainWindow();
@@ -37,7 +45,9 @@ export function registerKrakenCalibrationIpcHandlers() {
       });
     }
   });
+}
 
+function registerDeviceOperationHandlers() {
   // Device setup operations
   ipcMain.handle('kraken-calibration-retry-device', async (event, deviceId) => {
     const error = checkControllerInitialized();
@@ -57,7 +67,9 @@ export function registerKrakenCalibrationIpcHandlers() {
     if (error) return error;
     return await krakenCalibrationController.manuallyDisconnectDevice(deviceId);
   });
+}
 
+function registerCalibrationHandlers() {
   // Calibration operations
   ipcMain.handle('kraken-calibration-start', async (event, testerName) => {
     const error = checkControllerInitialized();
@@ -66,18 +78,26 @@ export function registerKrakenCalibrationIpcHandlers() {
     return await krakenCalibrationController.startCalibration(testerName);
   });
 
-  ipcMain.handle('kraken-verification-start', async (event, testerName) => {
+  ipcMain.handle('kraken-calibration-stop', async () => {
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+    return await krakenCalibrationController.stopCalibration('Calibration stopped', '', true);
+  });
+
+  ipcMain.handle('kraken-verification-start', async () => {
     const error = checkControllerInitialized();
 
     if (error) return error;
     // For now, return a placeholder - verification logic can be implemented later
     return {
       success: false,
-      error:
-        'Verification functionality not yet implemented. This will be added in future updates.',
+      error: 'Verification functionality not yet implemented. This will be added in future updates.',
     };
   });
+}
 
+function registerStatusHandlers() {
   // Status and data retrieval
   ipcMain.handle('kraken-calibration-get-status', () => {
     if (!krakenCalibrationController) {
@@ -90,7 +110,9 @@ export function registerKrakenCalibrationIpcHandlers() {
     }
     return krakenCalibrationController.getStatus();
   });
+}
 
+function registerCleanupHandlers() {
   // Navigation back to sensor list (with background cleanup like old app)
   ipcMain.on('kraken-calibration-go-back', async () => {
     console.log('Back button clicked - starting background cleanup...');

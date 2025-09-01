@@ -23,9 +23,26 @@ export class FlukeManager {
       return { success: true, message: log };
     }
 
-    let response = await this.telnetClient.connect();
-    this.showLogOnScreen(response.message);
-    return response;
+    try {
+      let response = await this.telnetClient.connect();
+      this.showLogOnScreen(response.message);
+      return response;
+    } catch (error) {
+      const errorMessage = error.error || error.message || 'Unknown connection error';
+      log = `❌ Failed to connect to Fluke: ${errorMessage}`;
+      this.showLogOnScreen(log);
+
+      // Show user-friendly message
+      if (errorMessage.includes('ETIMEDOUT')) {
+        this.showLogOnScreen('⚠️ Connection timeout - Please check if Fluke device is powered on and network connection is available.');
+      } else if (errorMessage.includes('ECONNREFUSED')) {
+        this.showLogOnScreen('⚠️ Connection refused - Please check if Fluke device is accessible on the network.');
+      } else {
+        this.showLogOnScreen(`⚠️ Connection failed: ${errorMessage}`);
+      }
+
+      return { success: false, error: errorMessage, message: log };
+    }
   }
 
   async runPreReqs() {
@@ -95,15 +112,21 @@ export class FlukeManager {
   }
 
   async checkZeroPressure() {
-    const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
-    const pressure = parseFloat(response).toFixed(1);
+    try {
+      const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
+      const pressure = parseFloat(response).toFixed(1);
 
-    if (pressure < FlukeUtil.flukeTolerance) {
-      this.showLogOnScreen('Pressure already set to 0');
-      return true; // Pressure is already at zero
-    } else {
-      this.showLogOnScreen(`Current pressure: ${pressure} PSI`);
-      return false; // Pressure needs to be set to zero
+      if (pressure < FlukeUtil.flukeTolerance) {
+        this.showLogOnScreen('Pressure already set to 0');
+        return true; // Pressure is already at zero
+      } else {
+        this.showLogOnScreen(`Current pressure: ${pressure} PSI`);
+        return false; // Pressure needs to be set to zero
+      }
+    } catch (error) {
+      const errorMessage = error.error || error.message || 'Unknown error';
+      this.showLogOnScreen(`❌ Failed to check pressure: ${errorMessage}`);
+      throw new Error(`Pressure check failed: ${errorMessage}`);
     }
   }
 
@@ -122,9 +145,7 @@ export class FlukeManager {
     await this.waitForFlukeToReachZeroPressure(true);
 
     // Verify the pressure was actually set to 0
-    const verificationResponse = await this.telnetClient.sendCommand(
-      FlukeUtil.flukeGetPressureCommand
-    );
+    const verificationResponse = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
     const verificationPressure = parseFloat(verificationResponse).toFixed(1);
 
     if (verificationPressure >= FlukeUtil.flukeTolerance) {
@@ -132,18 +153,22 @@ export class FlukeManager {
       this.showLogOnScreen(errorMessage);
       throw new Error(`Fluke zero pressure setting failed: ${errorMessage}`);
     } else {
-      this.showLogOnScreen(
-        `✅ Pressure successfully set to 0 and verified (${verificationPressure} PSI).`
-      );
+      this.showLogOnScreen(`✅ Pressure successfully set to 0 and verified (${verificationPressure} PSI).`);
     }
   }
 
   async ensureZeroPressure() {
-    const isZeroPressure = await this.checkZeroPressure();
+    try {
+      const isZeroPressure = await this.checkZeroPressure();
 
-    if (!isZeroPressure) {
-      this.setZeroPressureToFluke();
-      await this.waitForFlukeToReachZeroPressure();
+      if (!isZeroPressure) {
+        this.setZeroPressureToFluke();
+        await this.waitForFlukeToReachZeroPressure();
+      }
+    } catch (error) {
+      const errorMessage = error.error || error.message || 'Unknown error';
+      this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
+      throw new Error(`Zero pressure setup failed: ${errorMessage}`);
     }
   }
 
@@ -162,9 +187,7 @@ export class FlukeManager {
     await this.waitForFlukeToReachTargetPressure(sweepValue);
 
     // Verify the pressure was actually set correctly
-    const verificationResponse = await this.telnetClient.sendCommand(
-      FlukeUtil.flukeGetPressureCommand
-    );
+    const verificationResponse = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
     const verificationPressure = parseFloat(verificationResponse).toFixed(1);
     const targetPressure = parseFloat(sweepValue).toFixed(1);
 
@@ -177,9 +200,7 @@ export class FlukeManager {
       this.showLogOnScreen(errorMessage);
       throw new Error(`Fluke high pressure setting failed: ${errorMessage}`);
     } else {
-      this.showLogOnScreen(
-        `✅ High pressure successfully set to ${sweepValue} PSI and verified (${verificationPressure} PSI).`
-      );
+      this.showLogOnScreen(`✅ High pressure successfully set to ${sweepValue} PSI and verified (${verificationPressure} PSI).`);
     }
   }
 
@@ -213,12 +234,7 @@ export class FlukeManager {
 
   async checkFlukeResponsiveness() {
     try {
-      const response = await Promise.race([
-        this.telnetClient.sendCommand('*IDN?'),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Fluke not responding')), 5000)
-        ),
-      ]);
+      const response = await Promise.race([this.telnetClient.sendCommand('*IDN?'), new Promise((_, reject) => setTimeout(() => reject(new Error('Fluke not responding')), 5000))]);
 
       return response && response.length > 0;
     } catch (error) {

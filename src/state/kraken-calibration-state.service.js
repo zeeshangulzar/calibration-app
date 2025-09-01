@@ -64,14 +64,7 @@ class KrakenCalibrationStateService extends EventEmitter {
   }
 
   // Update device status
-  updateDeviceStatus(
-    deviceId,
-    status,
-    stage = null,
-    error = null,
-    services = null,
-    characteristics = null
-  ) {
+  updateDeviceStatus(deviceId, status, stage = null, error = null, services = null, characteristics = null) {
     const currentStatus = this.deviceSetupStatus.get(deviceId);
     if (!currentStatus) return;
 
@@ -98,9 +91,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       },
     });
 
-    console.log(
-      `Global state: Device ${deviceId} status updated to ${status}${stage ? ` (${stage})` : ''}`
-    );
+    console.log(`Global state: Device ${deviceId} status updated to ${status}${stage ? ` (${stage})` : ''}`);
   }
 
   // Get connected devices
@@ -254,16 +245,11 @@ class KrakenCalibrationStateService extends EventEmitter {
     }
 
     const attempt = retryCount + 1;
-    console.log(
-      `Global state: Reconnection attempt ${attempt}/${maxRetries} for device ${deviceId}`
-    );
+    console.log(`Global state: Reconnection attempt ${attempt}/${maxRetries} for device ${deviceId}`);
 
     try {
       // Disconnect old peripheral if connected
-      if (
-        device.peripheral &&
-        (device.peripheral.state === 'connected' || device.peripheral.state === 'connecting')
-      ) {
+      if (device.peripheral && (device.peripheral.state === 'connected' || device.peripheral.state === 'connecting')) {
         await this.disconnectDevice(device.peripheral);
         await this.addDelay(1500); // Wait for clean disconnect
       }
@@ -299,18 +285,14 @@ class KrakenCalibrationStateService extends EventEmitter {
       this.incrementRetryCount(deviceId);
       const delay = this.baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
 
-      console.log(
-        `Global state: Reconnection attempt ${attempt} failed for device ${deviceId}: ${error.message}`
-      );
+      console.log(`Global state: Reconnection attempt ${attempt} failed for device ${deviceId}: ${error.message}`);
 
       if (this.canRetryDevice(deviceId)) {
         console.log(`Global state: Will retry device ${deviceId} after ${delay}ms delay`);
         await this.addDelay(delay);
         return this.reconnectDevice(deviceId); // Recursive retry
       } else {
-        throw new Error(
-          `Failed to reconnect device ${deviceId} after ${maxRetries} attempts: ${error.message}`
-        );
+        throw new Error(`Failed to reconnect device ${deviceId} after ${maxRetries} attempts: ${error.message}`);
       }
     }
   }
@@ -333,7 +315,7 @@ class KrakenCalibrationStateService extends EventEmitter {
       const { characteristic, handler } = subscription;
       try {
         // Unsubscribe from characteristic
-        await new Promise((resolve, reject) => {
+        await new Promise(resolve => {
           characteristic.unsubscribe(err => {
             if (err) {
               console.warn(`Error unsubscribing from device ${deviceId}:`, err.message);
@@ -438,11 +420,7 @@ class KrakenCalibrationStateService extends EventEmitter {
   }
 
   isPeripheralDisconnectable(peripheral) {
-    return (
-      peripheral &&
-      peripheral.state &&
-      (peripheral.state === 'connected' || peripheral.state === 'connecting')
-    );
+    return peripheral && peripheral.state && (peripheral.state === 'connected' || peripheral.state === 'connecting');
   }
 
   performDisconnect(peripheral) {

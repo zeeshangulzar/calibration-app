@@ -52,9 +52,7 @@ export class KrakenUIManager {
       devices.length > 0 &&
       devices.every(device => {
         const status = this.globalState.getDeviceStatus(device.id);
-        return (
-          status?.status === 'ready' && device.peripheral && device.peripheral.state === 'connected'
-        );
+        return status?.status === 'ready' && device.peripheral && device.peripheral.state === 'connected';
       });
 
     // Disable button if calibration is in progress
@@ -77,12 +75,7 @@ export class KrakenUIManager {
     for (const device of devices) {
       if (isCalibrating) {
         // Update device status to show calibration in progress
-        this.globalState.updateDeviceStatus(
-          device.id,
-          'calibrating',
-          'active',
-          'Device is being calibrated...'
-        );
+        this.globalState.updateDeviceStatus(device.id, 'calibrating', 'active', 'Device is being calibrated...');
       } else if (hasError) {
         // Update device to error state after calibration failure
         this.globalState.updateDeviceStatus(device.id, 'failed', 'error', 'Calibration failed');
@@ -110,13 +103,42 @@ export class KrakenUIManager {
     }
   }
 
+  /**
+   * Reset device widgets to their original "Not Calibrated" state
+   * Used when calibration fails and we want to allow retry
+   */
+  resetDeviceWidgetsToNotCalibrated() {
+    const devices = this.globalState.getConnectedDevices();
+
+    for (const device of devices) {
+      // Reset device status to ready (not calibrated)
+      this.globalState.updateDeviceStatus(device.id, 'ready', 'waiting', null);
+
+      // Send widget update to renderer with "Not Calibrated" state
+      this.sendToRenderer('device-calibration-status-update', {
+        deviceId: device.id,
+        isCalibrating: false,
+        hasError: false,
+        message: 'Not Calibrated',
+      });
+    }
+  }
+
   disableBackButton() {
     this.sendToRenderer('disable-kraken-back-button');
+  }
+
+  enableBackButton() {
+    this.sendToRenderer('enable-kraken-back-button');
   }
 
   showAndEnableStopCalibrationButton() {
     this.sendToRenderer('show-kraken-stop-calibration-button');
     this.sendToRenderer('enable-kraken-stop-calibration-button');
+  }
+
+  hideStopCalibrationButton() {
+    this.sendToRenderer('hide-kraken-stop-calibration-button');
   }
 
   hideResultsButton() {
@@ -125,6 +147,10 @@ export class KrakenUIManager {
 
   disableCalibrationButton() {
     this.sendToRenderer('disable-kraken-calibration-start-button');
+  }
+
+  enableCalibrationButton() {
+    this.sendToRenderer('enable-kraken-calibration-button');
   }
 
   clearCalibrationLogs() {

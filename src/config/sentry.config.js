@@ -18,14 +18,9 @@ export const getBaseSentryConfig = () => {
     autoSessionTracking: false,
 
     // Simple error filtering - only allow real crashes
-    beforeSend(event, hint) {
+    beforeSend(event) {
       // Skip common non-critical errors
-      const skipPatterns = [
-        'ResizeObserver loop limit exceeded',
-        'Non-Error promise rejection captured',
-        'Script error',
-        'Network request failed',
-      ];
+      const skipPatterns = ['ResizeObserver loop limit exceeded', 'Non-Error promise rejection captured', 'Script error', 'Network request failed'];
 
       const errorMessage = event.exception?.values?.[0]?.value || '';
       if (skipPatterns.some(pattern => errorMessage.includes(pattern))) {

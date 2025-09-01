@@ -50,13 +50,7 @@ export class KrakenCalibrationManager {
    * @param {Function} [beforeDeviceLoop] - Optional function to run before device loop
    * @returns {Promise<void>}
    */
-  async sendCommandToAllSensors(
-    commandType,
-    commandFunction,
-    startMessage,
-    endMessage,
-    beforeDeviceLoop = null
-  ) {
+  async sendCommandToAllSensors(commandType, commandFunction, startMessage, endMessage, beforeDeviceLoop = null) {
     this.showLogOnScreen(startMessage);
 
     const devicesToRemove = [];
@@ -72,9 +66,7 @@ export class KrakenCalibrationManager {
         // TODO: implement device retry connect logic
         // Check if device is still connected before sending command
         if (!this.isDeviceConnectedInGlobalState(device.id)) {
-          this.showLogOnScreen(
-            `⚠️ Device ${device.name || device.id} is not connected, skipping ${commandType} command`
-          );
+          this.showLogOnScreen(`⚠️ Device ${device.name || device.id} is not connected, skipping ${commandType} command`);
 
           // Update device widget to show disconnected state immediately
           this.sendToRenderer('device-calibration-status-update', {
@@ -102,23 +94,12 @@ export class KrakenCalibrationManager {
           await addDelay(1000);
         }
       } catch (error) {
-        console.error(
-          `${commandType} command failed for device ${device.name || device.id}:`,
-          error.message
-        );
-        this.showLogOnScreen(
-          `❌ ${commandType} command failed for ${device.name || device.id}: ${error.message}`
-        );
+        console.error(`${commandType} command failed for device ${device.name || device.id}:`, error.message);
+        this.showLogOnScreen(`❌ ${commandType} command failed for ${device.name || device.id}: ${error.message}`);
 
         // Special handling for critical Fluke failures in high command
-        if (
-          commandType === 'High' &&
-          (error.message.includes('Fluke is not responding') || error.message.includes('timeout'))
-        ) {
-          await this.stopCalibration(
-            'Critical Fluke communication failure during high pressure operation',
-            error.message
-          );
+        if (commandType === 'High' && (error.message.includes('Fluke is not responding') || error.message.includes('timeout'))) {
+          await this.stopCalibration('Critical Fluke communication failure during high pressure operation', error.message);
           throw new Error('Critical Fluke failure during high pressure operation');
         }
 
@@ -135,10 +116,7 @@ export class KrakenCalibrationManager {
     }
 
     // Remove failed devices
-    await this.removeFailedDevicesFromCalibration(
-      devicesToRemove,
-      `${commandType.toLowerCase()} command`
-    );
+    await this.removeFailedDevicesFromCalibration(devicesToRemove, `${commandType.toLowerCase()} command`);
     this.showLogOnScreen(endMessage);
   }
 
@@ -167,10 +145,7 @@ export class KrakenCalibrationManager {
         this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
       } catch (error) {
         this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
-        await this.stopCalibration(
-          'Critical Fluke communication failure during high pressure setup',
-          error.message
-        );
+        await this.stopCalibration('Critical Fluke communication failure during high pressure setup', error.message);
         throw new Error('Critical Fluke failure during high pressure setup');
       }
     };
@@ -220,9 +195,7 @@ export class KrakenCalibrationManager {
     } catch (error) {
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(
-          `🔌 Device ${deviceName} disconnected during zero command - removing from calibration`
-        );
+        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during zero command - removing from calibration`);
         // Remove device from calibration immediately
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
@@ -249,9 +222,7 @@ export class KrakenCalibrationManager {
     } catch (error) {
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(
-          `🔌 Device ${deviceName} disconnected during low command - removing from calibration`
-        );
+        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during low command - removing from calibration`);
         // Remove device from calibration immediately
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
@@ -278,9 +249,7 @@ export class KrakenCalibrationManager {
     } catch (error) {
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(
-          `🔌 Device ${deviceName} disconnected during high command - removing from calibration`
-        );
+        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during high command - removing from calibration`);
         // Remove device from calibration immediately
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
@@ -357,9 +326,7 @@ export class KrakenCalibrationManager {
 
       try {
         // Log the removal
-        this.showLogOnScreen(
-          `🗑️ Removing ${deviceName} - Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`
-        );
+        this.showLogOnScreen(`🗑️ Removing ${deviceName} - Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`);
 
         // Clean up device subscriptions
         await this.globalState.cleanupDeviceSubscription(deviceId);
@@ -406,9 +373,7 @@ export class KrakenCalibrationManager {
       await this.stopCalibration('All devices failed calibration commands');
       throw new Error('All devices failed calibration commands');
     } else {
-      this.showLogOnScreen(
-        `✅ Continuing calibration with ${remainingDevices.length} remaining devices`
-      );
+      this.showLogOnScreen(`✅ Continuing calibration with ${remainingDevices.length} remaining devices`);
     }
   }
 
@@ -416,8 +381,9 @@ export class KrakenCalibrationManager {
    * Stop calibration process and show user notification
    * @param {string} reason - Reason for stopping calibration
    * @param {string} errorDetails - Additional error details
+   * @param {boolean} resetToNotCalibrated - Whether to reset devices to "Not Calibrated" state (for retry)
    */
-  async stopCalibration(reason, errorDetails = '') {
+  async stopCalibration(reason, errorDetails = '', resetToNotCalibrated = false) {
     try {
       console.log(`Stopping calibration: ${reason}`);
 
@@ -435,13 +401,26 @@ export class KrakenCalibrationManager {
       this.sendToRenderer('enable-kraken-back-button');
       this.sendToRenderer('hide-kraken-stop-calibration-button');
 
-      // Update all device widgets to show calibration failed
-      this.updateDeviceWidgetsForCalibration(false, true);
+      // Update device widgets based on reset preference
+      if (resetToNotCalibrated) {
+        // Reset to "Not Calibrated" state for retry
+        this.resetDeviceWidgetsToNotCalibrated();
+      } else {
+        // Show calibration failed state
+        this.updateDeviceWidgetsForCalibration(false, true);
+      }
 
-      // Send error notification to user
+      // Also update calibration button state to re-enable it
+      this.sendToRenderer('update-calibration-button-state', {
+        enabled: true,
+        deviceCount: this.globalState.getConnectedDevices().length,
+      });
+
+      // Send appropriate notification to user
+      const isUserRequestedStop = reason === 'Calibration stopped';
       this.sendToRenderer('show-notification', {
-        type: 'error',
-        message: `Calibration failed: ${reason}`,
+        type: isUserRequestedStop ? 'info' : 'error',
+        message: isUserRequestedStop ? 'Calibration stopped' : `Calibration failed: ${reason}`,
       });
     } catch (error) {
       console.error('Error stopping calibration:', error);
@@ -450,8 +429,20 @@ export class KrakenCalibrationManager {
       this.sendToRenderer('enable-kraken-back-button');
       this.sendToRenderer('hide-kraken-stop-calibration-button');
 
-      // Update all device widgets to show calibration failed (error during stop)
-      this.updateDeviceWidgetsForCalibration(false, true);
+      // Update device widgets based on reset preference (error during stop)
+      if (resetToNotCalibrated) {
+        // Reset to "Not Calibrated" state for retry
+        this.resetDeviceWidgetsToNotCalibrated();
+      } else {
+        // Show calibration failed state
+        this.updateDeviceWidgetsForCalibration(false, true);
+      }
+
+      // Also update calibration button state to re-enable it
+      this.sendToRenderer('update-calibration-button-state', {
+        enabled: true,
+        deviceCount: this.globalState.getConnectedDevices().length,
+      });
     }
   }
 
@@ -465,12 +456,7 @@ export class KrakenCalibrationManager {
     for (const device of devices) {
       if (isCalibrating) {
         // Update device status to show calibration in progress
-        this.globalState.updateDeviceStatus(
-          device.id,
-          'calibrating',
-          'active',
-          'Device is being calibrated...'
-        );
+        this.globalState.updateDeviceStatus(device.id, 'calibrating', 'active', 'Device is being calibrated...');
       } else if (hasError) {
         // Update device to error state after calibration failure
         this.globalState.updateDeviceStatus(device.id, 'failed', 'error', 'Calibration failed');
@@ -494,6 +480,27 @@ export class KrakenCalibrationManager {
         isCalibrating: isCalibrating,
         hasError: hasError,
         message: message,
+      });
+    }
+  }
+
+  /**
+   * Reset device widgets to their original "Not Calibrated" state
+   * Used when calibration fails and we want to allow retry
+   */
+  resetDeviceWidgetsToNotCalibrated() {
+    const devices = this.globalState.getConnectedDevices();
+
+    for (const device of devices) {
+      // Reset device status to ready (not calibrated)
+      this.globalState.updateDeviceStatus(device.id, 'ready', 'waiting', null);
+
+      // Send widget update to renderer with "Not Calibrated" state
+      this.sendToRenderer('device-calibration-status-update', {
+        deviceId: device.id,
+        isCalibrating: false,
+        hasError: false,
+        message: 'Not Calibrated',
       });
     }
   }

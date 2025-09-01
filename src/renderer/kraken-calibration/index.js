@@ -22,14 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const testerName = document.getElementById('tester-name')?.value;
 
       if (!testerName) {
-        NotificationHelper.showCustomAlertModal(
-          'Please select Tester Name before starting calibration.'
-        );
+        NotificationHelper.showCustomAlertModal('Please select Tester Name before starting calibration.');
         return;
       }
       if (allDevicesReady) {
         try {
-          const result = await window.electronAPI.krakenCalibrationStart(testerName);
+          await window.electronAPI.krakenCalibrationStart(testerName);
           // if (!result.success) {
           //   NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
           // }
@@ -47,9 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const testerName = document.getElementById('tester-name')?.value;
 
       if (!testerName) {
-        NotificationHelper.showCustomAlertModal(
-          'Please select Tester Name before starting verification.'
-        );
+        NotificationHelper.showCustomAlertModal('Please select Tester Name before starting verification.');
         return;
       }
 
@@ -60,6 +56,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         NotificationHelper.showError(`Error starting verification: ${error.message}`);
+      }
+    });
+  }
+
+  // Stop calibration button
+  const stopCalibrationBtn = document.getElementById('stop-calibration-button');
+  if (stopCalibrationBtn) {
+    stopCalibrationBtn.addEventListener('click', async () => {
+      try {
+        await window.electronAPI.krakenCalibrationStop();
+      } catch (error) {
+        NotificationHelper.showError(`Error stopping calibration: ${error.message}`);
       }
     });
   }
@@ -109,12 +117,7 @@ window.electronAPI.onDeviceSetupFailed(data => {
 
 window.electronAPI.onDeviceSetupRetry(data => {
   const { deviceId, attempt, maxRetries, message } = data;
-  updateDeviceWidget(
-    deviceId,
-    'in-progress',
-    `Retry ${attempt}/${maxRetries} - ${message || 'Retrying setup...'}`,
-    'retrying'
-  );
+  updateDeviceWidget(deviceId, 'in-progress', `Retry ${attempt}/${maxRetries} - ${message || 'Retrying setup...'}`, 'retrying');
 });
 
 window.electronAPI.onDeviceSetupFailedFinal(data => {
@@ -161,11 +164,7 @@ window.electronAPI.onAllDevicesReady(() => {
 
   // Also re-enable verification button if it's visible and was disabled due to disconnections
   const verificationBtn = document.getElementById('start-verification-btn');
-  if (
-    verificationBtn &&
-    !verificationBtn.classList.contains('hidden') &&
-    verificationBtn.disabled
-  ) {
+  if (verificationBtn && !verificationBtn.classList.contains('hidden') && verificationBtn.disabled) {
     verificationBtn.disabled = false;
     verificationBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     verificationBtn.title = 'Start Verification';
@@ -337,8 +336,7 @@ window.electronAPI.onDisableKrakenBackButton(() => {
   const statusMessage = document.getElementById('back-button-status-message');
 
   if (messageElement && statusMessage) {
-    messageElement.textContent =
-      'Back button is disabled during calibration. It will be re-enabled when calibration completes or if an error occurs.';
+    messageElement.textContent = 'Back button is disabled during calibration. It will be re-enabled when calibration completes or if an error occurs.';
     statusMessage.classList.remove('hidden');
   }
 });
@@ -355,6 +353,29 @@ window.electronAPI.onEnableKrakenBackButton(() => {
   const statusMessage = document.getElementById('back-button-status-message');
   if (statusMessage) {
     statusMessage.classList.add('hidden');
+  }
+});
+
+// Stop calibration button event listeners
+window.electronAPI.onShowKrakenStopCalibrationButton(() => {
+  const stopBtn = document.getElementById('stop-calibration-button');
+  if (stopBtn) {
+    stopBtn.classList.remove('hidden');
+  }
+});
+
+window.electronAPI.onHideKrakenStopCalibrationButton(() => {
+  const stopBtn = document.getElementById('stop-calibration-button');
+  if (stopBtn) {
+    stopBtn.classList.add('hidden');
+  }
+});
+
+window.electronAPI.onEnableKrakenStopCalibrationButton(() => {
+  const stopBtn = document.getElementById('stop-calibration-button');
+  if (stopBtn) {
+    stopBtn.disabled = false;
+    stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
   }
 });
 
@@ -562,8 +583,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
 
     // Show calibration indicator
     if (indicator) {
-      indicator.className =
-        'calibration-status-indicator bg-orange-100 border border-orange-300 rounded-md p-2 mt-2 flex items-center';
+      indicator.className = 'calibration-status-indicator bg-orange-100 border border-orange-300 rounded-md p-2 mt-2 flex items-center';
       indicator.innerHTML = `
         <div class="flex items-center w-full">
           <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
@@ -573,8 +593,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
     }
 
     // Update widget styling for calibration
-    widget.className =
-      'rounded-md border border-orange-300 bg-orange-50 p-4 shadow-sm transition-all duration-200 calibrating';
+    widget.className = 'rounded-md border border-orange-300 bg-orange-50 p-4 shadow-sm transition-all duration-200 calibrating';
   } else {
     // Calibration completed or not started
     widget.classList.remove('calibrating');
@@ -598,8 +617,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
 
       // Show error indicator
       if (indicator) {
-        indicator.className =
-          'calibration-status-indicator bg-red-100 border border-red-300 rounded-md p-2 mt-2 flex items-center';
+        indicator.className = 'calibration-status-indicator bg-red-100 border border-red-300 rounded-md p-2 mt-2 flex items-center';
         indicator.innerHTML = `
           <div class="flex items-center w-full">
             <i class="fa-solid fa-exclamation-triangle text-red-600 mr-2"></i>
@@ -609,8 +627,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
       }
 
       // Update widget styling for error
-      widget.className =
-        'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200 calibration-error';
+      widget.className = 'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200 calibration-error';
     } else {
       // Check if device was calibrated (based on message or current state)
       const wasCalibrated = message && message.includes('verification');
@@ -621,8 +638,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
 
         // Show calibrated indicator
         if (indicator) {
-          indicator.className =
-            'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
+          indicator.className = 'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
           indicator.innerHTML = `
             <div class="flex items-center w-full">
               <i class="fa-solid fa-check-circle text-green-600 mr-2"></i>
@@ -632,16 +648,14 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         }
 
         // Update widget styling for calibrated
-        widget.className =
-          'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200 calibrated';
+        widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200 calibrated';
       } else {
         widget.classList.add('not-calibrated');
         widget.classList.remove('calibrated', 'calibration-error');
 
         // Show not calibrated indicator
         if (indicator) {
-          indicator.className =
-            'calibration-status-indicator bg-gray-100 border border-gray-300 rounded-md p-2 mt-2 flex items-center';
+          indicator.className = 'calibration-status-indicator bg-gray-100 border border-gray-300 rounded-md p-2 mt-2 flex items-center';
           indicator.innerHTML = `
             <div class="flex items-center w-full">
               <i class="fa-solid fa-clock text-gray-600 mr-2"></i>
@@ -651,8 +665,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         }
 
         // Update widget styling for not calibrated
-        widget.className =
-          'rounded-md border border-gray-300 bg-white p-4 shadow-sm transition-all duration-200 not-calibrated';
+        widget.className = 'rounded-md border border-gray-300 bg-white p-4 shadow-sm transition-all duration-200 not-calibrated';
       }
     }
   }
@@ -682,20 +695,20 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         widget.className = 'rounded-md border bg-white p-4 shadow-sm transition-all duration-200';
         break;
       case 'in-progress':
+        {
         let progress = 25;
         if (stage === 'discovering') progress = 50;
         if (stage === 'subscribing') progress = 75;
 
         progressBar.style.width = `${progress}%`;
         progressBar.className = 'bg-blue-600 h-2 rounded-full transition-all duration-500';
-        widget.className =
-          'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
+          widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
+        }
         break;
       case 'ready':
         progressBar.style.width = '100%';
         progressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-500';
-        widget.className =
-          'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
+        widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
 
         // Show data area for ready devices
         if (dataArea) {
@@ -705,8 +718,7 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
       case 'failed':
         progressBar.style.width = '100%';
         progressBar.className = 'bg-red-600 h-2 rounded-full transition-all duration-500';
-        widget.className =
-          'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200';
+        widget.className = 'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200';
 
         // Show retry button
         if (actionArea) {
@@ -746,21 +758,14 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
       deviceWidget.classList.add('border-green-300', 'bg-green-50');
       deviceWidget.classList.remove('border-red-300', 'bg-red-50');
     } else {
-      deviceWidget.classList.remove(
-        'border-red-300',
-        'bg-red-50',
-        'border-green-300',
-        'bg-green-50'
-      );
+      deviceWidget.classList.remove('border-red-300', 'bg-red-50', 'border-green-300', 'bg-green-50');
     }
   }
 }
 
 // Update kraken device details (firmware, display name, etc.)
 function updateKrakenDetails(deviceId, firmwareVersion, displayName) {
-  console.log(
-    `Updating kraken ${deviceId} details: firmware=${firmwareVersion}, displayName=${displayName}`
-  );
+  console.log(`Updating kraken ${deviceId} details: firmware=${firmwareVersion}, displayName=${displayName}`);
 
   // Update firmware version in widget
   const firmwareElement = document.querySelector(`#device-widget-${deviceId} .device-firmware`);
@@ -821,7 +826,7 @@ function updateDeviceFromStatus(deviceId, statusObj) {
 
 // Update progress summary
 function updateProgressSummary(data) {
-  const { ready, failed, pending, progress } = data;
+  const { ready, failed, progress } = data;
 
   const progressBar = document.getElementById('progress-bar');
   if (progressBar) {
@@ -880,10 +885,10 @@ async function retryDeviceSetup(deviceId) {
   try {
     const result = await window.electronAPI.krakenCalibrationRetryDevice(deviceId);
     if (!result.success) {
-      showError(`Failed to retry device setup: ${result.error}`);
+      NotificationHelper.showError(`Failed to retry device setup: ${result.error}`);
     }
   } catch (error) {
-    showError(`Error retrying device setup: ${error.message}`);
+    NotificationHelper.showError(`Error retrying device setup: ${error.message}`);
   }
 }
 
@@ -905,9 +910,7 @@ async function reconnectDevice(deviceId) {
 // Manually disconnect a device
 async function disconnectDevice(deviceId) {
   try {
-    const confirmDisconnect = confirm(
-      'Are you sure you want to disconnect and remove this kraken from the calibration?'
-    );
+    const confirmDisconnect = confirm('Are you sure you want to disconnect and remove this kraken from the calibration?');
     if (!confirmDisconnect) return;
 
     console.log(`Manually disconnecting device ${deviceId}...`);

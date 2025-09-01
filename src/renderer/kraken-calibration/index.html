@@ -14,15 +14,7 @@
       .removing {
         user-select: none;
         cursor: not-allowed;
-        background: linear-gradient(
-          45deg,
-          transparent 25%,
-          rgba(255, 0, 0, 0.05) 25%,
-          rgba(255, 0, 0, 0.05) 50%,
-          transparent 50%,
-          transparent 75%,
-          rgba(255, 0, 0, 0.05) 75%
-        );
+        background: linear-gradient(45deg, transparent 25%, rgba(255, 0, 0, 0.05) 25%, rgba(255, 0, 0, 0.05) 50%, transparent 50%, transparent 75%, rgba(255, 0, 0, 0.05) 75%);
         background-size: 20px 20px;
         animation: removing-stripes 1s linear infinite;
       }
@@ -46,14 +38,9 @@
 
   <body class="h-full text-base-content">
     <!-- Main loader for page -->
-    <div
-      id="page-loader"
-      class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50 hidden"
-    >
+    <div id="page-loader" class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50 hidden">
       <div class="text-center">
-        <div
-          class="animate-spin rounded-full h-16 w-16 border-4 border-neutral-300 border-t-neutral-800 mx-auto mb-4"
-        ></div>
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-neutral-300 border-t-neutral-800 mx-auto mb-4"></div>
         <p class="text-lg">Initializing calibration...</p>
       </div>
     </div>
@@ -79,14 +66,9 @@
 
           <!-- Back Button Status Message (inline) -->
           <div id="back-button-status-message" class="hidden">
-            <div
-              class="bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 flex items-center"
-            >
+            <div class="bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 flex items-center">
               <i class="fa-solid fa-info-circle text-yellow-600 mr-2"></i>
-              <span
-                id="back-button-message-text"
-                class="text-yellow-800 text-sm font-medium"
-              ></span>
+              <span id="back-button-message-text" class="text-yellow-800 text-sm font-medium"></span>
             </div>
           </div>
         </div>
@@ -96,9 +78,7 @@
           <div id="connected-devices-section">
             <div class="mb-6">
               <h2 class="text-xl font-semibold mb-2">Connected Krakens</h2>
-              <p class="text-neutral-600">
-                Setting up services and characteristics for each connected sensor
-              </p>
+              <p class="text-neutral-600">Setting up services and characteristics for each connected sensor</p>
               <span id="connection-status" class="text-sm text-neutral-600"></span>
             </div>
 
@@ -113,29 +93,10 @@
                 <!-- Dropdowns Row -->
                 <div class="flex gap-10 py-6">
                   <!-- Sweep Value Display -->
-                  <div>
-                    <label class="block text-sm font-medium text-neutral-700 mb-1">
-                      Sweep Value
-                    </label>
-                    <div
-                      class="border border-neutral-300 rounded-md px-14 py-2 text-sm bg-gray-100 text-gray-700"
-                    >
-                      300 PSI
-                    </div>
-                  </div>
-
                   <!-- Tester Name Dropdown -->
                   <div>
-                    <label
-                      for="tester-name"
-                      class="block text-sm font-medium text-neutral-700 mb-1"
-                    >
-                      Select Tester Name
-                    </label>
-                    <select
-                      id="tester-name"
-                      class="border border-neutral-300 rounded-md px-10 py-2 text-sm"
-                    ></select>
+                    <label for="tester-name" class="block text-sm font-medium text-neutral-700 mb-1"> Select Tester Name </label>
+                    <select id="tester-name" class="border border-neutral-300 rounded-md px-10 py-2 text-sm"></select>
                   </div>
                 </div>
               </div>
@@ -145,29 +106,16 @@
               <h2 class="text-xl">Calibration Control</h2>
               <div class="flex gap-3">
                 <!-- Show Calibration Results Button -->
-                <button
-                  id="show-results-btn"
-                  class="rounded-lg bg-neutral-800 px-4 py-2 text-white hover:bg-neutral-700 transition-colors hidden"
-                >
+                <button id="show-results-btn" class="rounded-lg bg-neutral-800 px-4 py-2 text-white hover:bg-neutral-700 transition-colors hidden">
                   <i class="fa-solid fa-chart-line mr-2"></i> Show Calibration Results
                 </button>
-                <button
-                  id="start-calibration-btn"
-                  class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled
-                >
+                <button id="start-calibration-btn" class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   <i class="fa-solid fa-play mr-2"></i>Start Calibration
                 </button>
-                <button
-                  id="start-verification-btn"
-                  class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors hidden"
-                >
+                <button id="start-verification-btn" class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-check-circle mr-2"></i>Start Verification
                 </button>
-                <button
-                  id="stop-calibration-button"
-                  class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden"
-                >
+                <button id="stop-calibration-button" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
                 </button>
               </div>
@@ -190,10 +138,7 @@
 
             <section id="calibration-log" class="rounded-lg border bg-white p-6">
               <h2 class="mb-4 text-lg">Calibration Logs</h2>
-              <div
-                id="calibration-log-content"
-                class="h-[450px] overflow-y-auto rounded-md bg-neutral-900 p-4 text-sm text-white"
-              >
+              <div id="calibration-log-content" class="h-[450px] overflow-y-auto rounded-md bg-neutral-900 p-4 text-sm text-white">
                 <div id="log-messages" class="space-y-2">
                   <!-- Log messages will be appended here -->
                 </div>
@@ -201,35 +146,21 @@
             </section>
 
             <section id="sensors-calibration-status" class="mb-8 w-full col-span-full">
-              <div
-                id="calibration-status-list"
-                class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
-              >
+              <div id="calibration-status-list" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <!-- Calibrating sensor cards -->
               </div>
             </section>
 
             <section id="sensors-calibration-status" class="mb-8 w-full col-span-full">
-              <div
-                id="calibration-status-list"
-                class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
-              >
+              <div id="calibration-status-list" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <!-- Populated by JS -->
               </div>
             </section>
 
-            <section
-              id="calibration-results"
-              class="hidden mt-6 rounded-lg border bg-white p-6 w-full col-span-full"
-            >
+            <section id="calibration-results" class="hidden mt-6 rounded-lg border bg-white p-6 w-full col-span-full">
               <!-- Tabs -->
               <div class="mb-4 flex space-x-2">
-                <button
-                  id="tab-verification"
-                  class="tab-button bg-neutral-900 text-white px-4 py-2 rounded"
-                >
-                  Verification Results
-                </button>
+                <button id="tab-verification" class="tab-button bg-neutral-900 text-white px-4 py-2 rounded">Verification Results</button>
               </div>
               <!-- Tab Panels -->
               <div id="panel-verification" class="tab-panel"></div>
@@ -240,37 +171,21 @@
     </div>
 
     <!-- Error Alert Modal -->
-    <div
-      id="error-alert"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
-    >
+    <div id="error-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
       <div class="bg-white rounded-lg p-6 max-w-md w-full text-center">
         <div class="mb-4">
           <i class="fa-solid fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
           <h3 class="text-lg font-semibold">Setup Error</h3>
         </div>
         <p id="error-message" class="mb-4 text-neutral-700"></p>
-        <button
-          id="error-ok-btn"
-          class="px-6 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
-        >
-          OK
-        </button>
+        <button id="error-ok-btn" class="px-6 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700">OK</button>
       </div>
     </div>
 
-    <div
-      id="custom-alert"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
-    >
+    <div id="custom-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
       <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
         <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
-        <button
-          id="custom-alert-ok"
-          class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
-        >
-          OK
-        </button>
+        <button id="custom-alert-ok" class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700">OK</button>
       </div>
     </div>
   </body>

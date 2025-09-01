@@ -50,11 +50,7 @@ class KrakenCalibrationController {
 
   initializeManagers() {
     // Initialize UI Manager first (needed by other managers)
-    this.uiManager = new KrakenUIManager(
-      this.mainWindow,
-      this.globalState,
-      this.sendToRenderer.bind(this)
-    );
+    this.uiManager = new KrakenUIManager(this.mainWindow, this.globalState, this.sendToRenderer.bind(this));
 
     // Initialize Fluke Manager (now that UIManager exists)
     this.flukeManager = new FlukeManager(
@@ -62,120 +58,36 @@ class KrakenCalibrationController {
       () => this.globalState.isCalibrationActive
     );
 
-    this.deviceSetupManager = new KrakenDeviceSetupManager(
-      this.globalState,
-      this.connection,
-      this.scanner,
-      this.sendToRenderer.bind(this)
-    );
+    this.deviceSetupManager = new KrakenDeviceSetupManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this));
 
-    this.connectivityManager = new KrakenConnectivityManager(
-      this.globalState,
-      this.connection,
-      this.scanner,
-      this.sendToRenderer.bind(this)
-    );
+    this.connectivityManager = new KrakenConnectivityManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this));
 
-    this.calibrationManager = new KrakenCalibrationManager(
-      this.globalState,
-      this.flukeManager,
-      this.sendToRenderer.bind(this),
-      this.uiManager.showLogOnScreen.bind(this.uiManager)
-    );
+    this.calibrationManager = new KrakenCalibrationManager(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
 
     // Set up cross-references for managers that need each other
     this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
-    this.calibrationManager.updateDeviceWidgetsForCalibration =
-      this.uiManager.updateDeviceWidgetsForCalibration.bind(this.uiManager);
-    this.calibrationManager.stopCalibration = this.stopCalibration.bind(this);
-    this.connectivityManager.setupDevice = this.deviceSetupManager.setupDevice.bind(
-      this.deviceSetupManager
-    );
-    this.connectivityManager.updateProgressSummary = this.uiManager.updateProgressSummary.bind(
-      this.uiManager
-    );
-    this.connectivityManager.updateCalibrationButtonState =
-      this.uiManager.updateCalibrationButtonState.bind(this.uiManager);
-    this.connectivityManager.checkAllDevicesReady =
-      this.deviceSetupManager.checkAllDevicesReady.bind(this.deviceSetupManager);
+    this.calibrationManager.updateDeviceWidgetsForCalibration = this.uiManager.updateDeviceWidgetsForCalibration.bind(this.uiManager);
+    this.connectivityManager.setupDevice = this.deviceSetupManager.setupDevice.bind(this.deviceSetupManager);
+    this.connectivityManager.updateProgressSummary = this.uiManager.updateProgressSummary.bind(this.uiManager);
+    this.connectivityManager.updateCalibrationButtonState = this.uiManager.updateCalibrationButtonState.bind(this.uiManager);
+    this.connectivityManager.checkAllDevicesReady = this.deviceSetupManager.checkAllDevicesReady.bind(this.deviceSetupManager);
   }
 
   async initialize(connectedDeviceIds = []) {
     try {
       this.sendToRenderer('show-page-loader');
 
-      // Hydrate global state from passed device IDs if state is empty
-      let devices = this.globalState.getConnectedDevices();
-      if (
-        devices.length === 0 &&
-        Array.isArray(connectedDeviceIds) &&
-        connectedDeviceIds.length > 0
-      ) {
-        const hydratedDevices = [];
-        for (const deviceId of connectedDeviceIds) {
-          const connectedDevice = this.connection.getConnectedDevice(deviceId);
-          if (
-            connectedDevice &&
-            connectedDevice.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED
-          ) {
-            hydratedDevices.push(connectedDevice);
-          }
-        }
-        if (hydratedDevices.length > 0) {
-          this.globalState.setConnectedDevices(hydratedDevices);
-        }
-        devices = this.globalState.getConnectedDevices();
-      }
-
-      if (devices.length === 0) {
-        throw new Error('No connected devices found in global state');
-      }
-
-      // Validate that all devices from the list are still connected
-      const validDevices = [];
-      const connectionService = this.connection;
-
-      for (const device of devices) {
-        const isConnected = connectionService.isDeviceConnected(device.id);
-        const connectedDevice = connectionService.getConnectedDevice(device.id);
-
-        if (
-          isConnected &&
-          connectedDevice &&
-          connectedDevice.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED
-        ) {
-          validDevices.push(device);
-          console.log(`Device ${device.id} validated as connected`);
-        } else {
-          console.warn(`Device ${device.id} is not properly connected, excluding from calibration`);
-        }
-      }
-
-      if (validDevices.length === 0) {
-        throw new Error('No valid connected devices found for calibration');
-      }
-
-      if (validDevices.length !== devices.length) {
-        console.warn(
-          `${devices.length - validDevices.length} devices were dropped during validation`
-        );
-        // Update global state with only valid devices
-        this.globalState.setConnectedDevices(validDevices);
-      }
+      const validDevices = await this.validateAndHydrateDevices(connectedDeviceIds);
 
       // Initialize UI with validated devices
-      const formattedDevices = validDevices.map(device =>
-        this.uiManager.formatDeviceForRenderer(device)
-      );
+      const formattedDevices = validDevices.map(device => this.uiManager.formatDeviceForRenderer(device));
       this.sendToRenderer('initialize-devices', formattedDevices);
       this.sendToRenderer('hide-page-loader');
 
       console.log(`Initializing calibration with ${validDevices.length} validated devices`);
 
       // Start sequential setup after delay (like old app)
-      console.log(
-        `Waiting ${KRAKEN_CONSTANTS.DELAY_BEFORE_SETUP}ms before starting device setup...`
-      );
+      console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BEFORE_SETUP}ms before starting device setup...`);
       await this.globalState.addDelay(KRAKEN_CONSTANTS.DELAY_BEFORE_SETUP);
       await this.deviceSetupManager.startSequentialSetup();
 
@@ -190,130 +102,236 @@ class KrakenCalibrationController {
     }
   }
 
+  async validateAndHydrateDevices(connectedDeviceIds) {
+    // Hydrate global state from passed device IDs if state is empty
+    let devices = this.globalState.getConnectedDevices();
+    if (devices.length === 0 && Array.isArray(connectedDeviceIds) && connectedDeviceIds.length > 0) {
+      devices = await this.hydrateDevicesFromIds(connectedDeviceIds);
+    }
+
+    if (devices.length === 0) {
+      throw new Error('No connected devices found in global state');
+    }
+
+    // Validate that all devices from the list are still connected
+    const validDevices = await this.validateDeviceConnections(devices);
+
+    if (validDevices.length === 0) {
+      throw new Error('No valid connected devices found for calibration');
+    }
+
+    if (validDevices.length !== devices.length) {
+      console.warn(`${devices.length - validDevices.length} devices were dropped during validation`);
+      // Update global state with only valid devices
+      this.globalState.setConnectedDevices(validDevices);
+    }
+
+    return validDevices;
+  }
+
+  async hydrateDevicesFromIds(connectedDeviceIds) {
+    const hydratedDevices = [];
+    for (const deviceId of connectedDeviceIds) {
+      const connectedDevice = this.connection.getConnectedDevice(deviceId);
+      if (connectedDevice && connectedDevice.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED) {
+        hydratedDevices.push(connectedDevice);
+      }
+    }
+    if (hydratedDevices.length > 0) {
+      this.globalState.setConnectedDevices(hydratedDevices);
+    }
+    return this.globalState.getConnectedDevices();
+  }
+
+  async validateDeviceConnections(devices) {
+    const validDevices = [];
+    const connectionService = this.connection;
+
+    for (const device of devices) {
+      const isConnected = connectionService.isDeviceConnected(device.id);
+      const connectedDevice = connectionService.getConnectedDevice(device.id);
+
+      if (isConnected && connectedDevice && connectedDevice.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED) {
+        validDevices.push(device);
+        console.log(`Device ${device.id} validated as connected`);
+      } else {
+        console.warn(`Device ${device.id} is not properly connected, excluding from calibration`);
+      }
+    }
+
+    return validDevices;
+  }
+
   /**
    * Start calibration process
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async startCalibration(testerName) {
-    this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
     this.testerName = testerName;
     try {
-      // Check if we have connected devices and they are all ready
-      const connectedDevices = this.globalState.getConnectedDevices();
-      console.log(`Calibration check: ${connectedDevices.length} devices`);
+      await this.validateDevicesForCalibration();
 
-      if (connectedDevices.length === 0) {
-        throw new Error('No connected devices available for calibration');
-      }
-
-      // Check each device's readiness (same logic as updateCalibrationButtonState)
-      const allDevicesReady = connectedDevices.every(device => {
-        const status = this.globalState.getDeviceStatus(device.id);
-        const isReady =
-          status?.status === 'ready' &&
-          device.peripheral &&
-          device.peripheral.state === 'connected';
-        if (!isReady) {
-          console.log(
-            `Device ${device.id} not ready: status=${status?.status}, peripheral=${device.peripheral?.state}`
-          );
-        }
-        return isReady;
-      });
-
-      if (!allDevicesReady) {
-        throw new Error('Not all devices are ready for calibration');
-      }
       this.sendToRenderer('calibration-started');
       this.sendToRenderer('show-notification', {
         type: 'info',
         message: 'Calibration started successfully!',
       });
-      this.globalState.isCalibrationActive = true;
-      this.uiManager.disableBackButton();
-      this.uiManager.disableCalibrationButton(); // This should stay disabled throughout calibration
-      this.uiManager.showAndEnableStopCalibrationButton();
-      this.uiManager.hideResultsButton();
-      this.uiManager.clearCalibrationLogs();
-      this.uiManager.clearKrakenSweepData();
 
-      // Update all device widgets to show calibration in progress
-      this.uiManager.updateDeviceWidgetsForCalibration(true);
+      await this.setupCalibrationUI();
+      await this.prepareFlukeAndDevices();
+      await this.executeCalibration();
+      await this.completeCalibration();
 
-      const telnetResponse = await this.flukeManager.connect();
-
-      if (telnetResponse.success) {
-        await this.flukeManager.runPreReqs();
-      }
-      await this.flukeManager.ensureZeroPressure();
-
-      this.uiManager.showLogOnScreen('2s delay...');
-      await addDelay(2000);
-
-      await this.globalState.unSubscribeAllkrakens();
-
-      await this.calibrationManager.calibrateAllSensors();
-
-      // Check if calibration was stopped due to failures
-      if (!this.globalState.isCalibrationActive) {
-        this.uiManager.showLogOnScreen(
-          '⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.'
-        );
-        return; // Exit early if calibration was already stopped
-      }
-
-      // Calibration completed successfully - but keep calibration active until pressure is zeroed
-      await this.deviceSetupManager.reSetupKrakensAfterCalibration();
-      this.uiManager.updateDeviceWidgetsForCalibration(false);
-
-      // Keep calibration active until pressure is zeroed to prevent button re-enabling
-      await this.flukeManager.ensureZeroPressure();
-
-      // Now pressure is zeroed, safe to mark calibration as inactive
-      this.globalState.isCalibrationActive = false;
-
-      // Show success notification
-      this.sendToRenderer('show-notification', {
-        type: 'success',
-        message: 'Calibration completed successfully!',
-      });
-
-      // Update UI for successful completion - enable back button and show verification
-      this.sendToRenderer('hide-kraken-stop-calibration-button');
-      this.sendToRenderer('enable-kraken-back-button'); // Re-enable back button
-      this.sendToRenderer('hide-kraken-calibration-button'); // Hide start calibration button
-      this.sendToRenderer('show-kraken-verification-button'); // Show verification button
-
-      // Log completion messages
-      this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
-      this.uiManager.showLogOnScreen('📋 Devices are ready for verification process');
+      // Return success response
+      return { success: true };
     } catch (error) {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
       Sentry.captureException(error);
-
-      // Restore UI state on error
       this.sendToRenderer('show-notification', {
         type: 'error',
         message: `Calibration failed: ${error.message}`,
       });
-      this.sendToRenderer('enable-kraken-calibration-button'); // Re-enable after failure
-      this.sendToRenderer('enable-kraken-back-button');
-      this.sendToRenderer('hide-kraken-stop-calibration-button');
-      this.uiManager.showLogOnScreen(`❌ CALIBRATION FAILED: ${error.message}`);
-
-      // Update all device widgets to show calibration failed
-      this.uiManager.updateDeviceWidgetsForCalibration(false, true);
+      this.uiManager.enableBackButton();
+      this.uiManager.enableCalibrationButton();
+      this.uiManager.hideStopCalibrationButton();
+      return { success: false, error: error.message };
     }
+  }
+
+  async validateDevicesForCalibration() {
+    const connectedDevices = this.globalState.getConnectedDevices();
+    console.log(`Calibration check: ${connectedDevices.length} devices`);
+
+    if (connectedDevices.length === 0) {
+      throw new Error('No connected devices available for calibration');
+    }
+
+    // Check each device's readiness
+    const allDevicesReady = connectedDevices.every(device => {
+      const status = this.globalState.getDeviceStatus(device.id);
+      const isReady = status?.status === 'ready' && device.peripheral && device.peripheral.state === 'connected';
+      if (!isReady) {
+        console.log(`Device ${device.id} not ready: status=${status?.status}, peripheral=${device.peripheral?.state}`);
+      }
+      return isReady;
+    });
+
+    if (!allDevicesReady) {
+      throw new Error('Not all devices are ready for calibration');
+    }
+
+    return connectedDevices;
+  }
+
+  async setupCalibrationUI() {
+    this.globalState.isCalibrationActive = true;
+    this.uiManager.disableBackButton();
+    this.uiManager.disableCalibrationButton();
+    this.uiManager.showAndEnableStopCalibrationButton();
+    this.uiManager.hideResultsButton();
+    this.uiManager.clearCalibrationLogs();
+    this.uiManager.clearKrakenSweepData();
+    this.uiManager.updateDeviceWidgetsForCalibration(true);
+  }
+
+  async prepareFlukeAndDevices() {
+    try {
+      const telnetResponse = await this.flukeManager.connect();
+      if (telnetResponse.success) {
+        await this.flukeManager.runPreReqs();
+      } else {
+        // Connection failed - stop calibration and show error
+        this.globalState.isCalibrationActive = false;
+        this.uiManager.showLogOnScreen('❌ Calibration stopped due to Fluke connection failure.');
+
+        // Send notification to user
+        this.sendToRenderer('show-notification', {
+          type: 'error',
+          message: 'Connection to Fluke was not successful. Please check if the device is powered on and accessible on the network.',
+        });
+
+        // Reset UI state to allow retry
+        this.uiManager.enableBackButton();
+        this.uiManager.enableCalibrationButton();
+        this.uiManager.hideStopCalibrationButton();
+        this.uiManager.resetDeviceWidgetsToNotCalibrated(); // Reset to original "Not Calibrated" state
+        this.uiManager.updateCalibrationButtonState(); // Re-enable calibration button based on device readiness
+
+        throw new Error('Fluke connection failed - calibration cannot proceed');
+      }
+      await this.flukeManager.ensureZeroPressure();
+      this.uiManager.showLogOnScreen('2s delay...');
+      await addDelay(2000);
+      await this.globalState.unSubscribeAllkrakens();
+    } catch (error) {
+      // Handle any other errors during Fluke preparation
+      this.globalState.isCalibrationActive = false;
+      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.message}`);
+
+      // Send notification to user
+      this.sendToRenderer('show-notification', {
+        type: 'error',
+        message: `Calibration stopped: ${error.message}`,
+      });
+
+      // Reset UI state to allow retry
+      this.uiManager.enableBackButton();
+      this.uiManager.enableCalibrationButton();
+      this.uiManager.hideStopCalibrationButton();
+      this.uiManager.resetDeviceWidgetsToNotCalibrated(); // Reset to original "Not Calibrated" state
+      this.uiManager.updateCalibrationButtonState(); // Re-enable calibration button based on device readiness
+
+      throw error;
+    }
+  }
+
+  async executeCalibration() {
+    await this.calibrationManager.calibrateAllSensors();
+
+    // Check if calibration was stopped due to failures
+    if (!this.globalState.isCalibrationActive) {
+      this.uiManager.showLogOnScreen('⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.');
+      return;
+    }
+  }
+
+  async completeCalibration() {
+    // Calibration completed successfully - but keep calibration active until pressure is zeroed
+    await this.deviceSetupManager.reSetupKrakensAfterCalibration();
+    this.uiManager.updateDeviceWidgetsForCalibration(false);
+
+    // Keep calibration active until pressure is zeroed to prevent button re-enabling
+    await this.flukeManager.ensureZeroPressure();
+
+    // Now pressure is zeroed, safe to mark calibration as inactive
+    this.globalState.isCalibrationActive = false;
+
+    // Show success notification
+    this.sendToRenderer('show-notification', {
+      type: 'success',
+      message: 'Calibration completed successfully!',
+    });
+
+    // Update UI for successful completion
+    this.sendToRenderer('hide-kraken-stop-calibration-button');
+    this.sendToRenderer('enable-kraken-back-button');
+    this.sendToRenderer('hide-kraken-calibration-button');
+    this.sendToRenderer('show-kraken-verification-button');
+
+    // Log completion messages
+    this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
+    this.uiManager.showLogOnScreen('📋 Devices are ready for verification process');
   }
 
   /**
    * Stop calibration process and show user notification
    * @param {string} reason - Reason for stopping calibration
    * @param {string} errorDetails - Additional error details
+   * @param {boolean} resetToNotCalibrated - Whether to reset devices to "Not Calibrated" state (for retry)
    */
-  async stopCalibration(reason, errorDetails = '') {
-    return this.calibrationManager.stopCalibration(reason, errorDetails);
+  async stopCalibration(reason, errorDetails = '', resetToNotCalibrated = false) {
+    return this.calibrationManager.stopCalibration(reason, errorDetails, resetToNotCalibrated);
   }
 
   // Delegation methods to managers

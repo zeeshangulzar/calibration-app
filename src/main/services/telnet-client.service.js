@@ -116,7 +116,14 @@ class TelnetClientService extends EventEmitter {
       // Timeout handler
       this.client.on('timeout', () => {
         console.log('Fluke connection timeout');
+        this.isConnected = false;
         this.client.destroy();
+
+        // Emit timeout event
+        this.emit('timeout', { host: this.host, port: this.port });
+
+        // Reject the connection promise
+        reject({ success: false, error: 'Connection timeout' });
       });
     });
   }
@@ -129,9 +136,7 @@ class TelnetClientService extends EventEmitter {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff
 
-    console.log(
-      `Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-    );
+    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
       this.connect().catch(error => {
