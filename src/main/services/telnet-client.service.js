@@ -19,6 +19,12 @@ class TelnetClientService extends EventEmitter {
     this.maxReconnectAttempts = 3;
 
     this._loadSettings();
+
+    // Add error listener to prevent unhandled errors from crashing the app
+    this.on('error', error => {
+      console.error('TelnetClient error event:', error);
+      // Don't re-throw the error to prevent app crash
+    });
   }
 
   /**
@@ -86,12 +92,12 @@ class TelnetClientService extends EventEmitter {
 
       // Error handler
       this.client.on('error', error => {
-        clearTimeout(connectionTimer);
         this.isConnected = false;
 
         const errorMessage = `Connection error: ${error.message}`;
         console.error(errorMessage);
 
+        // Emit error event but don't let it crash the app
         this.emit('error', { error: error.message, host: this.host, port: this.port });
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
