@@ -68,17 +68,13 @@ class UARTService {
 
     // All retries exhausted
     this.handleAllRetriesExhausted(command, deviceName, lastError);
-    throw new Error(
-      `Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`
-    );
+    throw new Error(`Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`);
   }
 
   // Helper methods to extract and simplify logic
   logAttempt(attempt, command, deviceName) {
     if (attempt > 1) {
-      this.showLogOnScreen(
-        `🔄 Retry ${attempt}/${this.maxRetries} - ${command} command on ${deviceName}...`
-      );
+      this.showLogOnScreen(`🔄 Retry ${attempt}/${this.maxRetries} - ${command} command on ${deviceName}...`);
     }
   }
 
@@ -100,13 +96,8 @@ class UARTService {
   }
 
   logFailedAttempt(attempt, command, deviceName, error) {
-    console.warn(
-      `Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`,
-      error.message
-    );
-    this.showLogOnScreen(
-      `⚠️ ${command} command failed on ${deviceName} (attempt ${attempt}/${this.maxRetries}): ${error.message}`
-    );
+    console.warn(`Attempt ${attempt}/${this.maxRetries} failed for command: ${command}:`, error.message);
+    this.showLogOnScreen(`⚠️ ${command} command failed on ${deviceName} (attempt ${attempt}/${this.maxRetries}): ${error.message}`);
   }
 
   async handleRetryDelay(deviceId, deviceName, command) {
@@ -119,11 +110,9 @@ class UARTService {
     this.validateDeviceConnection(deviceId, deviceName, command);
   }
 
-  handleAllRetriesExhausted(command, deviceName, lastError) {
+  handleAllRetriesExhausted(command, deviceName) {
     console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
-    this.showLogOnScreen(
-      `❌ ${command} command failed completely on ${deviceName} - all retries exhausted`
-    );
+    this.showLogOnScreen(`❌ ${command} command failed completely on ${deviceName} - all retries exhausted`);
   }
   /**
    * Check if device is connected in global state
@@ -289,7 +278,7 @@ class UARTService {
     }
   }
   // Zero Offset
-  createZeroOffsetWriteCommand(data) {
+  createZeroOffsetWriteCommand() {
     let index = 0;
     const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
 
@@ -371,17 +360,13 @@ class UARTService {
   readUpperCalibPressureResponse(rawData) {
     const commandId = (rawData[0] << 8) | rawData[1];
     if (commandId !== CID_PRESSURE_CALIB_UPPER) {
-      throw new Error(
-        `Unexpected command ID: ${commandId} (expected ${CID_PRESSURE_CALIB_UPPER}) while reading upper calibration pressure response`
-      );
+      throw new Error(`Unexpected command ID: ${commandId} (expected ${CID_PRESSURE_CALIB_UPPER}) while reading upper calibration pressure response`);
     }
 
     // Validate server ID
     const serverId = rawData[STANDARD_PACKET_SERVER_ID_INDEX];
     if (serverId !== SID_PRESSURE_SENSOR) {
-      throw new Error(
-        `Unexpected server ID: ${serverId} (expected ${SID_PRESSURE_SENSOR}) while reading upper calibration pressure response`
-      );
+      throw new Error(`Unexpected server ID: ${serverId} (expected ${SID_PRESSURE_SENSOR}) while reading upper calibration pressure response`);
     }
 
     // Extract rawValue (UINT16, Big-Endian)

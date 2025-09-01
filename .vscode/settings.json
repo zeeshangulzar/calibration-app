@@ -6,6 +6,10 @@
   "editor.formatOnSaveMode": "file",
   "files.autoSave": "onFocusChange",
   "vs-code-prettier-eslint.prettierLast": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "[html]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
@@ -15,6 +19,5 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "notebook.defaultFormatter": "esbenp.prettier-vscode",
+  "notebook.defaultFormatter": "esbenp.prettier-vscode"
 }
-

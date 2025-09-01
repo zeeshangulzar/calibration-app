@@ -44,7 +44,6 @@ export class KrakenConnectivityManager {
    */
   checkDeviceConnectivity() {
     const devices = this.globalState.getConnectedDevices();
-    let hasDisconnectedDevice = false;
 
     for (const device of devices) {
       const isConnected = device.peripheral && device.peripheral.state === 'connected';
@@ -54,7 +53,6 @@ export class KrakenConnectivityManager {
         // Device has disconnected
         console.log(`Device ${device.id} has disconnected`);
         this.handleDeviceConnectivityLoss(device.id);
-        hasDisconnectedDevice = true;
       }
     }
 
@@ -126,10 +124,7 @@ export class KrakenConnectivityManager {
             clearTimeout(timeout);
             if (error) {
               // Check if error is about already being connected
-              if (
-                error.message.includes('already connected') ||
-                error.message.includes('Peripheral already connected')
-              ) {
+              if (error.message.includes('already connected') || error.message.includes('Peripheral already connected')) {
                 console.log(`Device ${deviceId} was already connected, continuing with setup`);
                 resolve();
               } else {
@@ -219,28 +214,21 @@ export class KrakenConnectivityManager {
       try {
         const discoveredDevice = this.scanner.getDevice(deviceId);
         isDeviceDiscoverable = discoveredDevice !== null && discoveredDevice !== undefined;
-      } catch (error) {
+      } catch {
         isDeviceDiscoverable = false;
       }
 
-      console.log(
-        `Device ${deviceId} - Connected: ${isPeripheralConnected}, Discoverable: ${isDeviceDiscoverable}`
-      );
+      console.log(`Device ${deviceId} - Connected: ${isPeripheralConnected}, Discoverable: ${isDeviceDiscoverable}`);
 
       // Fast removal for disconnected and non-discoverable devices
       if (!isPeripheralConnected && !isDeviceDiscoverable) {
-        console.log(
-          `Device ${deviceId} is already disconnected and not discoverable - fast removal`
-        );
+        console.log(`Device ${deviceId} is already disconnected and not discoverable - fast removal`);
 
         // Quick cleanup of any remaining subscriptions
         this.globalState.activeSubscriptions.delete(deviceId);
 
         // Skip all disconnect attempts and proceed directly to removal
-        return this.completeDeviceRemoval(
-          deviceId,
-          'Device was already disconnected and turned off'
-        );
+        return this.completeDeviceRemoval(deviceId, 'Device was already disconnected and turned off');
       }
 
       // Cleanup subscriptions for connected/discoverable devices
@@ -257,10 +245,10 @@ export class KrakenConnectivityManager {
               resolve();
             }, KRAKEN_CONSTANTS.MANUAL_DISCONNECT_TIMEOUT); // Reduced timeout for faster removal
 
-            device.peripheral.disconnect(error => {
+            device.peripheral.disconnect(disconnectError => {
               clearTimeout(timeout);
-              if (error) {
-                console.warn(`Error disconnecting device ${deviceId}:`, error.message);
+              if (disconnectError) {
+                console.warn(`Error disconnecting device ${deviceId}:`, disconnectError.message);
               }
               resolve();
             });
@@ -270,18 +258,11 @@ export class KrakenConnectivityManager {
           // Continue with removal even if disconnect fails
         }
       } else {
-        console.log(
-          `Device ${deviceId} peripheral not connected or not discoverable, skipping disconnect attempt`
-        );
+        console.log(`Device ${deviceId} peripheral not connected or not discoverable, skipping disconnect attempt`);
       }
 
       // Complete the removal process
-      return this.completeDeviceRemoval(
-        deviceId,
-        isDeviceDiscoverable
-          ? 'Device manually disconnected and removed'
-          : 'Device removed from list (device was turned off)'
-      );
+      return this.completeDeviceRemoval(deviceId, isDeviceDiscoverable ? 'Device manually disconnected and removed' : 'Device removed from list (device was turned off)');
     } catch (error) {
       console.error(`Error manually disconnecting device ${deviceId}:`, error);
       this.sendToRenderer('device-manual-disconnect-failed', {
@@ -348,9 +329,7 @@ export class KrakenConnectivityManager {
       devices.length > 0 &&
       devices.every(device => {
         const status = this.globalState.getDeviceStatus(device.id);
-        return (
-          status?.status === 'ready' && device.peripheral && device.peripheral.state === 'connected'
-        );
+        return status?.status === 'ready' && device.peripheral && device.peripheral.state === 'connected';
       });
 
     // Disable button if calibration is in progress

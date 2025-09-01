@@ -1,6 +1,5 @@
 import EventEmitter from 'events';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
-import { discoverWithTimeout } from '../utils/ble.utils.js';
 
 class KrakenConnectionService extends EventEmitter {
   constructor() {
@@ -95,9 +94,7 @@ class KrakenConnectionService extends EventEmitter {
       for (let retry = 0; retry < KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN; retry++) {
         try {
           if (retry > 0) {
-            console.log(
-              `Retry ${retry}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} for device ${deviceId}`
-            );
+            console.log(`Retry ${retry}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} for device ${deviceId}`);
             this.emit('deviceConnectionRetry', {
               deviceId,
               retryAttempt: retry + 1,
@@ -113,10 +110,7 @@ class KrakenConnectionService extends EventEmitter {
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error;
-          console.warn(
-            `Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`,
-            error.message
-          );
+          console.warn(`Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`, error.message);
 
           // Clean up any partial connection state
           if (deviceInfo.peripheral) {
@@ -141,38 +135,28 @@ class KrakenConnectionService extends EventEmitter {
 
         // Add delay after successful connection
         if (i < deviceIds.length - 1) {
-          console.log(
-            `Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection...`
-          );
+          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection...`);
           await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
         }
       } else {
         // All retries failed
-        console.error(
-          `Failed to connect to device ${deviceId} after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} attempts`
-        );
+        console.error(`Failed to connect to device ${deviceId} after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} attempts`);
         results.failed.push({
           ...deviceInfo,
-          error: lastError
-            ? lastError.message
-            : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
+          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
         });
 
         this.emit('deviceConnectionFailed', {
           deviceId,
           currentIndex: i + 1,
           totalCount: deviceIds.length,
-          error: lastError
-            ? lastError.message
-            : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
+          error: lastError ? lastError.message : `Connection failed after ${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} retries`,
           deviceName: deviceInfo.name || 'Unknown',
         });
 
         // Still wait before trying next device
         if (i < deviceIds.length - 1) {
-          console.log(
-            `Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection attempt...`
-          );
+          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS}ms before next connection attempt...`);
           await this.delay(KRAKEN_CONSTANTS.DELAY_BETWEEN_CONNECTIONS);
         }
       }
@@ -219,9 +203,7 @@ class KrakenConnectionService extends EventEmitter {
 
     try {
       // Get firmware version (like old app)
-      const firmwareChar = characteristics.find(
-        c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID
-      );
+      const firmwareChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID);
 
       if (firmwareChar) {
         const data = await this.safeReadCharacteristic(firmwareChar);
@@ -231,9 +213,7 @@ class KrakenConnectionService extends EventEmitter {
       }
 
       // Get display name
-      const nameChar = characteristics.find(
-        c => c.uuid === KRAKEN_CONSTANTS.DISPLAY_NAME_CHARACTERISTIC_UUID
-      );
+      const nameChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.DISPLAY_NAME_CHARACTERISTIC_UUID);
 
       if (nameChar) {
         const data = await this.safeReadCharacteristic(nameChar);
@@ -405,10 +385,7 @@ class KrakenConnectionService extends EventEmitter {
 
       console.log(`Connection service: Error handling completed for device ${deviceId}`);
     } catch (cleanupError) {
-      console.warn(
-        `Connection service: Error during error handling for device ${deviceId}:`,
-        cleanupError.message
-      );
+      console.warn(`Connection service: Error during error handling for device ${deviceId}:`, cleanupError.message);
     }
   }
 }

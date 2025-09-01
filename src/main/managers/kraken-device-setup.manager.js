@@ -36,17 +36,13 @@ export class KrakenDeviceSetupManager {
         const success = await this.setupDeviceWithRetries(deviceId);
 
         if (!success) {
-          console.log(
-            `Setup failed for device ${deviceId} after retries, continuing with next device`
-          );
+          console.log(`Setup failed for device ${deviceId} after retries, continuing with next device`);
           // Continue to next device instead of stopping the entire process
         }
 
         // Delay between device setups
         if (i < setupQueue.length - 1) {
-          console.log(
-            `Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP}ms before next device setup...`
-          );
+          console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP}ms before next device setup...`);
           await this.globalState.addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP);
         }
       }
@@ -90,31 +86,18 @@ export class KrakenDeviceSetupManager {
         throw new Error('Setup failed');
       } catch (error) {
         lastError = error;
-        console.warn(
-          `Setup attempt ${attempt}/${maxRetries} failed for device ${deviceId}:`,
-          error.message
-        );
+        console.warn(`Setup attempt ${attempt}/${maxRetries} failed for device ${deviceId}:`, error.message);
 
         if (attempt < maxRetries) {
           // Update status to show retry will happen
-          this.globalState.updateDeviceStatus(
-            deviceId,
-            'in-progress',
-            'retrying',
-            `Attempt ${attempt} failed, retrying...`
-          );
+          this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'retrying', `Attempt ${attempt} failed, retrying...`);
         }
       }
     }
 
     // All retries failed
     console.error(`Setup failed for device ${deviceId} after ${maxRetries} attempts`);
-    this.globalState.updateDeviceStatus(
-      deviceId,
-      'failed',
-      'error',
-      lastError ? lastError.message : 'Setup failed after retries'
-    );
+    this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', lastError ? lastError.message : 'Setup failed after retries');
     this.sendToRenderer('device-setup-failed-final', {
       deviceId,
       error: lastError ? lastError.message : 'Setup failed after retries',
@@ -148,10 +131,7 @@ export class KrakenDeviceSetupManager {
       });
 
       // Discover services and characteristics
-      const { services, characteristics } = await discoverWithTimeout(
-        device.peripheral,
-        KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT
-      );
+      const { services, characteristics } = await discoverWithTimeout(device.peripheral, KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT);
 
       // Update device details with fresh service discovery (including firmware)
       await this.updateKrakenDetailsFromCharacteristics(device, characteristics, deviceId);
@@ -161,14 +141,7 @@ export class KrakenDeviceSetupManager {
 
       // Store characteristics for cleanup and mark as ready
       this.globalState.setDeviceCharacteristics(deviceId, characteristics);
-      this.globalState.updateDeviceStatus(
-        deviceId,
-        'ready',
-        'complete',
-        null,
-        services,
-        characteristics
-      );
+      this.globalState.updateDeviceStatus(deviceId, 'ready', 'complete', null, services, characteristics);
       this.sendToRenderer('device-setup-complete', { deviceId });
 
       return true;
@@ -188,9 +161,7 @@ export class KrakenDeviceSetupManager {
       return; // Already connected
     }
 
-    console.log(
-      `Device ${deviceId} is not connected (state: ${device.peripheral?.state || 'null'}), reconnecting...`
-    );
+    console.log(`Device ${deviceId} is not connected (state: ${device.peripheral?.state || 'null'}), reconnecting...`);
 
     this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'connecting');
     this.sendToRenderer('device-setup-stage', {
@@ -220,10 +191,7 @@ export class KrakenDeviceSetupManager {
             clearTimeout(timeout);
             if (error) {
               // Check if error is about already being connected
-              if (
-                error.message.includes('already connected') ||
-                error.message.includes('Peripheral already connected')
-              ) {
+              if (error.message.includes('already connected') || error.message.includes('Peripheral already connected')) {
                 console.log(`Device ${deviceId} was already connected during setup, continuing`);
                 resolve();
               } else {
@@ -254,9 +222,7 @@ export class KrakenDeviceSetupManager {
   async safeReadKrakenCharacteristic(characteristic) {
     return new Promise(resolve => {
       const timeoutId = setTimeout(() => {
-        console.warn(
-          `Kraken characteristic read timeout after ${KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT}ms`
-        );
+        console.warn(`Kraken characteristic read timeout after ${KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT}ms`);
         resolve(null);
       }, KRAKEN_CONSTANTS.CHARACTERISTIC_READ_TIMEOUT);
 
@@ -288,9 +254,7 @@ export class KrakenDeviceSetupManager {
 
     try {
       // Get firmware version with retry logic
-      const firmwareChar = characteristics.find(
-        c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID
-      );
+      const firmwareChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.FIRMWARE_REVISION_CHARACTERISTIC_UUID);
 
       if (firmwareChar) {
         let firmwareVersion = null;
@@ -299,9 +263,7 @@ export class KrakenDeviceSetupManager {
         // Retry firmware reading up to 3 times
         while (!firmwareVersion && retryCount < GLOBAL_CONSTANTS.MAX_RETRIES) {
           if (retryCount > 0) {
-            console.log(
-              `Device ${deviceId}: Firmware read retry ${retryCount}/${GLOBAL_CONSTANTS.MAX_RETRIES}`
-            );
+            console.log(`Device ${deviceId}: Firmware read retry ${retryCount}/${GLOBAL_CONSTANTS.MAX_RETRIES}`);
             await this.globalState.addDelay(1000); // Wait 1 second between retries
           }
 
@@ -309,15 +271,11 @@ export class KrakenDeviceSetupManager {
           if (firmwareData && firmwareData.length > 0) {
             firmwareVersion = firmwareData.toString('utf8').trim();
             device.firmwareVersion = firmwareVersion;
-            console.log(
-              `Device ${deviceId}: Updated firmware version to ${firmwareVersion} on attempt ${retryCount + 1}`
-            );
+            console.log(`Device ${deviceId}: Updated firmware version to ${firmwareVersion} on attempt ${retryCount + 1}`);
           } else {
             retryCount++;
             if (retryCount >= GLOBAL_CONSTANTS.MAX_RETRIES) {
-              console.warn(
-                `Device ${deviceId}: Could not read firmware version after ${GLOBAL_CONSTANTS.MAX_RETRIES} attempts`
-              );
+              console.warn(`Device ${deviceId}: Could not read firmware version after ${GLOBAL_CONSTANTS.MAX_RETRIES} attempts`);
             }
           }
         }
@@ -326,9 +284,7 @@ export class KrakenDeviceSetupManager {
       }
 
       // Get display name
-      const nameChar = characteristics.find(
-        c => c.uuid === KRAKEN_CONSTANTS.DISPLAY_NAME_CHARACTERISTIC_UUID
-      );
+      const nameChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.DISPLAY_NAME_CHARACTERISTIC_UUID);
 
       if (nameChar) {
         const nameData = await this.safeReadKrakenCharacteristic(nameChar);
@@ -364,13 +320,8 @@ export class KrakenDeviceSetupManager {
     });
 
     // Find pressure characteristic
-    const pressureUuid = KRAKEN_CONSTANTS.PRESSURE_CHARACTERISTIC_UUID.toLowerCase().replace(
-      /-/g,
-      ''
-    );
-    const dataChar = characteristics.find(
-      char => char.uuid.toLowerCase().replace(/-/g, '') === pressureUuid
-    );
+    const pressureUuid = KRAKEN_CONSTANTS.PRESSURE_CHARACTERISTIC_UUID.toLowerCase().replace(/-/g, '');
+    const dataChar = characteristics.find(char => char.uuid.toLowerCase().replace(/-/g, '') === pressureUuid);
 
     if (!dataChar) {
       const availableChars = characteristics.map(c => c.uuid).join(', ');
@@ -395,7 +346,7 @@ export class KrakenDeviceSetupManager {
         }
 
         // Setup data handler
-        const dataHandler = (data, isNotification) => {
+        const dataHandler = data => {
           this.handleDeviceData(device.id, data);
         };
 
@@ -441,12 +392,7 @@ export class KrakenDeviceSetupManager {
       console.log(`Manual retry requested for device ${deviceId}`);
 
       // Reset device status to show retry is starting
-      this.globalState.updateDeviceStatus(
-        deviceId,
-        'in-progress',
-        'retrying',
-        'Manual retry in progress...'
-      );
+      this.globalState.updateDeviceStatus(deviceId, 'in-progress', 'retrying', 'Manual retry in progress...');
       this.sendToRenderer('device-manual-retry-started', { deviceId });
 
       // Try setup for this device only (don't affect other devices)
@@ -501,12 +447,7 @@ export class KrakenDeviceSetupManager {
         console.log(`Re-setting up device: ${device.name || device.id}`);
 
         // Update device status to show re-setup is in progress
-        this.globalState.updateDeviceStatus(
-          device.id,
-          'in-progress',
-          'discovering',
-          'Re-setting up after calibration...'
-        );
+        this.globalState.updateDeviceStatus(device.id, 'in-progress', 'discovering', 'Re-setting up after calibration...');
         this.sendToRenderer('device-setup-stage', {
           deviceId: device.id,
           stage: 'discovering',
@@ -519,10 +460,7 @@ export class KrakenDeviceSetupManager {
         }
 
         // Re-discover services and characteristics (in case they changed)
-        const { services, characteristics } = await discoverWithTimeout(
-          device.peripheral,
-          KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT
-        );
+        const { services, characteristics } = await discoverWithTimeout(device.peripheral, KRAKEN_CONSTANTS.DISCOVERY_TIMEOUT);
 
         // Update device details with fresh service discovery
         await this.updateKrakenDetailsFromCharacteristics(device, characteristics, device.id);
@@ -532,14 +470,7 @@ export class KrakenDeviceSetupManager {
 
         // Store characteristics and mark as ready
         this.globalState.setDeviceCharacteristics(device.id, characteristics);
-        this.globalState.updateDeviceStatus(
-          device.id,
-          'ready',
-          'complete',
-          null,
-          services,
-          characteristics
-        );
+        this.globalState.updateDeviceStatus(device.id, 'ready', 'complete', null, services, characteristics);
         this.sendToRenderer('device-setup-complete', { deviceId: device.id });
 
         console.log(`✅ Successfully re-setup ${device.name || device.id}`);
