@@ -169,7 +169,7 @@ class TelnetClientService extends EventEmitter {
       // Set up response timeout
       const responseTimer = setTimeout(() => {
         this.client.removeListener('data', responseHandler);
-        reject({ success: false, error: 'Response timeout' });
+        reject({ success: false, error: 'Fluke is Busy: Response timed out' });
       }, timeout);
 
       // Response handler

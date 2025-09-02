@@ -10,6 +10,8 @@ import { KrakenDeviceSetupManager } from '../managers/kraken-device-setup.manage
 import { KrakenConnectivityManager } from '../managers/kraken-connectivity.manager.js';
 import { KrakenCalibrationManager } from '../managers/kraken-calibration.manager.js';
 import { KrakenUIManager } from '../managers/kraken-ui.manager.js';
+import { KrakenVerificationService } from '../services/kraken-verification.service.js';
+import { KrakenCertificationService } from '../services/kraken-certification.service.js';
 
 import * as Sentry from '@sentry/electron/main';
 
@@ -63,6 +65,10 @@ class KrakenCalibrationController {
     this.connectivityManager = new KrakenConnectivityManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this));
 
     this.calibrationManager = new KrakenCalibrationManager(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
+
+    this.verificationService = new KrakenVerificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
+
+    this.certificationService = new KrakenCertificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
 
     // Set up cross-references for managers that need each other
     this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
@@ -267,12 +273,12 @@ class KrakenCalibrationController {
     } catch (error) {
       // Handle any other errors during Fluke preparation
       this.globalState.isCalibrationActive = false;
-      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.message}`);
+      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.error}`);
 
       // Send notification to user
       this.sendToRenderer('show-notification', {
         type: 'error',
-        message: `Calibration stopped: ${error.message}`,
+        message: `Calibration stopped: Response timed out`,
       });
 
       // Reset UI state to allow retry
@@ -322,6 +328,62 @@ class KrakenCalibrationController {
     // Log completion messages
     this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
     this.uiManager.showLogOnScreen('📋 Devices are ready for verification process');
+  }
+
+  /**
+   * Start the verification process
+   */
+  async startVerification() {
+    this.globalState.isVerificationActive = true;
+    this.sendToRenderer('hide-kraken-verification-button');
+    // this.sendToRenderer('show-kraken-stop-calibration-button');
+    this.sendToRenderer('disable-kraken-back-button');
+
+    await this.verificationService.startVerification();
+
+    this.globalState.isVerificationActive = false;
+    // On completion, hide stop and show certification button
+    this.sendToRenderer('hide-kraken-stop-calibration-button');
+    this.sendToRenderer('enable-kraken-back-button');
+    this.sendToRenderer('show-kraken-certification-button');
+  }
+
+  /**
+   * Start the certification process
+   */
+  async startCertification(testerName) {
+    this.globalState.isCertificationActive = true;
+    this.sendToRenderer('hide-kraken-certification-button');
+    this.sendToRenderer('disable-kraken-back-button');
+
+    try {
+      await this.certificationService.startCertification(testerName);
+      return { success: true };
+    } catch (error) {
+      console.error('Error during certification:', error);
+      return { success: false, error: error.message };
+    } finally {
+      this.globalState.isCertificationActive = false;
+      this.sendToRenderer('enable-kraken-back-button');
+    }
+  }
+
+  /**
+   * Stop the calibration or verification process manually
+   */
+  async stopProcessManually() {
+    if (this.globalState.isCalibrationActive) {
+      this.globalState.isCalibrationActive = false;
+      this.sendToRenderer('show-kraken-verification-button');
+      this.sendToRenderer('hide-kraken-stop-calibration-button');
+      this.sendToRenderer('enable-kraken-back-button');
+    } else if (this.globalState.isCertificationActive) {
+      // For now, just stop the UI indicators.
+      this.globalState.isCertificationActive = false;
+      this.sendToRenderer('show-kraken-certification-button');
+      this.sendToRenderer('hide-kraken-stop-calibration-button');
+      this.sendToRenderer('enable-kraken-back-button');
+    }
   }
 
   /**
