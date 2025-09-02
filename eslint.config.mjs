@@ -7,9 +7,9 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 import prettier from 'eslint-plugin-prettier';
 
 export default defineConfig([
-  // ignore build artifacts
+  // ignore build artifacts and minified files
   {
-    ignores: ['node_modules', 'dist', 'build', '.next', 'coverage', 'package.json', '.gitignore'],
+    ignores: ['node_modules', 'dist', 'build', '.next', 'coverage', 'package.json', '.gitignore', 'src/assets/js/font-awesome.min.js', 'src/assets/js/tailwind.min.js'],
   },
 
   {
@@ -30,6 +30,9 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': 'warn',
+      'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
+      'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 ]);

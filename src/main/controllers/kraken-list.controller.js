@@ -3,6 +3,7 @@ import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { getSignalStrengthInfo } from '../../shared/helpers/signal-strength.helper.js';
+import * as Sentry from '@sentry/electron/main';
 
 class KrakenListController {
   constructor(mainWindow) {
@@ -106,17 +107,11 @@ class KrakenListController {
     const successfulCount = results.successful.length;
     const failedCount = results.failed.length;
 
-    console.log(
-      `Connection complete: ${successfulCount}/${totalSelected} devices connected successfully`
-    );
+    console.log(`Connection complete: ${successfulCount}/${totalSelected} devices connected successfully`);
 
     // Validate connected devices first
     const validConnectedDevices = results.successful.filter(device => {
-      return (
-        device &&
-        device.id &&
-        device.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED
-      );
+      return device && device.id && device.connectionState === KRAKEN_CONSTANTS.CONNECTION_STATES.CONNECTED;
     });
 
     if (validConnectedDevices.length !== successfulCount) {
@@ -174,10 +169,7 @@ class KrakenListController {
   proceedToCalibration(validConnectedDevices, totalSelected) {
     const connectedDeviceIds = validConnectedDevices.map(device => device.id);
 
-    console.log(
-      `Proceeding to calibration with ${connectedDeviceIds.length} validated devices:`,
-      connectedDeviceIds
-    );
+    console.log(`Proceeding to calibration with ${connectedDeviceIds.length} validated devices:`, connectedDeviceIds);
 
     this.sendToRenderer('navigate-to-calibration', {
       connectedDeviceIds,
