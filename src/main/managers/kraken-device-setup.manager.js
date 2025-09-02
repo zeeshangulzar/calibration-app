@@ -369,6 +369,9 @@ export class KrakenDeviceSetupManager {
     try {
       const pressureValue = parsePressureData(data);
 
+      // Store the latest pressure value for verification process
+      this.globalState.setDevicePressure(deviceId, pressureValue);
+
       this.sendToRenderer('device-data-update', {
         deviceId,
         pressure: {
