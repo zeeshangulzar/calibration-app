@@ -13,13 +13,18 @@ class TelnetClientService extends EventEmitter {
     this.isConnected = false;
     this.host = null;
     this.port = null;
-    this.connectionTimeout = 10000; // 10 seconds
     this.responseTimeout = 5000; // 5 seconds
     this.autoReconnect = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 3;
 
     this._loadSettings();
+
+    // Add error listener to prevent unhandled errors from crashing the app
+    this.on('error', error => {
+      console.error('TelnetClient error event:', error);
+      // Don't re-throw the error to prevent app crash
+    });
   }
 
   /**
@@ -72,17 +77,9 @@ class TelnetClientService extends EventEmitter {
       }
 
       this.client = new net.Socket();
-      this.client.setTimeout(this.connectionTimeout);
-
-      // Connection timeout handler
-      const connectionTimer = setTimeout(() => {
-        this.client.destroy();
-        reject({ success: false, error: 'Connection timeout' });
-      }, this.connectionTimeout);
 
       // Connection successful
       this.client.connect(this.port, this.host, () => {
-        clearTimeout(connectionTimer);
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
@@ -95,12 +92,12 @@ class TelnetClientService extends EventEmitter {
 
       // Error handler
       this.client.on('error', error => {
-        clearTimeout(connectionTimer);
         this.isConnected = false;
 
         const errorMessage = `Connection error: ${error.message}`;
         console.error(errorMessage);
 
+        // Emit error event but don't let it crash the app
         this.emit('error', { error: error.message, host: this.host, port: this.port });
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -125,7 +122,14 @@ class TelnetClientService extends EventEmitter {
       // Timeout handler
       this.client.on('timeout', () => {
         console.log('Fluke connection timeout');
+        this.isConnected = false;
         this.client.destroy();
+
+        // Emit timeout event
+        this.emit('timeout', { host: this.host, port: this.port });
+
+        // Reject the connection promise
+        reject({ success: false, error: 'Connection timeout' });
       });
     });
   }
@@ -138,9 +142,7 @@ class TelnetClientService extends EventEmitter {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff
 
-    console.log(
-      `Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-    );
+    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
       this.connect().catch(error => {

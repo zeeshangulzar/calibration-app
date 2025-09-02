@@ -51,9 +51,7 @@ function setupConnectButton() {
   const connectBtn = document.getElementById('connect-sensors-button');
   if (!connectBtn) return;
   connectBtn.addEventListener('click', async () => {
-    const selectedSensors = Array.from(document.querySelectorAll('.sensor-checkbox:checked')).map(
-      cb => cb.dataset.sensorId
-    );
+    const selectedSensors = Array.from(document.querySelectorAll('.sensor-checkbox:checked')).map(cb => cb.dataset.sensorId);
     if (selectedSensors.length > 0) {
       disableRefreshButton();
       await window.electronAPI.krakenConnectDevices(selectedSensors);
@@ -96,9 +94,7 @@ function setupSearchInput() {
   if (!searchInput) return;
   searchInput.addEventListener('input', () => {
     const query = searchInput.value.trim().toLowerCase();
-    let filtered = discoveredDevices.filter(
-      device => device.id.toLowerCase().includes(query) || device.name.toLowerCase().includes(query)
-    );
+    let filtered = discoveredDevices.filter(device => device.id.toLowerCase().includes(query) || device.name.toLowerCase().includes(query));
     if (lastSortKey.includes('Sensor Id')) filtered.sort((a, b) => a.id.localeCompare(b.id));
     else if (lastSortKey.includes('Name')) filtered.sort((a, b) => a.name.localeCompare(b.name));
     renderSensorList(filtered);
@@ -163,38 +159,27 @@ window.electronAPI.onHideLoader(() => {
 // Connection progress and results
 window.electronAPI.onDeviceConnectionStarted(data => {
   const loaderText = document.getElementById('loader')?.querySelector('p');
-  if (loaderText)
-    loaderText.textContent = `Connecting to device ${data.currentIndex}/${data.totalCount}: ${data.deviceName}...`;
-  console.log(
-    `Starting connection to device ${data.currentIndex}/${data.totalCount}: ${data.deviceName}`
-  );
+  if (loaderText) loaderText.textContent = `Connecting to device ${data.currentIndex}/${data.totalCount}: ${data.deviceName}...`;
+  console.log(`Starting connection to device ${data.currentIndex}/${data.totalCount}: ${data.deviceName}`);
 });
 
 window.electronAPI.onDeviceConnectionSuccess(data => {
-  console.log(
-    `Successfully connected device ${data.currentIndex}/${data.totalCount}. Total connected: ${data.connectedCount}`
-  );
+  console.log(`Successfully connected device ${data.currentIndex}/${data.totalCount}. Total connected: ${data.connectedCount}`);
 });
 
 window.electronAPI.onDeviceConnectionFailed(data => {
-  console.log(
-    `Failed to connect device ${data.currentIndex}/${data.totalCount} (${data.deviceName}): ${data.error}`
-  );
+  console.log(`Failed to connect device ${data.currentIndex}/${data.totalCount} (${data.deviceName}): ${data.error}`);
 });
 
 window.electronAPI.onDeviceConnectionRetry(data => {
   const loaderText = document.getElementById('loader')?.querySelector('p');
-  if (loaderText)
-    loaderText.textContent = `Retrying connection (${data.retryAttempt}/${data.maxRetries}): ${data.deviceName}...`;
-  console.log(
-    `Retrying connection to ${data.deviceName} (${data.retryAttempt}/${data.maxRetries})`
-  );
+  if (loaderText) loaderText.textContent = `Retrying connection (${data.retryAttempt}/${data.maxRetries}): ${data.deviceName}...`;
+  console.log(`Retrying connection to ${data.deviceName} (${data.retryAttempt}/${data.maxRetries})`);
 });
 
 window.electronAPI.onShowConnectionErrors(data => {
   let message = `Connection Results: ${data.successful}/${data.totalSelected || data.successful + data.failed.length} devices connected successfully.\n\n`;
-  if (data.successful > 0)
-    message += `✓ Successfully connected to ${data.successful} device${data.successful !== 1 ? 's' : ''}.\n\n`;
+  if (data.successful > 0) message += `✓ Successfully connected to ${data.successful} device${data.successful !== 1 ? 's' : ''}.\n\n`;
   if (data.failed.length > 0) {
     message += `✗ Failed to connect to ${data.failed.length} device${data.failed.length !== 1 ? 's' : ''}:\n`;
     data.failed.forEach(device => {
@@ -250,8 +235,7 @@ window.electronAPI.onKrakenCleanupStarted(() => {
   if (connectBtn) {
     connectBtn.disabled = true;
     connectBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    connectBtn.innerHTML =
-      '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Cleaning up krakens...';
+    connectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Cleaning up krakens...';
   }
 });
 
@@ -291,8 +275,7 @@ function showConnectionResultsModal(message, canProceed = false) {
     modal.classList.add('hidden');
     try {
       const result = await window.electronAPI.krakenProceedToCalibration();
-      if (!result.success)
-        showCustomAlertModal(`Failed to proceed to calibration: ${result.error}`);
+      if (!result.success) showCustomAlertModal(`Failed to proceed to calibration: ${result.error}`);
     } catch (error) {
       showCustomAlertModal(`Error proceeding to calibration: ${error.message}`);
     }
@@ -303,8 +286,7 @@ function showConnectionResultsModal(message, canProceed = false) {
 function createConnectionResultsModal() {
   const modal = document.createElement('div');
   modal.id = 'connection-results-modal';
-  modal.className =
-    'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden';
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden';
   modal.innerHTML = `
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
       <h3 class="text-lg font-semibold mb-4">Connection Results</h3>
@@ -322,9 +304,7 @@ function sortAndRender() {
   const query = document.getElementById('sensor-search')?.value.trim().toLowerCase();
   let filtered = [...discoveredDevices];
   if (query) {
-    filtered = filtered.filter(
-      device => device.id.toLowerCase().includes(query) || device.name.toLowerCase().includes(query)
-    );
+    filtered = filtered.filter(device => device.id.toLowerCase().includes(query) || device.name.toLowerCase().includes(query));
   }
   if (lastSortKey.includes('Sensor Id')) filtered.sort((a, b) => a.id.localeCompare(b.id));
   else if (lastSortKey.includes('Name')) filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -337,8 +317,7 @@ function renderSensorList(devices) {
   devices.forEach(device => {
     const signalData = getSignalStrengthInfo(device.rssi);
     const deviceRow = document.createElement('div');
-    deviceRow.className =
-      'sensor-item grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50';
+    deviceRow.className = 'sensor-item grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50';
     deviceRow.innerHTML = `
       <div class="col-span-1">
        <input type="checkbox" class="sensor-checkbox w-4 h-4" data-sensor-id="${device.id}" ${selectedSensorIds.has(device.id) ? 'checked' : ''}/>
@@ -371,8 +350,7 @@ function renderSensorList(devices) {
       const all = document.querySelectorAll('.sensor-checkbox');
       const selected = document.querySelectorAll('.sensor-checkbox:checked');
       const selectAllCheckbox = document.getElementById('select-all-checkbox');
-      if (selectAllCheckbox)
-        selectAllCheckbox.checked = all.length > 0 && all.length === selected.length;
+      if (selectAllCheckbox) selectAllCheckbox.checked = all.length > 0 && all.length === selected.length;
       updateConnectButtonState();
     });
   });

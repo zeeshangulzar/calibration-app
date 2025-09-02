@@ -5,7 +5,6 @@
 
 // State management
 let isConnected = false;
-let isConnecting = false;
 let commandHistory = [];
 
 // DOM elements
@@ -94,38 +93,32 @@ function setupElectronEventListeners() {
     validateForm();
   });
 
-  window.electronAPI.onSettingsSaved(settings => {
+  window.electronAPI.onSettingsSaved(() => {
     showNotification('Settings saved successfully', 'success');
   });
 
   // Fluke connection events
   window.electronAPI.onFlukeConnected(data => {
     isConnected = true;
-    isConnecting = false;
     showNotification(`Connected to Fluke at ${data.host}:${data.port}`, 'success');
     hideLoading();
   });
 
   window.electronAPI.onFlukeDisconnected(() => {
     isConnected = false;
-    isConnecting = false;
     showNotification('Disconnected from Fluke device', 'info');
     hideLoading();
   });
 
   window.electronAPI.onFlukeError(data => {
     isConnected = false;
-    isConnecting = false;
     showNotification(`Fluke error: ${data.error}`, 'error');
     hideLoading();
   });
 
   window.electronAPI.onFlukeTestResult(result => {
     if (result.success) {
-      showNotification(
-        `Connection test successful: ${result.response || result.message}`,
-        'success'
-      );
+      showNotification(`Connection test successful: ${result.response || result.message}`, 'success');
     } else {
       showNotification(`Connection test failed: ${result.error}`, 'error');
     }
@@ -145,6 +138,17 @@ function setupElectronEventListeners() {
     commandHistory = [];
     updateCommandHistoryDisplay();
     showNotification('Command history cleared', 'info');
+  });
+
+  // Handle notifications from main process
+  window.electronAPI.onShowNotification(data => {
+    const { type, message } = data;
+
+    // Use the existing showNotification function
+    showNotification(message, type);
+
+    // Also log to console for debugging
+    console.log(`[Notification ${type.toUpperCase()}] ${message}`);
   });
 }
 
@@ -224,8 +228,7 @@ async function sendCommand() {
 
   // Disable send button temporarily
   elements.sendCommandBtn.disabled = true;
-  elements.sendCommandBtn.innerHTML =
-    '<div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-white mr-2"></div>Sending...';
+  elements.sendCommandBtn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-white mr-2"></div>Sending...';
 
   try {
     // Try to send command (service will handle connection automatically)
@@ -392,8 +395,7 @@ function validateInputs(ip, port, showErrors = true) {
   let isValid = true;
 
   // Validate IP address
-  const ipRegex =
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   if (!ip || !ipRegex.test(ip)) {
     if (showErrors) {
       showNotification('Please enter a valid IP address', 'error');
