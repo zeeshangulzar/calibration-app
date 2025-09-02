@@ -67,7 +67,7 @@ class KrakenCalibrationController {
 
     this.verificationService = new KrakenVerificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
     // Set up cross-references for managers that need each other
-    this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
+    this.calibrationManager.sweepValue = 10;
     this.calibrationManager.updateDeviceWidgetsForCalibration = this.uiManager.updateDeviceWidgetsForCalibration.bind(this.uiManager);
     this.connectivityManager.setupDevice = this.deviceSetupManager.setupDevice.bind(this.deviceSetupManager);
     this.connectivityManager.updateProgressSummary = this.uiManager.updateProgressSummary.bind(this.uiManager);
@@ -332,26 +332,46 @@ class KrakenCalibrationController {
   async startVerification() {
     this.globalState.isVerificationActive = true;
     this.sendToRenderer('hide-kraken-verification-button');
-    // this.sendToRenderer('show-kraken-stop-calibration-button');
+    this.sendToRenderer('show-kraken-stop-verification-button');
     this.sendToRenderer('disable-kraken-back-button');
 
-    await this.verificationService.startVerification();
-
-    this.globalState.isVerificationActive = false;
-    this.sendToRenderer('hide-kraken-stop-calibration-button');
-    this.sendToRenderer('enable-kraken-back-button');
+    try {
+      await this.verificationService.startVerification();
+    } catch (error) {
+      Sentry.captureException(error);
+      this.uiManager.showLogOnScreen(`❌ Error during verification: ${error.message}`);
+    } finally {
+      // Always reset state when verification completes or fails
+      this.globalState.isVerificationActive = false;
+      this.sendToRenderer('hide-kraken-stop-verification-button');
+      this.sendToRenderer('show-kraken-verification-button');
+      this.sendToRenderer('enable-kraken-back-button');
+    }
   }
 
   /**
-   * Stop the calibration or verification process manually
+   * Stop the verification process
    */
-  async stopProcessManually() {
-    if (this.globalState.isCalibrationActive) {
-      this.globalState.isCalibrationActive = false;
-      this.sendToRenderer('show-kraken-verification-button');
-      this.sendToRenderer('hide-kraken-stop-calibration-button');
-      this.sendToRenderer('enable-kraken-back-button');
+  async stopVerification() {
+    console.log('Stop verification called, isVerificationActive:', this.globalState.isVerificationActive);
+
+    // Always update UI state when stop is called, regardless of flag state
+    this.globalState.isVerificationActive = false;
+
+    try {
+      await this.verificationService.stopVerification();
+    } catch (error) {
+      console.error('Error stopping verification service:', error);
+      // Continue with UI update even if service fails
     }
+
+    // Always update UI state
+    this.sendToRenderer('show-kraken-verification-button');
+    this.sendToRenderer('hide-kraken-stop-verification-button');
+    this.sendToRenderer('enable-kraken-back-button');
+    this.uiManager.showLogOnScreen('⏹️ Verification process stopped by user.');
+
+    console.log('Verification stopped and UI updated');
   }
 
   /**
@@ -419,6 +439,7 @@ class KrakenCalibrationController {
 
       console.log('Calibration controller cleanup completed');
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error during calibration controller cleanup:', error);
       // Continue cleanup even if Fluke disconnection fails
       await this.globalState.cleanup();

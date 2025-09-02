@@ -2,6 +2,8 @@ import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 
+import * as Sentry from '@sentry/electron/main';
+
 class KrakenVerificationService {
   constructor(globalState, flukeManager, sendToRenderer, showLogOnScreen) {
     this.globalState = globalState;
@@ -9,6 +11,22 @@ class KrakenVerificationService {
     this.sendToRenderer = sendToRenderer;
     this.showLogOnScreen = showLogOnScreen;
     this.isSweepRunning = false;
+  }
+
+  /**
+   * Stops the verification sweep process.
+   */
+  async stopVerification() {
+    this.isSweepRunning = false;
+    this.showLogOnScreen('⏹️ Verification process stopped by user.');
+    console.log('Verification sweep stopped by user');
+
+    // Set Fluke to zero pressure in background without waiting or logging
+    this.fluke.setZeroPressureToFluke(true).catch(error => {
+      // Silently log error to console only, no user notification
+      console.error('Background Fluke zero pressure failed:', error);
+      Sentry.captureException(error);
+    });
   }
 
   /**
@@ -28,27 +46,32 @@ class KrakenVerificationService {
     }
 
     // Assume all devices have same pressure range, use the first one.
-    const pressurePoints = generateStepArray(KRAKEN_CONSTANTS.SWEEP_VALUE);
-    const totalPoints = pressurePoints.length;
+    const pressurePoints = generateStepArray(100);
 
-    for (let i = 0; i < pressurePoints.length; i++) {
-      const targetPressure = pressurePoints[i];
-      if (!this.isSweepRunning) {
-        this.showLogOnScreen('⏹️ Verification sweep was cancelled.');
-        break;
+    try {
+      for (let i = 0; i < pressurePoints.length; i++) {
+        const targetPressure = pressurePoints[i];
+        if (!this.isSweepRunning) {
+          this.showLogOnScreen('⏹️ Verification sweep was cancelled.');
+          break;
+        }
+
+        await this.setFlukeAndCaptureReadings(targetPressure);
       }
 
-
-
-      await this.setFlukeAndCaptureReadings(targetPressure);
+      if (this.isSweepRunning) {
+        this.showLogOnScreen('✅ Verification sweep completed successfully.');
+        this.sendToRenderer('kraken-verification-sweep-completed', this.globalState.getKrakenSweepData());
+      }
+    } catch (error) {
+      Sentry.captureException(error);
+      this.showLogOnScreen(`❌ Error during verification sweep: ${error.message}`);
+      console.error('Error during verification sweep:', error);
+    } finally {
+      // Always set Fluke to zero pressure after verification completes or fails (silently)
+      this.fluke.setZeroPressureToFluke(true);
+      this.isSweepRunning = false;
     }
-
-    if (this.isSweepRunning) {
-      this.showLogOnScreen('✅ Verification sweep completed successfully.');
-      this.sendToRenderer('kraken-verification-sweep-completed', this.globalState.getKrakenSweepData());
-    }
-
-    this.isSweepRunning = false;
   }
 
   /**
@@ -59,80 +82,56 @@ class KrakenVerificationService {
     try {
       this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
 
-      if (targetPressure === 0) {
-        await this.fluke.setZeroPressureToFluke();
-        await this.fluke.waitForFlukeToReachZeroPressure();
-      } else {
-        await this.fluke.setHighPressureToFluke(targetPressure);
-        await this.fluke.waitForFlukeToReachTargetPressure(targetPressure);
-      }
+      // if (targetPressure === 0) {
+      //   await this.fluke.setZeroPressureToFluke();
+      //   await this.fluke.waitForFlukeToReachZeroPressure();
+      // } else {
+      await this.fluke.setHighPressureToFluke(targetPressure);
+      await this.fluke.waitForFlukeToReachTargetPressure(targetPressure);
+      // }
 
       this.showLogOnScreen(`✅ Fluke reached ${targetPressure.toFixed(2)} PSI. Stabilizing...`);
-      
       // Send current Fluke pressure to renderer for display
       this.sendToRenderer('update-kraken-calibration-reference-pressure', targetPressure);
-      
       await addDelay(KRAKEN_CONSTANTS.DELAY_AFTER_PRESSURE_SET);
 
-      this.showLogOnScreen('📸 Capturing latest pressure readings from Krakens...');
+      this.showLogOnScreen('📸 Capturing pressure readings from Krakens...');
       const devices = this.globalState.getConnectedDevices();
 
-      // Capture multiple readings for each device to ensure accuracy
-      const captureAttempts = 3;
-      const captureDelay = 1000; // 1 second between captures
-
       for (const device of devices) {
-        let readings = [];
-
-        // Capture multiple readings
-        for (let attempt = 1; attempt <= captureAttempts; attempt++) {
-          await addDelay(captureDelay);
-
-          // Get the latest pressure reading from global state (which is continuously updated via BLE)
-          const latestPressure = this.globalState.getDevicePressure(device.id);
-          if (latestPressure !== null) {
-            readings.push(latestPressure);
-            this.showLogOnScreen(`  - ${device.name || device.id}: Reading ${attempt}: ${latestPressure.toFixed(2)} PSI`);
-          } else {
-            this.showLogOnScreen(`  - ⚠️ ${device.name || device.id}: No reading available for attempt ${attempt}.`);
-          }
-        }
-
-        // Use the average of all readings if available
-        if (readings.length > 0) {
-          const averagePressure = readings.reduce((sum, reading) => sum + reading, 0) / readings.length;
-
+        // Get the latest pressure reading from global state (which is continuously updated via BLE)
+        const latestPressure = this.globalState.getDevicePressure(device.id);
+        if (latestPressure !== null) {
           this.globalState.addKrakenSweepData(device.id, {
             flukePressure: targetPressure,
-            krakenPressure: averagePressure,
+            krakenPressure: latestPressure,
             timestamp: Date.now(),
-            readings: readings, // Store all readings for reference
+            readings: [latestPressure], // Store single reading for consistency
           });
 
-          this.showLogOnScreen(`  - ✅ ${device.name || device.id}: Average: ${averagePressure.toFixed(2)} PSI (${readings.length} readings)`);
+          this.showLogOnScreen(`  - ✅ ${device.name || device.id}: ${latestPressure.toFixed(2)} PSI`);
 
           // Send real-time update to renderer for this pressure point
-          this.updateKrakenVerificationTable(device.id, targetPressure, averagePressure, readings);
-          
+          this.updateKrakenVerificationTable(device.id, targetPressure, latestPressure, [latestPressure]);
+
           // Send Kraken pressure update to renderer
           this.sendToRenderer('update-kraken-pressure', {
             deviceId: device.id,
             deviceName: device.name || device.id,
-            pressure: averagePressure
+            pressure: latestPressure,
           });
         } else {
-          this.showLogOnScreen(`  - ❌ ${device.name || device.id}: No valid readings captured.`);
+          this.showLogOnScreen(`  - ❌ ${device.name || device.id}: No reading available.`);
         }
       }
     } catch (error) {
+      Sentry.captureException(error);
       this.showLogOnScreen(`❌ Error during verification at ${targetPressure} PSI: ${error.message}`);
       console.error(`Error at pressure ${targetPressure}:`, error);
       // Stop the sweep on a critical Fluke error
       this.isSweepRunning = false;
     }
   }
-
-
 
   /**
    * Update Kraken verification table in real-time
@@ -145,6 +144,14 @@ class KrakenVerificationService {
     // Get current sweep data to include all previous points
     const currentSweepData = this.globalState.getKrakenSweepData();
 
+    console.log('Updating verification table with data:', {
+      deviceId,
+      flukePressure,
+      krakenPressure,
+      readings,
+      currentSweepData,
+    });
+
     this.sendToRenderer('kraken-verification-realtime-update', {
       deviceId,
       flukePressure,
@@ -154,8 +161,6 @@ class KrakenVerificationService {
       currentSweepData, // Include all data so far for real-time table update
     });
   }
-
-
 }
 
 export { KrakenVerificationService };

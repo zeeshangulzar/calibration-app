@@ -3,6 +3,8 @@ import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { UART_service } from '../services/uart-service.js';
 
+import * as Sentry from '@sentry/electron/main';
+
 /**
  * Kraken Calibration Manager
  * Handles the Kraken calibration process, command sending, and device management during calibration
@@ -144,6 +146,7 @@ export class KrakenCalibrationManager {
         await this.flukeManager.setHighPressureToFlukeWithVerification(this.sweepValue);
         this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
       } catch (error) {
+        Sentry.captureException(error);
         this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
         await this.stopCalibration('Critical Fluke communication failure during high pressure setup', error.message);
         throw new Error('Critical Fluke failure during high pressure setup');
