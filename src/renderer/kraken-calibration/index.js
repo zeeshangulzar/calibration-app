@@ -61,26 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Start certification button
-  const startCertificationBtn = document.getElementById('start-certification-btn');
-  if (startCertificationBtn) {
-    startCertificationBtn.addEventListener('click', async () => {
-      const testerName = document.getElementById('tester-name')?.value;
-      if (!testerName) {
-        NotificationHelper.showCustomAlertModal('Please select Tester Name before starting certification.');
-        return;
-      }
-      try {
-        const result = await window.electronAPI.krakenCalibrationStartCertification(testerName);
-        if (!result.success) {
-          NotificationHelper.showError(`Failed to start certification: ${result.error}`);
-        }
-      } catch (error) {
-        NotificationHelper.showError(`Error starting certification: ${error.message}`);
-      }
-    });
-  }
-
   // Remove verification results button
   const removeVerificationBtn = document.getElementById('remove-verification-button');
   if (removeVerificationBtn) {
@@ -515,14 +495,6 @@ window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
 
 window.electronAPI.onUpdateKrakenPressure(data => {
   updateKrakenPressure(data);
-});
-
-window.electronAPI.onKrakenCertificationCompleted(data => {
-  if (data.success) {
-    NotificationHelper.showSuccess('Certification completed successfully! Individual PDF certificates have been generated for each Kraken in the "kraken report pdfs" folder on your desktop.');
-  } else {
-    NotificationHelper.showError(`Certification failed: ${data.error}`);
-  }
 });
 
 // Handle notifications from main process
