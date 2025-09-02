@@ -100,8 +100,6 @@ function registerCalibrationHandlers() {
     }
   });
 
-
-
   ipcMain.on('update-kraken-calibration-reference-pressure', (event, pressure) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
@@ -114,21 +112,6 @@ function registerCalibrationHandlers() {
     if (mainWindow) {
       mainWindow.webContents.send('update-kraken-pressure', data);
     }
-  });
-
-  ipcMain.on('kraken-certification-completed', (event, data) => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send('kraken-certification-completed', data);
-    }
-  });
-
-  ipcMain.handle('kraken-calibration-start-certification', async (event, testerName) => {
-    console.log(`Received kraken-calibration-start-certification with tester: ${testerName}`);
-    const error = checkControllerInitialized();
-
-    if (error) return error;
-    return await krakenCalibrationController.startCertification(testerName);
   });
 
   ipcMain.handle('kraken-verification-start', async (event, testerName) => {

@@ -83,10 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationGetStatus: () => ipcRenderer.invoke('kraken-calibration-get-status'),
   krakenCalibrationGoBack: () => ipcRenderer.invoke('kraken-calibration-go-back'),
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
-  krakenCalibrationStartVerification: () =>
-    ipcRenderer.invoke('kraken-calibration-start-verification'),
-  krakenCalibrationStartCertification: testerName =>
-    ipcRenderer.invoke('kraken-calibration-start-certification', testerName),
+  krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),
@@ -167,11 +164,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onUpdateKrakenCalibrationReferencePressure: callback => ipcRenderer.on('update-kraken-calibration-reference-pressure', (_, pressure) => callback(pressure)),
   onUpdateKrakenPressure: callback => ipcRenderer.on('update-kraken-pressure', (_, data) => callback(data)),
-  onKrakenCertificationCompleted: callback => ipcRenderer.on('kraken-certification-completed', (_, data) => callback(data)),
-  onShowKrakenCertificationButton: callback =>
-    ipcRenderer.on('show-kraken-certification-button', callback),
-  onHideKrakenCertificationButton: callback =>
-    ipcRenderer.on('hide-kraken-certification-button', callback),
   onShowKrakenCalibrationButton: callback => ipcRenderer.on('show-kraken-calibration-button', () => callback()),
   onHideKrakenCalibrationButton: callback => ipcRenderer.on('hide-kraken-calibration-button', () => callback()),
   onDeviceCalibrationStatusUpdate: callback => ipcRenderer.on('device-calibration-status-update', (_, data) => callback(data)),
