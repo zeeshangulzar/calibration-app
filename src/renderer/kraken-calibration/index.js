@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const resultsTableWrapper = document.getElementById('results-table-wrapper');
       const sensorPressuresContainer = document.getElementById('sensor-pressures');
       const referencePressureElement = document.getElementById('reference-pressure-value');
-      
+
       if (resultsContainer) resultsContainer.classList.add('hidden');
       if (resultsTableWrapper) resultsTableWrapper.innerHTML = '';
       if (sensorPressuresContainer) sensorPressuresContainer.innerHTML = '';
@@ -508,8 +508,6 @@ window.electronAPI.onKrakenVerificationRealtimeUpdate(data => {
   console.log('Real-time verification update received:', data);
   updateVerificationResultsRealtime(data);
 });
-
-
 
 window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
   updateKrakenCalibrationReferencePressure(pressure);
@@ -1108,22 +1106,20 @@ function displayVerificationResults(data) {
   table += '<tbody class="bg-white divide-y divide-gray-200">';
 
   const deviceIds = Object.keys(data);
-  
+
   for (const deviceId of deviceIds) {
     const widget = document.getElementById(`device-widget-${deviceId}`);
-    const deviceName = widget
-      ? widget.querySelector('h4').textContent.replace('Sensor ', '')
-      : 'Unknown Device';
-    
+    const deviceName = widget ? widget.querySelector('h4').textContent.replace('Sensor ', '') : 'Unknown Device';
+
     const deviceData = data[deviceId];
-    
+
     // Sort data by pressure point
     const sortedData = deviceData.sort((a, b) => a.flukePressure - b.flukePressure);
-    
+
     for (const reading of sortedData) {
       const difference = (reading.krakenPressure - reading.flukePressure).toFixed(2);
       const differenceClass = Math.abs(reading.krakenPressure - reading.flukePressure) > 1 ? 'text-red-600' : 'text-green-600';
-      
+
       table += `<tr>`;
       table += `<td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${reading.flukePressure.toFixed(2)}</td>`;
       table += `<td class="px-6 py-4 whitespace-nowrap text-gray-900">${deviceName}</td>`;
@@ -1146,7 +1142,7 @@ function displayVerificationResults(data) {
  */
 function updateVerificationResultsRealtime(data) {
   const { deviceId, flukePressure, krakenPressure, currentSweepData } = data;
-  
+
   // Show the verification results container if it's hidden
   const resultsContainer = document.getElementById('verification-results-container');
   if (resultsContainer && resultsContainer.classList.contains('hidden')) {
@@ -1155,7 +1151,7 @@ function updateVerificationResultsRealtime(data) {
 
   // Update the table with the new data
   displayVerificationResults(currentSweepData);
-  
+
   // Show a temporary highlight for the new reading
   highlightNewReading(deviceId, flukePressure, krakenPressure);
 }
@@ -1175,16 +1171,14 @@ function highlightNewReading(deviceId, flukePressure, krakenPressure) {
   const targetRow = Array.from(rows).find(row => {
     const pressureCell = row.querySelector('td:first-child');
     const deviceNameCell = row.querySelector('td:nth-child(2)');
-    return pressureCell && deviceNameCell && 
-           parseFloat(pressureCell.textContent) === flukePressure &&
-           deviceNameCell.textContent.includes(deviceId.substring(0, 8));
+    return pressureCell && deviceNameCell && parseFloat(pressureCell.textContent) === flukePressure && deviceNameCell.textContent.includes(deviceId.substring(0, 8));
   });
 
   if (targetRow) {
     // Add highlight effect to the entire row
     targetRow.style.backgroundColor = '#fef3c7';
     targetRow.style.transition = 'background-color 0.5s ease';
-    
+
     // Remove highlight after 2 seconds
     setTimeout(() => {
       targetRow.style.backgroundColor = '';
@@ -1206,11 +1200,11 @@ function updateKrakenCalibrationReferencePressure(pressure) {
 function updateKrakenPressure(data) {
   const { deviceId, deviceName, pressure } = data;
   const sensorPressuresContainer = document.getElementById('sensor-pressures');
-  
+
   if (sensorPressuresContainer) {
     // Find existing pressure element for this device
     let pressureElement = document.getElementById(`sensor-pressure-${deviceId}`);
-    
+
     if (!pressureElement) {
       // Create new pressure element if it doesn't exist
       pressureElement = document.createElement('div');
@@ -1218,7 +1212,7 @@ function updateKrakenPressure(data) {
       pressureElement.className = 'flex justify-between rounded-md bg-neutral-50 p-3';
       sensorPressuresContainer.appendChild(pressureElement);
     }
-    
+
     // Update the pressure display
     pressureElement.innerHTML = `
       <span>${deviceName}</span>
@@ -1226,5 +1220,3 @@ function updateKrakenPressure(data) {
     `;
   }
 }
-
-

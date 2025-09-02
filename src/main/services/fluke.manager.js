@@ -84,7 +84,6 @@ export class FlukeManager {
       this.showLogOnScreen(`Checking ${command.name}...`);
 
       const initialResponse = await this.telnetClient.sendCommand(command.check);
-
       this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {

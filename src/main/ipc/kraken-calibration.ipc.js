@@ -100,8 +100,6 @@ function registerCalibrationHandlers() {
     }
   });
 
-
-
   ipcMain.on('update-kraken-calibration-reference-pressure', (event, pressure) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
@@ -131,21 +129,15 @@ function registerCalibrationHandlers() {
     return await krakenCalibrationController.startCertification(testerName);
   });
 
-  ipcMain.handle('kraken-verification-start', async (event, testerName) => {
+  ipcMain.handle('kraken-verification-start', async () => {
     const error = checkControllerInitialized();
 
     if (error) return error;
-
-    try {
-      await krakenCalibrationController.startVerification();
-      return { success: true };
-    } catch (error) {
-      console.error('Error starting verification:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to start verification process',
-      };
-    }
+    // For now, return a placeholder - verification logic can be implemented later
+    return {
+      success: false,
+      error: 'Verification functionality not yet implemented. This will be added in future updates.',
+    };
   });
 }
 
