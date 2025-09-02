@@ -2,6 +2,8 @@ import { TelnetClientService } from './telnet-client.service.js';
 import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
+import * as Sentry from '@sentry/electron/main';
+
 /**
  * Fluke Manager
  * Manages all interactions with the Fluke calibration device via Telnet.
@@ -80,11 +82,8 @@ export class FlukeManager {
     for (const command of commands) {
       if (!this.isProcessActive()) return;
       await addDelay(1000);
-
       this.showLogOnScreen(`Checking ${command.name}...`);
-
       const initialResponse = await this.telnetClient.sendCommand(command.check);
-
       this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {
@@ -126,6 +125,7 @@ export class FlukeManager {
         return false; // Pressure needs to be set to zero
       }
     } catch (error) {
+      Sentry.captureException(error);
       const errorMessage = error.error || error.message || 'Unknown error';
       this.showLogOnScreen(`❌ Failed to check pressure: ${errorMessage}`);
       throw new Error(`Pressure check failed: ${errorMessage}`);
@@ -176,7 +176,7 @@ export class FlukeManager {
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting max pressure (${sweepValue}) to fluke for all sensors...`);
+      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke for all sensors...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }

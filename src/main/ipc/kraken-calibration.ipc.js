@@ -4,6 +4,7 @@ import { getMainWindow } from '../windows/main.js';
 import { KrakenCalibrationController } from '../controllers/kraken-calibration.controller.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
+import * as Sentry from '@sentry/electron/main';
 
 let krakenCalibrationController = null;
 
@@ -92,6 +93,13 @@ function registerCalibrationHandlers() {
     return await krakenCalibrationController.startVerification();
   });
 
+  ipcMain.handle('kraken-calibration-stop-verification', async () => {
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+    return await krakenCalibrationController.stopVerification();
+  });
+
   // Real-time verification updates
   ipcMain.on('kraken-verification-realtime-update', (event, data) => {
     const mainWindow = getMainWindow();
@@ -124,6 +132,7 @@ function registerCalibrationHandlers() {
       return { success: true };
     } catch (error) {
       console.error('Error starting verification:', error);
+      Sentry.captureException(error);
       return {
         success: false,
         error: error.message || 'Failed to start verification process',
@@ -189,6 +198,7 @@ function registerCleanupHandlers() {
         }
       } catch (error) {
         console.error('Error during background cleanup:', error);
+        Sentry.captureException(error);
 
         // Even if kraken cleanup fails, re-enable the button after a delay
         if (mainWindow) {
@@ -227,6 +237,7 @@ export async function cleanupKrakenCalibration() {
       krakenCalibrationController = null;
       console.log('Kraken calibration cleanup completed');
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error during Kraken calibration cleanup on app quit:', error);
     }
   }

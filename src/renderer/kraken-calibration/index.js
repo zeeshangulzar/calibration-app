@@ -43,39 +43,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const startVerificationBtn = document.getElementById('start-verification-btn');
   if (startVerificationBtn) {
     startVerificationBtn.addEventListener('click', async () => {
-      const testerName = document.getElementById('tester-name')?.value;
-
-      if (!testerName) {
-        NotificationHelper.showCustomAlertModal('Please select Tester Name before starting verification.');
-        return;
-      }
-
       try {
-        const result = await window.electronAPI.krakenVerificationStart(testerName);
-        if (!result.success) {
-          NotificationHelper.showError(`Failed to start verification: ${result.error}`);
-        }
+        // Initialize verification results container
+        initializeVerificationResults();
+
+        await window.electronAPI.krakenCalibrationStartVerification();
       } catch (error) {
         NotificationHelper.showError(`Error starting verification: ${error.message}`);
       }
     });
   }
 
-  // Remove verification results button
-  const removeVerificationBtn = document.getElementById('remove-verification-button');
-  if (removeVerificationBtn) {
-    removeVerificationBtn.addEventListener('click', () => {
-      const resultsContainer = document.getElementById('verification-results-container');
-      const resultsTableWrapper = document.getElementById('results-table-wrapper');
-      const sensorPressuresContainer = document.getElementById('sensor-pressures');
-      const referencePressureElement = document.getElementById('reference-pressure-value');
-
-      if (resultsContainer) resultsContainer.classList.add('hidden');
-      if (resultsTableWrapper) resultsTableWrapper.innerHTML = '';
-      if (sensorPressuresContainer) sensorPressuresContainer.innerHTML = '';
-      if (referencePressureElement) referencePressureElement.textContent = 'N/A';
+  // Stop verification button
+  const stopVerificationBtn = document.getElementById('stop-verification-button');
+  if (stopVerificationBtn) {
+    stopVerificationBtn.addEventListener('click', async () => {
+      try {
+        await window.electronAPI.krakenCalibrationStopVerification();
+      } catch (error) {
+        NotificationHelper.showError(`Error stopping verification: ${error.message}`);
+      }
     });
   }
+
+  // Remove verification results button FOR DEV ONLY
+  // const removeVerificationBtn = document.getElementById('remove-verification-button');
+  // if (removeVerificationBtn) {
+  //   removeVerificationBtn.addEventListener('click', () => {
+  //     const resultsContainer = document.getElementById('verification-results-container');
+  //     const resultsTableWrapper = document.getElementById('results-table-wrapper');
+  //     const sensorPressuresContainer = document.getElementById('sensor-pressures');
+  //     const referencePressureElement = document.getElementById('reference-pressure-value');
+
+  //     if (resultsContainer) resultsContainer.classList.add('hidden');
+  //     if (resultsTableWrapper) resultsTableWrapper.innerHTML = '';
+  //     if (sensorPressuresContainer) sensorPressuresContainer.innerHTML = '';
+  //     if (referencePressureElement) referencePressureElement.textContent = 'N/A';
+  //   });
+  // }
 
   // Stop calibration button
   const stopCalibrationBtn = document.getElementById('stop-calibration-button');
@@ -106,6 +111,21 @@ window.electronAPI.onHidePageLoader(() => {
   document.getElementById('page-loader')?.classList.add('hidden');
   // enable refresh button
   document.getElementById('refreshBtn').disabled = false;
+});
+
+// Stop verification button events
+window.electronAPI.onShowKrakenStopVerificationButton(() => {
+  const stopVerificationBtn = document.getElementById('stop-verification-button');
+  if (stopVerificationBtn) {
+    stopVerificationBtn.classList.remove('hidden');
+  }
+});
+
+window.electronAPI.onHideKrakenStopVerificationButton(() => {
+  const stopVerificationBtn = document.getElementById('stop-verification-button');
+  if (stopVerificationBtn) {
+    stopVerificationBtn.classList.add('hidden');
+  }
 });
 
 window.electronAPI.onInitializeDevices(devices => {
@@ -466,6 +486,12 @@ window.electronAPI.onKrakenCalibrationLogsData(log => {
 window.electronAPI.onKrakenVerificationSweepCompleted(data => {
   console.log('Verification sweep data received:', data);
   displayVerificationResults(data);
+
+  // Enable the remove button after completion
+  // const removeButton = document.getElementById('remove-verification-button');
+  // if (removeButton) {
+  //   removeButton.disabled = false;
+  // }
 });
 
 // Real-time verification updates
@@ -1036,59 +1062,125 @@ window.retryDeviceSetup = retryDeviceSetup;
 window.reconnectDevice = reconnectDevice;
 window.disconnectDevice = disconnectDevice;
 
-function displayVerificationResults(data) {
+/**
+ * Show verification results container and initialize it for new verification
+ */
+function initializeVerificationResults() {
   const resultsContainer = document.getElementById('verification-results-container');
   const resultsTableWrapper = document.getElementById('results-table-wrapper');
-  const removeButton = document.getElementById('remove-verification-button');
+  // const removeButton = document.getElementById('remove-verification-button');
 
-  if (!resultsContainer || !resultsTableWrapper || !removeButton) {
+  if (resultsContainer && resultsTableWrapper) {
+    // Show the container
+    resultsContainer.classList.remove('hidden');
+
+    // Initialize with loading message
+    resultsTableWrapper.innerHTML = '<p class="text-gray-500 text-center py-4">Starting verification sweep... Data will appear here as readings are captured.</p>';
+
+    // Disable remove button during verification
+    // removeButton.disabled = true;
+  }
+}
+
+function displayVerificationResults(data) {
+  console.log('Displaying verification results:', data);
+
+  const resultsContainer = document.getElementById('verification-results-container');
+  const resultsTableWrapper = document.getElementById('results-table-wrapper');
+  // const removeButton = document.getElementById('remove-verification-button');
+
+  if (!resultsContainer || !resultsTableWrapper) {
     console.error('Verification results container or elements not found.');
     return;
   }
 
   if (!data || Object.keys(data).length === 0) {
-    resultsTableWrapper.innerHTML = '<p>No verification data available.</p>';
+    resultsTableWrapper.innerHTML = '<p class="text-gray-500 text-center py-4">No verification data available yet. Data will appear here as the verification sweep progresses.</p>';
     resultsContainer.classList.remove('hidden');
-    removeButton.disabled = false;
+    // removeButton.disabled = false;
     return;
   }
 
-  let table = '<table class="min-w-full divide-y divide-gray-200">';
-  table += '<thead class="bg-gray-50"><tr>';
-  table += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pressure Point (PSI)</th>';
-  table += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Name</th>';
-  table += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kraken Reading (PSI)</th>';
-  table += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Difference (PSI)</th>';
-  table += '</tr></thead>';
+  // Get all unique pressure points and sort them
+  const allPressurePoints = new Set();
+  Object.values(data).forEach(deviceData => {
+    if (Array.isArray(deviceData)) {
+      deviceData.forEach(reading => {
+        if (reading.flukePressure !== undefined) {
+          allPressurePoints.add(reading.flukePressure);
+        }
+      });
+    }
+  });
+
+  const sortedPressurePoints = Array.from(allPressurePoints).sort((a, b) => a - b);
+
+  // Get device names for headers
+  const deviceIds = Object.keys(data);
+  const deviceNames = deviceIds.map(deviceId => {
+    const widget = document.getElementById(`device-widget-${deviceId}`);
+    return widget ? widget.querySelector('h4').textContent.replace('Sensor ', '') : 'Unknown Device';
+  });
+
+  let table = '<table class="min-w-full divide-y divide-gray-200 border border-gray-300">';
+
+  // Create header with device names
+  table += '<thead class="bg-gray-50">';
+  table += '<tr>';
+  table += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Reference (PSI)</th>';
+
+  // Add columns for each device (Value and Discrepancy)
+  deviceNames.forEach(deviceName => {
+    table += `<th colspan="2" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">${deviceName}</th>`;
+  });
+  table += '</tr>';
+
+  // Sub-header row for Value and Discrepancy
+  table += '<tr>';
+  table += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"></th>';
+  deviceNames.forEach(() => {
+    table += '<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Value</th>';
+    table += '<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Discrepancy</th>';
+  });
+  table += '</tr>';
+  table += '</thead>';
+
+  // Table body
   table += '<tbody class="bg-white divide-y divide-gray-200">';
 
-  const deviceIds = Object.keys(data);
+  sortedPressurePoints.forEach(pressurePoint => {
+    table += '<tr>';
+    table += `<td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900 border border-gray-300">${pressurePoint.toFixed(2)}</td>`;
 
-  for (const deviceId of deviceIds) {
-    const widget = document.getElementById(`device-widget-${deviceId}`);
-    const deviceName = widget ? widget.querySelector('h4').textContent.replace('Sensor ', '') : 'Unknown Device';
+    // Add data for each device at this pressure point
+    deviceIds.forEach(deviceId => {
+      const deviceData = data[deviceId];
+      if (Array.isArray(deviceData)) {
+        const reading = deviceData.find(r => r.flukePressure === pressurePoint);
+        if (reading && reading.krakenPressure !== undefined) {
+          const discrepancy = (reading.krakenPressure - reading.flukePressure).toFixed(2);
+          const discrepancyClass = Math.abs(reading.krakenPressure - reading.flukePressure) > 1 ? 'text-red-600' : 'text-green-600';
 
-    const deviceData = data[deviceId];
+          table += `<td class="px-4 py-3 whitespace-nowrap text-gray-900 border border-gray-300">${reading.krakenPressure.toFixed(2)}</td>`;
+          table += `<td class="px-4 py-3 whitespace-nowrap ${discrepancyClass} border border-gray-300">${discrepancy}</td>`;
+        } else {
+          table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+          table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+        }
+      } else {
+        table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+        table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+      }
+    });
 
-    // Sort data by pressure point
-    const sortedData = deviceData.sort((a, b) => a.flukePressure - b.flukePressure);
-
-    for (const reading of sortedData) {
-      const difference = (reading.krakenPressure - reading.flukePressure).toFixed(2);
-      const differenceClass = Math.abs(reading.krakenPressure - reading.flukePressure) > 1 ? 'text-red-600' : 'text-green-600';
-
-      table += `<tr>`;
-      table += `<td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${reading.flukePressure.toFixed(2)}</td>`;
-      table += `<td class="px-6 py-4 whitespace-nowrap text-gray-900">${deviceName}</td>`;
-      table += `<td class="px-6 py-4 whitespace-nowrap text-gray-900">${reading.krakenPressure.toFixed(2)}</td>`;
-      table += `<td class="px-6 py-4 whitespace-nowrap ${differenceClass}">${difference}</td>`;
-      table += `</tr>`;
-    }
-  }
+    table += '</tr>';
+  });
 
   table += '</tbody></table>';
 
   resultsTableWrapper.innerHTML = table;
+  console.log('Verification results table updated successfully');
+
   resultsContainer.classList.remove('hidden');
   removeButton.disabled = false;
 }
@@ -1098,19 +1190,26 @@ function displayVerificationResults(data) {
  * @param {Object} data - Real-time update data
  */
 function updateVerificationResultsRealtime(data) {
+  console.log('Real-time verification update received:', data);
+
   const { deviceId, flukePressure, krakenPressure, currentSweepData } = data;
 
-  // Show the verification results container if it's hidden
+  // Always show the verification results container during verification
   const resultsContainer = document.getElementById('verification-results-container');
-  if (resultsContainer && resultsContainer.classList.contains('hidden')) {
+  if (resultsContainer) {
     resultsContainer.classList.remove('hidden');
   }
 
   // Update the table with the new data
-  displayVerificationResults(currentSweepData);
+  if (currentSweepData && Object.keys(currentSweepData).length > 0) {
+    console.log('Updating verification table with current sweep data:', currentSweepData);
+    displayVerificationResults(currentSweepData);
 
-  // Show a temporary highlight for the new reading
-  highlightNewReading(deviceId, flukePressure, krakenPressure);
+    // Show a temporary highlight for the new reading
+    highlightNewReading(deviceId, flukePressure, krakenPressure);
+  } else {
+    console.warn('No current sweep data available for real-time update');
+  }
 }
 
 /**

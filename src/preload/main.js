@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationGoBack: () => ipcRenderer.invoke('kraken-calibration-go-back'),
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
   krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
+  krakenCalibrationStopVerification: () => ipcRenderer.invoke('kraken-calibration-stop-verification'),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),
@@ -176,6 +177,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowKrakenStopCalibrationButton: callback => ipcRenderer.on('show-kraken-stop-calibration-button', () => callback()),
   onHideKrakenStopCalibrationButton: callback => ipcRenderer.on('hide-kraken-stop-calibration-button', () => callback()),
   onEnableKrakenStopCalibrationButton: callback => ipcRenderer.on('enable-kraken-stop-calibration-button', () => callback()),
+
+  // Stop verification button events
+  onShowKrakenStopVerificationButton: callback => ipcRenderer.on('show-kraken-stop-verification-button', () => callback()),
+  onHideKrakenStopVerificationButton: callback => ipcRenderer.on('hide-kraken-stop-verification-button', () => callback()),
 
   // Notifications
   onShowNotification: callback => ipcRenderer.on('show-notification', (_, data) => callback(data)),
