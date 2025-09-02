@@ -94,10 +94,54 @@ function registerCalibrationHandlers() {
   });
 
   ipcMain.handle('kraken-calibration-stop-verification', async () => {
-    const error = checkControllerInitialized();
+    try {
+      if (!krakenCalibrationController) {
+        return { success: false, error: 'No calibration session active' };
+      }
+      await krakenCalibrationController.stopVerification();
+      return { success: true };
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error stopping verification:', error);
+      return { success: false, error: error.message };
+    }
+  });
 
-    if (error) return error;
-    return await krakenCalibrationController.stopVerification();
+  // PDF download handler
+  ipcMain.handle('kraken-calibration-download-pdf', async (event, deviceId) => {
+    try {
+      if (!krakenCalibrationController) {
+        return { success: false, error: 'No calibration session active' };
+      }
+
+      // Get PDF path from global state
+      const pdfPath = krakenCalibrationController.globalState.getDevicePDFPath(deviceId);
+      if (!pdfPath) {
+        return { success: false, error: 'PDF not found for this device' };
+      }
+
+      // Copy report file to Downloads folder
+      const { shell, app } = require('electron');
+      const path = require('path');
+      const fs = require('fs').promises;
+      const os = require('os');
+
+      const downloadsPath = path.join(os.homedir(), 'Downloads');
+      const filename = path.basename(pdfPath);
+      const downloadPath = path.join(downloadsPath, filename);
+
+      // Copy file to downloads
+      await fs.copyFile(pdfPath, downloadPath);
+
+      // Open the file in default browser after copying
+      shell.openPath(downloadPath);
+
+      return { success: true, filename };
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error downloading PDF:', error);
+      return { success: false, error: error.message };
+    }
   });
 
   // Real-time verification updates

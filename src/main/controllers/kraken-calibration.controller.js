@@ -3,7 +3,7 @@ import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-import { FlukeManager } from '../services/fluke.manager.js';
+import { FlukeFactoryService } from '../services/fluke-factory.service.js';
 
 // Import the new managers
 import { KrakenDeviceSetupManager } from '../managers/kraken-device-setup.manager.js';
@@ -53,8 +53,9 @@ class KrakenCalibrationController {
     // Initialize UI Manager first (needed by other managers)
     this.uiManager = new KrakenUIManager(this.mainWindow, this.globalState, this.sendToRenderer.bind(this));
 
-    // Initialize Fluke Manager (now that UIManager exists)
-    this.flukeManager = new FlukeManager(
+    // Initialize Fluke Manager using factory (mock in dev, real in production)
+    const flukeFactory = new FlukeFactoryService();
+    this.flukeManager = flukeFactory.getFlukeService(
       log => this.uiManager.showLogOnScreen(log),
       () => this.globalState.isCalibrationActive
     );
