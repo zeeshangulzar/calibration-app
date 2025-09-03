@@ -1,4 +1,5 @@
 import { migrations } from './migrations/index.js';
+import { DATABASE } from '../../config/constants/app.constants.js';
 
 /**
  * Migration Manager
@@ -19,7 +20,7 @@ import { migrations } from './migrations/index.js';
 export class MigrationManager {
   constructor(database) {
     this.db = database;
-    this.migrationsTable = 'schema_migrations';
+    this.migrationsTable = DATABASE.MIGRATIONS_TABLE;
   }
 
   /**
@@ -33,9 +34,9 @@ export class MigrationManager {
       const tableInfo = this.db.prepare(`PRAGMA table_info(${this.migrationsTable})`).all();
       
       if (tableInfo.length === 0) {
-        this._createMigrationsTable();
+        this.createMigrationsTable();
       } else {
-        this._upgradeMigrationsTable(tableInfo);
+        this.upgradeMigrationsTable(tableInfo);
       }
     } catch (error) {
       console.error('---- Failed to initialize migrations table:', error);
@@ -46,7 +47,7 @@ export class MigrationManager {
   /**
    * Create a new migrations table with full structure
    */
-  _createMigrationsTable() {
+  createMigrationsTable() {
     this.db.prepare(`
       CREATE TABLE ${this.migrationsTable} (
         version INTEGER PRIMARY KEY,
@@ -62,7 +63,7 @@ export class MigrationManager {
   /**
    * Upgrade existing migrations table to include new columns
    */
-  _upgradeMigrationsTable(tableInfo) {
+  upgradeMigrationsTable(tableInfo) {
     const requiredColumns = ['description', 'applied_at', 'checksum', 'execution_time_ms'];
     const existingColumns = tableInfo.map(col => col.name);
     const missingColumns = requiredColumns.filter(col => !existingColumns.includes(col));
@@ -172,7 +173,7 @@ export class MigrationManager {
       
       // Handle complex migrations (like ALTER TABLE statements)
       if (migration.up.includes('ALTER TABLE')) {
-        this._executeAlterTableMigration(migration.up);
+        this.executeAlterTableMigration(migration.up);
       } else {
         this.db.prepare(migration.up).run();
       }
@@ -199,7 +200,7 @@ export class MigrationManager {
   /**
    * Execute ALTER TABLE migrations with graceful error handling
    */
-  _executeAlterTableMigration(sql) {
+  executeAlterTableMigration(sql) {
     const statements = sql
       .split(';')
       .map(stmt => stmt.trim())

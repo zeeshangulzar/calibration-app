@@ -1,7 +1,4 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { promises as fs } from 'fs';
-import { getMainWindow } from '../windows/main.js';
+import { PAGINATION } from '../../config/constants/app.constants.js';
 import {
   deleteAssembledSensor,
   getAllAssembledSensors,
@@ -10,56 +7,10 @@ import {
   updateAssembledSensor,
 } from '../db/assembly-sensor.db.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-let mainWindow;
-
-/**
- * Set the main window reference for assembly sensor operations
- */
-async function setAssemblyMainWindow(window) {
-  mainWindow = window;
-  if (mainWindow) {
-    try {
-      const htmlPath = path.join(__dirname, '../../renderer/assembly-sensor', 'index.html');
-      console.log('Loading assembly sensor HTML from:', htmlPath);
-      console.log('Current directory:', __dirname);
-      console.log('Resolved path:', htmlPath);
-      
-      // Check if file exists
-      try {
-        await fs.access(htmlPath);
-        console.log('HTML file exists at path');
-      } catch (error) {
-        console.error('HTML file does not exist at path');
-        // Try alternative path
-        const altPath = path.join(__dirname, '../../../renderer/assembly-sensor', 'index.html');
-        console.log('Trying alternative path:', altPath);
-        try {
-          await fs.access(altPath);
-          console.log('HTML file exists at alternative path');
-          mainWindow.loadFile(altPath);
-        } catch (altError) {
-          console.error('HTML file not found at alternative path either');
-        }
-        return;
-      }
-      
-      mainWindow.loadFile(htmlPath);
-      mainWindow.webContents.once('did-finish-load', async () => {
-        console.log('Assembly sensor page loaded successfully');
-      });
-    } catch (error) {
-      console.error('Error loading assembly sensor page:', error);
-    }
-  }
-}
-
 /**
  * Get assembled sensors with pagination
  */
-async function getAssembledSensors(page = 1, size = 20) {
+async function getAssembledSensors(page = PAGINATION.DEFAULT_PAGE, size = PAGINATION.DEFAULT_SIZE) {
   try {
     return getAllAssembledSensors(page, size);
   } catch (error) {
@@ -71,51 +22,39 @@ async function getAssembledSensors(page = 1, size = 20) {
 /**
  * Save assembled sensor
  */
-function saveAssembledSensorData(data) {
+async function saveAssembledSensorData(data) {
   try {
-    const result = saveAssembledSensor(data);
-    if (result.success) {
-      mainWindow.webContents.send('assembled-saved', 'saved');
-    } else {
-      mainWindow.webContents.send('assembled-saved', 'error');
-    }
+    const result = await saveAssembledSensor(data);
+    return result;
   } catch (error) {
     console.error('Failed to save assembled sensor:', error);
-    mainWindow.webContents.send('assembled-saved', 'error');
+    return { success: false, error: error.message };
   }
 }
 
 /**
  * Delete assembled sensor
  */
-function deleteAssembledSensorData(id) {
+async function deleteAssembledSensorData(id) {
   try {
-    const result = deleteAssembledSensor(id);
-    if (result.success) {
-      mainWindow.webContents.send('assembled-saved', 'deleted');
-    } else {
-      mainWindow.webContents.send('assembled-saved', 'error');
-    }
+    const result = await deleteAssembledSensor(id);
+    return result;
   } catch (error) {
     console.error('Failed to delete assembled sensor:', error);
-    mainWindow.webContents.send('assembled-saved', 'error');
+    return { success: false, error: error.message };
   }
 }
 
 /**
  * Update assembled sensor
  */
-function updateAssembledSensorData(updatedData) {
+async function updateAssembledSensorData(updatedData) {
   try {
-    const result = updateAssembledSensor(updatedData);
-    if (result.success) {
-      mainWindow.webContents.send('assembled-saved', 'updated');
-    } else {
-      mainWindow.webContents.send('assembled-saved', 'error');
-    }
+    const result = await updateAssembledSensor(updatedData);
+    return result;
   } catch (error) {
     console.error('Failed to update assembled sensor:', error);
-    mainWindow.webContents.send('assembled-saved', 'error');
+    return { success: false, error: error.message };
   }
 }
 
@@ -132,7 +71,6 @@ async function checkDuplicateQR(data) {
 }
 
 export {
-  setAssemblyMainWindow,
   getAssembledSensors,
   saveAssembledSensorData,
   deleteAssembledSensorData,

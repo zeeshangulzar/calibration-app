@@ -44,24 +44,17 @@ function validateMigrationStructure(migration, filename) {
     throw new Error(`---- Migration import failed: ${filename} - migration object is undefined`);
   }
   
-  // Validate version field
-  if (!migration.version || typeof migration.version !== 'number') {
-    throw new Error(`---- Migration validation failed: ${filename} - invalid or missing version`);
-  }
+  const checks = [
+    { key: "version", valid: v => typeof v === "number" },
+    { key: "description", valid: v => typeof v === "string" },
+    { key: "up", valid: v => typeof v === "string" && v.trim() },
+    { key: "down", valid: v => typeof v === "string" && v.trim() }
+  ];
   
-  // Validate description field
-  if (!migration.description || typeof migration.description !== 'string') {
-    throw new Error(`---- Migration validation failed: ${filename} - invalid or missing description`);
-  }
-  
-  // Validate up SQL (required for applying migration)
-  if (!migration.up || typeof migration.up !== 'string' || migration.up.trim() === '') {
-    throw new Error(`---- Migration validation failed: ${filename} - invalid or missing up SQL`);
-  }
-  
-  // Validate down SQL (required for rollback)
-  if (!migration.down || typeof migration.down !== 'string' || migration.down.trim() === '') {
-    throw new Error(`---- Migration validation failed: ${filename} - invalid or missing down SQL`);
+  for (const { key, valid } of checks) {
+    if (!valid(migration[key])) {
+      throw new Error(`---- Migration validation failed: ${filename} - invalid or missing ${key}`);
+    }
   }
   
   // Additional validation: Check SQL content for basic safety
@@ -139,30 +132,10 @@ function validateAllMigrations() {
 }
 
 // Execute validation during module load
-try {
-  validateAllMigrations();
-} catch (error) {
-  // Re-throw to prevent app startup with invalid migrations
-  throw error;
-}
+validateAllMigrations();
 
 // Sort migrations by version to ensure proper execution order
 const migrations = importedMigrations.sort((a, b) => a.version - b.version);
 
 // Export the sorted migrations array for the MigrationManager
 export { migrations };
-
-// Export individual migrations for testing, debugging, and direct access
-export { 
-  migration001, 
-  migration002, 
-  migration003, 
-  migration004 
-};
-
-// Export validation functions for testing purposes
-export { 
-  validateMigrationStructure, 
-  validateMigrationVersions, 
-  validateAllMigrations 
-};
