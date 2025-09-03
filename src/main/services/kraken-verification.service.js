@@ -14,6 +14,15 @@ class KrakenVerificationService {
     this.showLogOnScreen = showLogOnScreen;
     this.isSweepRunning = false;
     this.pdfService = new KrakenPDFService();
+    this.testerName = 'SmartMonster Calibration System'; // Default value
+  }
+
+  /**
+   * Set the tester name for PDF generation
+   * @param {string} testerName - Name of the tester who performed the calibration
+   */
+  setTesterName(testerName) {
+    this.testerName = testerName;
   }
 
   /**
@@ -193,6 +202,7 @@ class KrakenVerificationService {
 
       let processedCount = 0;
       let errorCount = 0;
+      let pdfGeneratedCount = 0;
 
       // Process each device's certification
       for (const device of devices) {
@@ -211,7 +221,10 @@ class KrakenVerificationService {
             });
 
             // Generate PDF report for this device
-            await this.generateDevicePDF(device, deviceData, certificationResult);
+            const pdfResult = await this.generateDevicePDF(device, deviceData, certificationResult);
+            if (pdfResult && pdfResult.success) {
+              pdfGeneratedCount++;
+            }
 
             processedCount++;
             this.showLogOnScreen(`✅ Processed certification for ${device.displayName || device.id}`);
@@ -228,6 +241,15 @@ class KrakenVerificationService {
 
       if (errorCount === 0) {
         this.showLogOnScreen(`📋 Certification results processed successfully for ${processedCount} device(s).`);
+        
+        // Send PDF generation success notification
+        if (pdfGeneratedCount > 0) {
+          await addDelay(2000);
+          this.sendToRenderer('show-notification', {
+            type: 'success',
+            message: `Kraken PDFs are saved successfully to your desktop`,
+          });
+        }
       } else {
         this.showLogOnScreen(`📋 Certification processing completed with ${errorCount} error(s). ${processedCount} device(s) processed successfully.`);
       }
@@ -311,12 +333,13 @@ class KrakenVerificationService {
    */
   async generateDevicePDF(device, deviceData, certificationResult) {
     try {
-      const result = await this.pdfService.generateKrakenPDF(device, deviceData, certificationResult);
+      const result = await this.pdfService.generateKrakenPDF(device, deviceData, certificationResult, this.testerName);
 
       if (result.success) {
         // Store PDF path in global state for download functionality
         this.globalState.setDevicePDFPath(device.id, result.filePath);
         console.log(`PDF generated successfully for device ${device.id}: ${result.filePath}`);
+        return { success: true, filePath: result.filePath };
       } else {
         throw new Error(result.error || 'PDF generation failed');
       }
@@ -324,6 +347,7 @@ class KrakenVerificationService {
       Sentry.captureException(error);
       console.error(`Error generating PDF for device ${device.id}:`, error);
       this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF for ${device.displayName || device.id}: ${error.message}`);
+      return { success: false, error: error.message };
     }
   }
 }

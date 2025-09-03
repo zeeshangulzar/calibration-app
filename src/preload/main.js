@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
   krakenCalibrationStopVerification: () => ipcRenderer.invoke('kraken-calibration-stop-verification'),
   krakenCalibrationDownloadPDF: (deviceId) => ipcRenderer.invoke('kraken-calibration-download-pdf', deviceId),
+  krakenCalibrationViewPDF: (deviceId) => ipcRenderer.invoke('kraken-calibration-view-pdf', deviceId),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),

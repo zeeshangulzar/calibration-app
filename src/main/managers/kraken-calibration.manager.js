@@ -26,6 +26,7 @@ export class KrakenCalibrationManager {
       await this.sendHighCommandToAllSensors();
       await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
       await this.markSensorsAsCalibrated();
+      this.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
     } catch (error) {
       console.error('Error calibrating sensors:', error);
 

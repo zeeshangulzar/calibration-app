@@ -631,10 +631,14 @@ function createDeviceWidget(device) {
       <div class="text-xs text-neutral-500 mb-1">Certification Status</div>
       <div id="device-certification-status-${device.id}" class="text-sm font-medium mb-2">--</div>
       <button 
-        id="device-download-pdf-${device.id}"
-        onclick="downloadDevicePDF('${device.id}')"
-        class="hidden w-full px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 text-xs">
-        <i class="fa-solid fa-download mr-1"></i> Download PDF
+        id="device-view-pdf-${device.id}"
+        onclick="console.log('Button clicked!'); viewDevicePDF('${device.id}')"
+        class="hidden w-full px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 text-xs"
+        style="cursor: pointer;">
+        <svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+        </svg> View PDF
       </button>
     </div>
   `;
@@ -1134,19 +1138,6 @@ function displayVerificationResults(data) {
     return;
   }
 
-  // Add minimal completion status (only if not already present)
-  let completionHeader = resultsContainer.querySelector('.verification-completion-header');
-  if (!completionHeader) {
-    completionHeader = document.createElement('div');
-    completionHeader.className = 'verification-completion-header mb-2 p-2 bg-green-50 border border-green-200 rounded text-center';
-    completionHeader.innerHTML = `
-      <span class="text-sm text-green-700">✅ Verification completed</span>
-    `;
-
-    // Insert completion header at the top of results container
-    resultsContainer.insertBefore(completionHeader, resultsContainer.firstChild);
-  }
-
   // Get all unique pressure points and sort them
   const allPressurePoints = new Set();
   Object.values(data).forEach(deviceData => {
@@ -1323,29 +1314,41 @@ function updateKrakenPressure(data) {
   }
 }
 
-// Download device PDF function - used in onclick attributes
+// View device PDF function - used in onclick attributes
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function downloadDevicePDF(deviceId) {
+async function viewDevicePDF(deviceId) {
+  console.log('=== PDF VIEW BUTTON CLICKED ===');
+  console.log('Device ID:', deviceId);
+  console.log('Electron API available:', !!window.electronAPI);
+  console.log('View PDF method available:', !!window.electronAPI?.krakenCalibrationViewPDF);
+  
   try {
-    const result = await window.electronAPI.krakenCalibrationDownloadPDF(deviceId);
+    console.log('Attempting to view PDF for device:', deviceId);
+    const result = await window.electronAPI.krakenCalibrationViewPDF(deviceId);
+    console.log('PDF view result:', result);
+    
     if (result.success) {
-      NotificationHelper.showSuccess(`PDF downloaded successfully to Downloads folder: ${result.filename}`);
+      NotificationHelper.showSuccess(`PDF opened successfully`);
     } else {
-      NotificationHelper.showError(`Failed to download PDF: ${result.error}`);
+      console.error('PDF view failed:', result.error);
+      NotificationHelper.showError(`Failed to open PDF: ${result.error}`);
     }
   } catch (error) {
-    console.error('Error downloading PDF:', error);
-    NotificationHelper.showError('Failed to download PDF. Please try again.');
+    console.error('Error opening PDF:', error);
+    NotificationHelper.showError('Failed to open PDF. Please try again.');
   }
 }
+
+// Make function globally accessible
+window.viewDevicePDF = viewDevicePDF;
 
 // Update device certification status
 function updateDeviceCertificationStatus(deviceId, certificationResult) {
   const certificationDiv = document.getElementById(`device-certification-${deviceId}`);
   const statusDiv = document.getElementById(`device-certification-status-${deviceId}`);
-  const downloadBtn = document.getElementById(`device-download-pdf-${deviceId}`);
+  const viewPdfBtn = document.getElementById(`device-view-pdf-${deviceId}`);
 
-  if (!certificationDiv || !statusDiv || !downloadBtn) return;
+  if (!certificationDiv || !statusDiv || !viewPdfBtn) return;
 
   // Show certification section
   certificationDiv.classList.remove('hidden');
@@ -1369,8 +1372,11 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
     certificationDiv.className = 'mt-3 p-3 rounded-md bg-red-50 border border-red-200';
   }
 
-  // Show download button
-  downloadBtn.classList.remove('hidden');
+  // Show view PDF button
+  console.log('Showing PDF button for device:', deviceId);
+  console.log('Button element:', viewPdfBtn);
+  viewPdfBtn.classList.remove('hidden');
+  console.log('Button classes after showing:', viewPdfBtn.className);
 
   // Update device widget status to show verification completed with certification result
   const statusText = certificationResult.certified ? 'Verification completed - Certified' : 'Verification completed - Failed';

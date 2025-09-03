@@ -248,12 +248,6 @@ class KrakenCalibrationController {
         this.globalState.isCalibrationActive = false;
         this.uiManager.showLogOnScreen('❌ Calibration stopped due to Fluke connection failure.');
 
-        // Send notification to user
-        this.sendToRenderer('show-notification', {
-          type: 'error',
-          message: 'Connection to Fluke was not successful. Please check if the device is powered on and accessible on the network.',
-        });
-
         // Reset UI state to allow retry
         this.uiManager.enableBackButton();
         this.uiManager.enableCalibrationButton();
@@ -271,12 +265,6 @@ class KrakenCalibrationController {
       // Handle any other errors during Fluke preparation
       this.globalState.isCalibrationActive = false;
       this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.error}`);
-
-      // Send notification to user
-      this.sendToRenderer('show-notification', {
-        type: 'error',
-        message: `Calibration stopped: Response timed out`,
-      });
 
       // Reset UI state to allow retry
       this.uiManager.enableBackButton();
@@ -297,6 +285,9 @@ class KrakenCalibrationController {
       this.uiManager.showLogOnScreen('⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.');
       return;
     }
+
+    // Log calibration completion after high command calibration is done
+    // this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
   }
 
   async completeCalibration() {
@@ -323,7 +314,6 @@ class KrakenCalibrationController {
     this.sendToRenderer('show-kraken-verification-button');
 
     // Log completion messages
-    this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
     this.uiManager.showLogOnScreen('📋 Devices are ready for verification process');
   }
 
@@ -336,17 +326,36 @@ class KrakenCalibrationController {
     this.sendToRenderer('show-kraken-stop-verification-button');
     this.sendToRenderer('disable-kraken-back-button');
 
+    // Set the tester name in the verification service for PDF generation
+    if (this.testerName) {
+      this.verificationService.setTesterName(this.testerName);
+    }
+
+    let verificationSuccessful = false;
+
     try {
       await this.verificationService.startVerification();
+      verificationSuccessful = true;
     } catch (error) {
       Sentry.captureException(error);
       this.uiManager.showLogOnScreen(`❌ Error during verification: ${error.message}`);
+      verificationSuccessful = false;
     } finally {
       // Always reset state when verification completes or fails
       this.globalState.isVerificationActive = false;
       this.sendToRenderer('hide-kraken-stop-verification-button');
-      this.sendToRenderer('show-kraken-verification-button');
       this.sendToRenderer('enable-kraken-back-button');
+
+      // Only show verification button again if there was an error
+      if (!verificationSuccessful) {
+        this.sendToRenderer('show-kraken-verification-button');
+      } else {
+        // Show success toast notification
+        this.sendToRenderer('show-notification', {
+          type: 'success',
+          message: 'Verification completed successfully',
+        });
+      }
     }
   }
 

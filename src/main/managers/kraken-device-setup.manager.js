@@ -297,6 +297,34 @@ export class KrakenDeviceSetupManager {
         }
       }
 
+      // Get model number
+      const modelChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.MODEL_NUMBER_CHARACTERISTIC_UUID);
+
+      if (modelChar) {
+        const modelData = await this.safeReadKrakenCharacteristic(modelChar);
+        if (modelData && modelData.length > 0) {
+          const modelNumber = modelData.toString('utf8').trim();
+          if (modelNumber) {
+            device.modelNumber = modelNumber;
+            console.log(`Device ${deviceId}: Updated model number to ${modelNumber}`);
+          }
+        }
+      }
+
+      // Get serial number
+      const serialChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.SERIAL_NUMBER_CHARACTERISTIC_UUID);
+
+      if (serialChar) {
+        const serialData = await this.safeReadKrakenCharacteristic(serialChar);
+        if (serialData && serialData.length > 0) {
+          const serialNumber = serialData.toString('utf8').trim();
+          if (serialNumber) {
+            device.serialNumber = serialNumber;
+            console.log(`Device ${deviceId}: Updated serial number to ${serialNumber}`);
+          }
+        }
+      }
+
       // Update the device in global state with new details
       this.globalState.connectedDevices.set(deviceId, device);
 
@@ -305,6 +333,8 @@ export class KrakenDeviceSetupManager {
         deviceId,
         firmwareVersion: device.firmwareVersion,
         displayName: device.displayName,
+        modelNumber: device.modelNumber,
+        serialNumber: device.serialNumber,
       });
     } catch (error) {
       console.warn(`Device ${deviceId}: Error reading device details:`, error.message);
