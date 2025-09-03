@@ -1,8 +1,6 @@
 import { ipcMain, shell, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import fsPromises from 'fs/promises';
-import os from 'os';
 import { getMainWindow } from '../windows/main.js';
 import { KrakenCalibrationController } from '../controllers/kraken-calibration.controller.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
@@ -110,45 +108,12 @@ function registerCalibrationHandlers() {
     }
   });
 
-  // PDF download handler
-  ipcMain.handle('kraken-calibration-download-pdf', async (event, deviceId) => {
-    try {
-      if (!krakenCalibrationController) {
-        return { success: false, error: 'No calibration session active' };
-      }
-
-      // Get PDF path from global state
-      const pdfPath = krakenCalibrationController.globalState.getDevicePDFPath(deviceId);
-      if (!pdfPath) {
-        return { success: false, error: 'PDF not found for this device' };
-      }
-
-      // Copy report file to Downloads folder
-
-      const downloadsPath = path.join(os.homedir(), 'Downloads');
-      const filename = path.basename(pdfPath);
-      const downloadPath = path.join(downloadsPath, filename);
-
-      // Copy file to downloads
-      await fsPromises.copyFile(pdfPath, downloadPath);
-
-      // Open the file in default browser after copying
-      shell.openPath(downloadPath);
-
-      return { success: true, filename };
-    } catch (error) {
-      Sentry.captureException(error);
-      console.error('Error downloading PDF:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
   // PDF view handler
   ipcMain.handle('kraken-calibration-view-pdf', async (event, deviceId) => {
     console.log('=== PDF VIEW IPC HANDLER CALLED ===');
     console.log('Device ID:', deviceId);
     console.log('Controller available:', !!krakenCalibrationController);
-    
+
     try {
       if (!krakenCalibrationController) {
         console.log('No calibration session active');
@@ -158,7 +123,7 @@ function registerCalibrationHandlers() {
       // Get PDF path from global state
       const pdfPath = krakenCalibrationController.globalState.getDevicePDFPath(deviceId);
       console.log('PDF path from global state:', pdfPath);
-      
+
       if (!pdfPath) {
         console.log('PDF not found for this device');
         return { success: false, error: 'PDF not found for this device' };
@@ -167,7 +132,7 @@ function registerCalibrationHandlers() {
       // Check if file exists
       const fileExists = fs.existsSync(pdfPath);
       console.log('File exists:', fileExists);
-      
+
       if (!fileExists) {
         console.log('PDF file does not exist at the specified path');
         return { success: false, error: 'PDF file does not exist at the specified path' };
@@ -175,9 +140,9 @@ function registerCalibrationHandlers() {
 
       // Open the PDF directly from its original location (following old app pattern)
       console.log('Opening PDF at path:', pdfPath);
-      
+
       // Use the same pattern as the old app - don't await, just handle the promise
-      shell.openPath(pdfPath).catch((err) => {
+      shell.openPath(pdfPath).catch(err => {
         console.error('Failed to open PDF:', err);
       });
 

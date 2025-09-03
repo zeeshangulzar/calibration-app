@@ -15,6 +15,7 @@ class KrakenPDFService {
     const __dirname = path.dirname(__filename);
 
     this.templatePath = path.join(__dirname, '../../assets/templates/kraken-report.hbs');
+    this.cssPath = path.join(__dirname, '../../assets/stylesheets/kraken-report.css');
     this.outputDir = path.join(os.homedir(), 'Desktop', 'kraken_pdfs');
   }
 
@@ -86,9 +87,14 @@ class KrakenPDFService {
    * @returns {Promise<string>} HTML content string
    */
   async generateReportContent(device, deviceData, certificationResult, testerName) {
-    let template;
+    // Read template and CSS files
     const templateContent = await fs.readFile(this.templatePath, 'utf8');
-    template = Handlebars.compile(templateContent);
+    const cssContent = await fs.readFile(this.cssPath, 'utf8');
+
+    // Replace CSS link with inline styles for PDF generation
+    const templateWithInlineCSS = templateContent.replace("<link rel='stylesheet' href='./stylesheets/kraken-report.css' />", `<style>${cssContent}</style>`);
+
+    const template = Handlebars.compile(templateWithInlineCSS);
 
     // Prepare data for template
     const templateData = this.prepareTemplateData(device, deviceData, certificationResult, testerName);
@@ -127,6 +133,7 @@ class KrakenPDFService {
         resultColor: passed ? '#000000' : '#ff0000',
       };
     });
+    let gaugeName = `SM Gauge ${device.serialNumber.slice(-5)}`;
 
     return {
       // Logo and company info
@@ -142,6 +149,7 @@ class KrakenPDFService {
       // Product info
       productDescription: 'Smart Meter Pressure Transducer',
       modelNumber: device.modelNumber || device.id,
+      gaugeName: gaugeName,
       serialNumber: device.serialNumber || 'N/A',
       calDate: currentDate.toLocaleDateString(),
       calDueDate: dueDate.toLocaleDateString(),

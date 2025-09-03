@@ -85,8 +85,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
   krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
   krakenCalibrationStopVerification: () => ipcRenderer.invoke('kraken-calibration-stop-verification'),
-  krakenCalibrationDownloadPDF: (deviceId) => ipcRenderer.invoke('kraken-calibration-download-pdf', deviceId),
-  krakenCalibrationViewPDF: (deviceId) => ipcRenderer.invoke('kraken-calibration-view-pdf', deviceId),
+  krakenCalibrationViewPDF: deviceId => ipcRenderer.invoke('kraken-calibration-view-pdf', deviceId),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),
@@ -162,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEnableKrakenCalibrationButton: callback => ipcRenderer.on('enable-kraken-calibration-button', () => callback()),
   onShowKrakenVerificationButton: callback => ipcRenderer.on('show-kraken-verification-button', () => callback()),
   onHideKrakenVerificationButton: callback => ipcRenderer.on('hide-kraken-verification-button', () => callback()),
+  onKrakenVerificationStarted: callback => ipcRenderer.on('kraken-verification-started', () => callback()),
   onKrakenVerificationSweepCompleted: callback => ipcRenderer.on('kraken-verification-sweep-completed', (_, data) => callback(data)),
   onKrakenVerificationRealtimeUpdate: callback => ipcRenderer.on('kraken-verification-realtime-update', (_, data) => callback(data)),
 

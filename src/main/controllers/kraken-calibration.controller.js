@@ -68,7 +68,7 @@ class KrakenCalibrationController {
 
     this.verificationService = new KrakenVerificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
     // Set up cross-references for managers that need each other
-    this.calibrationManager.sweepValue = 10;
+    this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
     this.calibrationManager.updateDeviceWidgetsForCalibration = this.uiManager.updateDeviceWidgetsForCalibration.bind(this.uiManager);
     this.connectivityManager.setupDevice = this.deviceSetupManager.setupDevice.bind(this.deviceSetupManager);
     this.connectivityManager.updateProgressSummary = this.uiManager.updateProgressSummary.bind(this.uiManager);

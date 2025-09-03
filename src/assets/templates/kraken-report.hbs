@@ -2,204 +2,7 @@
   <head>
     <meta charset='utf-8' />
     <title>Kraken Calibration Certificate</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 40px 10px;
-        font-size: 14px;
-        color: #000;
-      }
-      .top-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-      }
-      .logo-and-address {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-      }
-      .top-header img {
-        height: 70px;
-        width: 70px;
-      }
-      .company-details {
-        font-size: 13px;
-        line-height: 1.4;
-      }
-      .report-box {
-        border: 1px solid #aaa;
-        padding: 10px 15px;
-        font-weight: bold;
-      }
-      .report-number {
-        font-size: 16px;
-        font-weight: bold;
-        border-bottom: 1px solid #0000cc;
-        display: inline-block;
-        margin-top: 5px;
-      }
-      .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 2px solid #000;
-        padding-bottom: 10px;
-        margin: 40px 0 20px;
-      }
-      .header h1 {
-        font-size: 20px;
-        flex-grow: 1;
-        text-align: center;
-        margin: 0;
-        color: #000;
-      }
-      .info-boxes {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        margin-top: 30px;
-        margin-bottom: 20px;
-      }
-      .info-box {
-        width: 50%;
-        border: 1px solid #000;
-        padding: 20px;
-        box-sizing: border-box;
-      }
-      .info-box div {
-        margin-bottom: 10px;
-        font-size: 11px;
-      }
-      .info-box span {
-        display: inline-block;
-        border-bottom: 1px solid #1b55e2;
-        font-weight: bold;
-        font-size: 10px;
-        padding-bottom: 2px;
-        margin-bottom: 2px;
-      }
-      .info-box label {
-        display: block;
-        font-size: 10px;
-        color: #333;
-        margin-top: 2px;
-      }
-      .info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-      .info-item {
-        flex: 1;
-        margin-right: 10px;
-      }
-      .info-item:last-child {
-        margin-right: 0;
-      }
-      .product-serial-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 8px;
-        gap: 20px;
-      }
-      .product-description {
-        flex: 1;
-        min-width: 0;
-      }
-      .serial-number {
-        flex-shrink: 0;
-        margin-left: auto;
-      }
-      .info-box p {
-        font-size: 11px;
-        line-height: 1.6;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        height: 100%;
-      }
-      h3 {
-        text-align: center;
-        margin-top: 40px;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-      }
-      th {
-        background-color: yellow;
-        color: black;
-        font-size: 12px;
-      }
-      th,
-      td {
-        border: 1px solid #000;
-        padding: 6px;
-        text-align: center;
-      }
-      .summary-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 40px;
-        text-align: center;
-      }
-      .summary-table th {
-        background-color: #ffc000ff;
-        color: black;
-        font-weight: bold;
-        padding: 5px;
-        font-size: 12px;
-      }
-      .summary-table td {
-        padding: 12px;
-        border: 1px solid #000;
-        font-size: 11px;
-      }
-      .footer {
-        margin-top: 40px;
-        display: flex;
-        justify-content: space-between;
-      }
-      .footer p {
-        margin: 0;
-      }
-      .certification-status {
-        padding: 15px;
-        border-radius: 8px;
-        margin: 20px 0;
-        font-weight: bold;
-        text-align: center;
-        font-size: 16px;
-      }
-      .certified {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-      }
-      .failed {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-      }
-
-      .footer {
-        margin-top: 40px;
-        display: flex;
-        justify-content: flex-end; /* Align to the right */
-      }
-      .footer-box {
-        border: 1px solid black;
-        padding: 10px 20px; /* Added padding */
-        font-size: 12px;
-      }
-      .footer-box p {
-        margin: 4px 0; /* Small spacing between lines */
-      }
-    </style>
+    <link rel='stylesheet' href='./stylesheets/kraken-report.css' />
   </head>
   <body>
     <div class='top-header'>
@@ -233,11 +36,16 @@
             <label>Serial Number</label>
           </div>
         </div>
-        <div class='info-row'>
-          <div class='info-item'>
+        <div class='product-serial-row'>
+          <div class='product-description'>
             <span>{{modelNumber}}</span>
             <label>Model Number</label>
           </div>
+
+          {{!-- <div class='product-description'>
+            <span>{{gaugeName}}</span>
+            <label>Gauge</label>
+          </div> --}}
         </div>
         <div class='product-serial-row'>
           <div class='product-description'>
@@ -249,7 +57,7 @@
             <label>Cal Due Date</label>
           </div>
         </div>
-        <div style='font-size: 9px; color: #666; margin-top: 8px; text-align: center; font-weight: bold'>
+        <div style='font-size: 11px; color: #666; margin-top: 8px; text-align: center; font-weight: bold'>
           This certificate is valid only for one year.
         </div>
       </div>

@@ -14,7 +14,7 @@ class KrakenVerificationService {
     this.showLogOnScreen = showLogOnScreen;
     this.isSweepRunning = false;
     this.pdfService = new KrakenPDFService();
-    this.testerName = 'SmartMonster Calibration System'; // Default value
+    this.testerName = 'HoseMonster Tester'; // Default value
   }
 
   /**
@@ -49,6 +49,9 @@ class KrakenVerificationService {
     console.log('Starting Kraken verification sweep...');
     this.isSweepRunning = true;
     this.globalState.clearKrakenSweepData();
+
+    // Send verification started event to renderer
+    this.sendToRenderer('kraken-verification-started');
 
     const devices = this.globalState.getConnectedDevices();
     if (devices.length === 0) {
