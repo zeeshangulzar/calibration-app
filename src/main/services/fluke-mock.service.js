@@ -17,7 +17,7 @@ class FlukeMockService {
       console.log('🔧 [MOCK] Setting Fluke to zero pressure');
     }
     this.currentPressure = 0;
-    await this._mockDelay(100);
+    await this.mockDelay(100);
     if (!silent) {
       console.log('✅ [MOCK] Fluke set to zero pressure');
     }
@@ -30,7 +30,7 @@ class FlukeMockService {
   async setHighPressureToFluke(pressure) {
     console.log(`🔧 [MOCK] Setting Fluke to ${pressure} PSI`);
     this.currentPressure = pressure;
-    await this._mockDelay(200);
+    await this.mockDelay(200);
     console.log(`✅ [MOCK] Fluke set to ${pressure} PSI`);
   }
 
@@ -39,7 +39,7 @@ class FlukeMockService {
    */
   async waitForFlukeToReachZeroPressure() {
     console.log('⏳ [MOCK] Waiting for Fluke to reach zero pressure');
-    await this._mockDelay(500);
+    await this.mockDelay(500);
     console.log('✅ [MOCK] Fluke reached zero pressure');
   }
 
@@ -49,7 +49,7 @@ class FlukeMockService {
    */
   async waitForFlukeToReachTargetPressure(targetPressure) {
     console.log(`⏳ [MOCK] Waiting for Fluke to reach ${targetPressure} PSI`);
-    await this._mockDelay(500);
+    await this.mockDelay(500);
     console.log(`✅ [MOCK] Fluke reached ${targetPressure} PSI`);
   }
 
@@ -127,9 +127,8 @@ class FlukeMockService {
   /**
    * Simple delay simulation
    * @param {number} ms - Milliseconds to delay
-   * @private
    */
-  async _mockDelay(ms) {
+  async mockDelay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

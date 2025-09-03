@@ -7,8 +7,8 @@ import { FlukeManager } from './fluke.manager.js';
  */
 class FlukeFactoryService {
   constructor() {
-    this.isDevelopment = this._isDevelopmentEnvironment();
-    this._instance = null;
+    this.isDevelopment = this.isDevelopmentEnvironment();
+    this.instance = null;
 
     console.log(`🔧 Fluke Factory initialized. Environment: ${this.isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
   }
@@ -20,27 +20,26 @@ class FlukeFactoryService {
    * @returns {Object} Fluke service instance (mock in dev, real in production)
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
-    if (this._instance) {
-      return this._instance;
+    if (this.instance) {
+      return this.instance;
     }
 
     if (this.isDevelopment) {
       console.log('🔧 Creating Mock Fluke service for development');
-      this._instance = new FlukeMockService();
+      this.instance = new FlukeMockService();
     } else {
       console.log('🔧 Creating Real Fluke service for production');
-      this._instance = this._createRealFlukeService(showLogOnScreen, isProcessActiveFn);
+      this.instance = this.createRealFlukeService(showLogOnScreen, isProcessActiveFn);
     }
 
-    return this._instance;
+    return this.instance;
   }
 
   /**
    * Determines if the current environment is development
    * @returns {boolean} True if development environment
-   * @private
    */
-  _isDevelopmentEnvironment() {
+  isDevelopmentEnvironment() {
     // Check only NODE_ENV environment variable
     const nodeEnv = process.env.NODE_ENV;
 
@@ -61,9 +60,8 @@ class FlukeFactoryService {
    * @param {Function} showLogOnScreen - Function to show logs on screen
    * @param {Function} isProcessActiveFn - Function to check if process is active
    * @returns {Object} Real Fluke service instance
-   * @private
    */
-  _createRealFlukeService(showLogOnScreen, isProcessActiveFn) {
+  createRealFlukeService(showLogOnScreen, isProcessActiveFn) {
     try {
       // Use provided functions or create defaults
       const logFunction = showLogOnScreen || (log => console.log(`[FlukeManager] ${log}`));
@@ -75,8 +73,8 @@ class FlukeFactoryService {
       console.log('🔄 Falling back to Mock Fluke service');
 
       // Fallback to mock service if real service creation fails
-      this._instance = new FlukeMockService();
-      return this._instance;
+      this.instance = new FlukeMockService();
+      return this.instance;
     }
   }
 }
