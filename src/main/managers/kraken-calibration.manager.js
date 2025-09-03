@@ -29,7 +29,7 @@ export class KrakenCalibrationManager {
       this.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
     } catch (error) {
       console.error('Error calibrating sensors:', error);
-
+      Sentry.captureException(error);
       // Stop calibration and restore UI (notification handled in stopCalibration)
       await this.stopCalibration('Calibration process failed', error.message);
 

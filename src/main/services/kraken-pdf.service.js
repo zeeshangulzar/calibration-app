@@ -8,6 +8,8 @@ import Handlebars from 'handlebars';
 import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 
+import * as Sentry from '@sentry/electron/main';
+
 class KrakenPDFService {
   constructor() {
     // Get current directory for ES modules
@@ -53,6 +55,7 @@ class KrakenPDFService {
       };
     } catch (error) {
       console.error('Error generating kraken PDF:', error);
+      Sentry.captureException(error);
       return {
         success: false,
         error: error.message,
@@ -73,6 +76,7 @@ class KrakenPDFService {
       const deviceDir = path.join(this.outputDir, deviceName);
       await fs.mkdir(deviceDir, { recursive: true });
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error creating output directory:', error);
       throw error;
     }
@@ -192,6 +196,7 @@ class KrakenPDFService {
       return `data:image/png;base64,${logoBase64}`;
     } catch (error) {
       console.warn('Error loading logo:', error);
+      Sentry.captureException(error);
       return '';
     }
   }
@@ -230,6 +235,7 @@ class KrakenPDFService {
             resolve(pdfBuffer);
           } catch (error) {
             win.close();
+            Sentry.captureException(error);
             reject(error);
           }
         });
@@ -241,6 +247,7 @@ class KrakenPDFService {
         });
       } catch (error) {
         console.error('Error creating BrowserWindow for PDF generation:', error);
+        Sentry.captureException(error);
         reject(error);
       }
     });
