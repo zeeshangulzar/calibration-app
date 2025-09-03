@@ -347,7 +347,7 @@ window.electronAPI.onCalibrationStarted(() => {
     statusEl.textContent = 'Calibration in progress...';
   }
 
-  NotificationHelper.showInfo('Calibration started successfully!');
+  // NotificationHelper.showInfo('Calibration started successfully!');
 });
 
 // Handle explicit button disable/enable events from main process
