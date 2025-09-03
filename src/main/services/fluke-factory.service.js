@@ -50,7 +50,7 @@ class FlukeFactoryService {
     });
 
     // Development if NODE_ENV is 'development' or 'dev'
-    const isDevelopment = nodeEnv === 'development' || nodeEnv === 'dev';
+    const isDevelopment = ['development', 'dev'].includes(nodeEnv);
 
     console.log(`🔧 Environment determined as: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
     return isDevelopment;
