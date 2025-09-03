@@ -1,4 +1,5 @@
 import { FlukeMockService } from './fluke-mock.service.js';
+import { FlukeManager } from './fluke.manager.js';
 
 /**
  * Simple Factory Service for Fluke
@@ -40,33 +41,16 @@ class FlukeFactoryService {
    * @private
    */
   _isDevelopmentEnvironment() {
-    // Check environment variables
+    // Check only NODE_ENV environment variable
     const nodeEnv = process.env.NODE_ENV;
-    const isDev = process.env.ELECTRON_IS_DEV;
-
-    // Check if app is packaged (process.defaultApp is false when packaged)
-    const isPackaged = process.defaultApp === false;
-
-    // Check command line arguments
-    const hasDevFlag = process.argv.includes('--dev') || process.argv.includes('--development');
 
     // Log environment detection for debugging
     console.log('🔧 Environment detection:', {
       NODE_ENV: nodeEnv,
-      ELECTRON_IS_DEV: isDev,
-      isPackaged: isPackaged,
-      hasDevFlag: hasDevFlag,
-      processArgv: process.argv,
     });
 
-    // Development if any of these conditions are met
-    const isDevelopment =
-      nodeEnv === 'development' ||
-      nodeEnv === 'dev' ||
-      isDev === 'true' ||
-      isDev === true ||
-      !isPackaged || // !isPackaged means development (not packaged)
-      hasDevFlag;
+    // Development if NODE_ENV is 'development' or 'dev'
+    const isDevelopment = nodeEnv === 'development' || nodeEnv === 'dev';
 
     console.log(`🔧 Environment determined as: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
     return isDevelopment;
@@ -81,9 +65,6 @@ class FlukeFactoryService {
    */
   _createRealFlukeService(showLogOnScreen, isProcessActiveFn) {
     try {
-      // Dynamic import to avoid loading real Fluke service in development
-      const { FlukeManager } = require('./fluke.manager.js');
-
       // Use provided functions or create defaults
       const logFunction = showLogOnScreen || (log => console.log(`[FlukeManager] ${log}`));
       const processActiveFunction = isProcessActiveFn || (() => true);
