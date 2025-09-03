@@ -510,6 +510,36 @@ class KrakenCalibrationStateService extends EventEmitter {
     }
     return sweepData;
   }
+
+  // Certification status management methods
+  setDeviceCertificationStatus(deviceId, certificationResult) {
+    if (!this.deviceCertificationStatus) {
+      this.deviceCertificationStatus = new Map();
+    }
+    this.deviceCertificationStatus.set(deviceId, certificationResult);
+  }
+
+  getDeviceCertificationStatus(deviceId) {
+    if (!this.deviceCertificationStatus) {
+      return null;
+    }
+    return this.deviceCertificationStatus.get(deviceId);
+  }
+
+  // PDF path management methods
+  setDevicePDFPath(deviceId, pdfPath) {
+    if (!this.devicePDFPaths) {
+      this.devicePDFPaths = new Map();
+    }
+    this.devicePDFPaths.set(deviceId, pdfPath);
+  }
+
+  getDevicePDFPath(deviceId) {
+    if (!this.devicePDFPaths) {
+      return null;
+    }
+    return this.devicePDFPaths.get(deviceId);
+  }
 }
 
 // Singleton instance

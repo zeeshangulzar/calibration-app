@@ -487,6 +487,11 @@ window.electronAPI.onKrakenVerificationSweepCompleted(data => {
   console.log('Verification sweep data received:', data);
   displayVerificationResults(data);
 
+  // Update all device widgets to show verification completed status
+  Object.keys(data).forEach(deviceId => {
+    updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
+  });
+
   // Enable the remove button after completion
   // const removeButton = document.getElementById('remove-verification-button');
   // if (removeButton) {
@@ -498,6 +503,12 @@ window.electronAPI.onKrakenVerificationSweepCompleted(data => {
 window.electronAPI.onKrakenVerificationRealtimeUpdate(data => {
   console.log('Real-time verification update received:', data);
   updateVerificationResultsRealtime(data);
+});
+
+// Listen for certification status updates
+window.electronAPI.onCertificationStatusUpdate(data => {
+  const { deviceId, certificationResult } = data;
+  updateDeviceCertificationStatus(deviceId, certificationResult);
 });
 
 window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
@@ -614,6 +625,22 @@ function createDeviceWidget(device) {
       <div class="text-xs text-neutral-500 mb-1">Live Pressure Reading</div>
       <div id="device-pressure-${device.id}" class="text-sm font-mono">-- PSI</div>
     </div>
+
+    <!-- Certification Status (shown after verification) -->
+    <div id="device-certification-${device.id}" class="hidden mt-3 p-2 rounded-md">
+      <div class="text-xs text-neutral-500 mb-1">Certification Status</div>
+      <div id="device-certification-status-${device.id}" class="text-sm font-medium mb-2">--</div>
+      <button 
+        id="device-view-pdf-${device.id}"
+        onclick="console.log('Button clicked!'); viewDevicePDF('${device.id}')"
+        class="hidden w-full px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 text-xs"
+        style="cursor: pointer;">
+        <svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+        </svg> View PDF
+      </button>
+    </div>
   `;
 
   return widget;
@@ -718,10 +745,21 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         // Show calibrated indicator
         if (indicator) {
           indicator.className = 'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
+          
+          // Determine the appropriate message based on verification status
+          let statusMessage;
+          if (message && message.includes('Calibrated and verified')) {
+            statusMessage = 'Calibrated and verified!';
+          } else if (message && message.includes('verification')) {
+            statusMessage = 'Calibrated - Ready for verification';
+          } else {
+            statusMessage = `Calibrated - ${message}`;
+          }
+          
           indicator.innerHTML = `
             <div class="flex items-center w-full">
               <i class="fa-solid fa-check-circle text-green-600 mr-2"></i>
-              <span class="text-green-700 text-xs font-medium">Calibrated - ${message}</span>
+              <span class="text-green-700 text-xs font-medium">${statusMessage}</span>
             </div>
           `;
         }
@@ -790,6 +828,16 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
 
         // Show data area for ready devices
+        if (dataArea) {
+          dataArea.classList.remove('hidden');
+        }
+        break;
+      case 'verification-completed':
+        progressBar.style.width = '100%';
+        progressBar.className = 'bg-purple-600 h-2 rounded-full transition-all duration-500';
+        widget.className = 'rounded-md border border-purple-300 bg-purple-50 p-4 shadow-sm transition-all duration-200';
+
+        // Show data area for verification completed devices
         if (dataArea) {
           dataArea.classList.remove('hidden');
         }
@@ -1150,7 +1198,7 @@ function displayVerificationResults(data) {
 
   sortedPressurePoints.forEach(pressurePoint => {
     table += '<tr>';
-    table += `<td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900 border border-gray-300">${pressurePoint.toFixed(2)}</td>`;
+    table += `<td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900 border border-gray-300">${pressurePoint.toFixed(1)}</td>`;
 
     // Add data for each device at this pressure point
     deviceIds.forEach(deviceId => {
@@ -1158,10 +1206,10 @@ function displayVerificationResults(data) {
       if (Array.isArray(deviceData)) {
         const reading = deviceData.find(r => r.flukePressure === pressurePoint);
         if (reading && reading.krakenPressure !== undefined) {
-          const discrepancy = (reading.krakenPressure - reading.flukePressure).toFixed(2);
+          const discrepancy = (reading.krakenPressure - reading.flukePressure).toFixed(1);
           const discrepancyClass = Math.abs(reading.krakenPressure - reading.flukePressure) > 1 ? 'text-red-600' : 'text-green-600';
 
-          table += `<td class="px-4 py-3 whitespace-nowrap text-gray-900 border border-gray-300">${reading.krakenPressure.toFixed(2)}</td>`;
+          table += `<td class="px-4 py-3 whitespace-nowrap text-gray-900 border border-gray-300">${reading.krakenPressure.toFixed(1)}</td>`;
           table += `<td class="px-4 py-3 whitespace-nowrap ${discrepancyClass} border border-gray-300">${discrepancy}</td>`;
         } else {
           table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
@@ -1182,7 +1230,7 @@ function displayVerificationResults(data) {
   console.log('Verification results table updated successfully');
 
   resultsContainer.classList.remove('hidden');
-  removeButton.disabled = false;
+  // removeButton.disabled = false; // Commented out as removeButton is not defined
 }
 
 /**
@@ -1206,7 +1254,7 @@ function updateVerificationResultsRealtime(data) {
     displayVerificationResults(currentSweepData);
 
     // Show a temporary highlight for the new reading
-    highlightNewReading(deviceId, flukePressure, krakenPressure);
+    highlightNewReading(deviceId, flukePressure);
   } else {
     console.warn('No current sweep data available for real-time update');
   }
@@ -1218,7 +1266,7 @@ function updateVerificationResultsRealtime(data) {
  * @param {number} flukePressure - Fluke pressure
  * @param {number} krakenPressure - Kraken pressure reading
  */
-function highlightNewReading(deviceId, flukePressure, krakenPressure) {
+function highlightNewReading(deviceId, flukePressure) {
   // Find the row in the table for this device and pressure point
   const table = document.querySelector('#results-table-wrapper table');
   if (!table) return;
@@ -1275,4 +1323,72 @@ function updateKrakenPressure(data) {
       <span>${pressure.toFixed(2)} PSI</span>
     `;
   }
+}
+
+// View device PDF function - used in onclick attributes
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function viewDevicePDF(deviceId) {
+  console.log('=== PDF VIEW BUTTON CLICKED ===');
+  console.log('Device ID:', deviceId);
+  console.log('Electron API available:', !!window.electronAPI);
+  console.log('View PDF method available:', !!window.electronAPI?.krakenCalibrationViewPDF);
+  
+  try {
+    console.log('Attempting to view PDF for device:', deviceId);
+    const result = await window.electronAPI.krakenCalibrationViewPDF(deviceId);
+    console.log('PDF view result:', result);
+    
+    if (result.success) {
+      NotificationHelper.showSuccess(`PDF opened successfully`);
+    } else {
+      console.error('PDF view failed:', result.error);
+      NotificationHelper.showError(`Failed to open PDF: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error opening PDF:', error);
+    NotificationHelper.showError('Failed to open PDF. Please try again.');
+  }
+}
+
+// Make function globally accessible
+window.viewDevicePDF = viewDevicePDF;
+
+// Update device certification status
+function updateDeviceCertificationStatus(deviceId, certificationResult) {
+  const certificationDiv = document.getElementById(`device-certification-${deviceId}`);
+  const statusDiv = document.getElementById(`device-certification-status-${deviceId}`);
+  const viewPdfBtn = document.getElementById(`device-view-pdf-${deviceId}`);
+
+  if (!certificationDiv || !statusDiv || !viewPdfBtn) return;
+
+  // Show certification section
+  certificationDiv.classList.remove('hidden');
+
+  // Update status display with detailed information
+  if (certificationResult.certified) {
+    statusDiv.innerHTML = `
+      <div class="text-green-600 font-bold text-base mb-1">✅ CERTIFICATION PASSED</div>
+      <div class="text-sm text-green-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
+      <div class="text-xs text-green-600">Criteria: ≤ 1.5 PSI</div>
+    `;
+    statusDiv.className = 'text-sm font-medium mb-2';
+    certificationDiv.className = 'mt-3 p-3 rounded-md bg-green-50 border border-green-200';
+  } else {
+    statusDiv.innerHTML = `
+      <div class="text-red-600 font-bold text-base mb-1">❌ CERTIFICATION FAILED</div>
+      <div class="text-sm text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
+      <div class="text-xs text-red-600">Criteria: ≤ 1.5 PSI</div>
+    `;
+    statusDiv.className = 'text-sm font-medium mb-2';
+    certificationDiv.className = 'mt-3 p-3 rounded-md bg-red-50 border border-red-200';
+  }
+
+  // Show view PDF button
+  console.log('Showing PDF button for device:', deviceId);
+  console.log('Button element:', viewPdfBtn);
+  viewPdfBtn.classList.remove('hidden');
+  console.log('Button classes after showing:', viewPdfBtn.className);
+
+  // Update device widget status to show verification completed with certification result
+  updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
 }

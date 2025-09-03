@@ -9,6 +9,8 @@ export const KRAKEN_CONSTANTS = {
   // Device information characteristics
   DISPLAY_NAME_CHARACTERISTIC_UUID: 'c91a9bbe24700ce481ed818844bdca4e',
   FIRMWARE_REVISION_CHARACTERISTIC_UUID: '2a26',
+  MODEL_NUMBER_CHARACTERISTIC_UUID: '2a24',
+  SERIAL_NUMBER_CHARACTERISTIC_UUID: '2a25',
 
   // Connection and discovery timeouts (in milliseconds)
   CONNECTION_TIMEOUT: 30000, // 30 seconds
@@ -58,4 +60,7 @@ export const KRAKEN_CONSTANTS = {
 
   // Calibration settings
   TESTER_NAMES: { Gabriel: 'Gabriel' },
+
+  // Discrepancy tolerance
+  DISCREPANCY_TOLERANCE: 1.5,
 };
