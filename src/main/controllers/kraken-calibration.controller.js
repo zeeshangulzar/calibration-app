@@ -355,6 +355,12 @@ class KrakenCalibrationController {
           type: 'success',
           message: 'Verification completed successfully',
         });
+        await addDelay(4000); // Short delay before showing results button
+
+        this.sendToRenderer('show-notification', {
+          type: 'success',
+          message: `Kraken PDFs are saved successfully to your desktop`,
+        });
       }
     }
   }

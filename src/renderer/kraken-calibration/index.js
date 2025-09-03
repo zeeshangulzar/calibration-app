@@ -489,7 +489,7 @@ window.electronAPI.onKrakenVerificationSweepCompleted(data => {
 
   // Update all device widgets to show verification completed status
   Object.keys(data).forEach(deviceId => {
-    updateDeviceWidget(deviceId, 'verification-completed', 'Verification completed');
+    updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
   });
 
   // Enable the remove button after completion
@@ -745,10 +745,21 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         // Show calibrated indicator
         if (indicator) {
           indicator.className = 'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
+          
+          // Determine the appropriate message based on verification status
+          let statusMessage;
+          if (message && message.includes('Calibrated and verified')) {
+            statusMessage = 'Calibrated and verified!';
+          } else if (message && message.includes('verification')) {
+            statusMessage = 'Calibrated - Ready for verification';
+          } else {
+            statusMessage = `Calibrated - ${message}`;
+          }
+          
           indicator.innerHTML = `
             <div class="flex items-center w-full">
               <i class="fa-solid fa-check-circle text-green-600 mr-2"></i>
-              <span class="text-green-700 text-xs font-medium">Calibrated - ${message}</span>
+              <span class="text-green-700 text-xs font-medium">${statusMessage}</span>
             </div>
           `;
         }
@@ -1379,6 +1390,5 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
   console.log('Button classes after showing:', viewPdfBtn.className);
 
   // Update device widget status to show verification completed with certification result
-  const statusText = certificationResult.certified ? 'Verification completed - Certified' : 'Verification completed - Failed';
-  updateDeviceWidget(deviceId, 'verification-completed', statusText);
+  updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
 }

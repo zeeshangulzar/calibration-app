@@ -211,9 +211,12 @@ window.electronAPI.onNavigateToCalibration(data => {
 });
 
 // Connect button cooldown and kraken cleanup
+let isConnectButtonInCooldown = false;
+
 window.electronAPI.onEnableConnectCooldown(data => {
   const connectBtn = document.getElementById('connect-sensors-button');
   if (connectBtn) {
+    isConnectButtonInCooldown = true;
     connectBtn.disabled = true;
     connectBtn.classList.add('opacity-50', 'cursor-not-allowed');
     const originalHtml = connectBtn.innerHTML;
@@ -222,6 +225,7 @@ window.electronAPI.onEnableConnectCooldown(data => {
       connectBtn.innerHTML = `<i class="fa-solid fa-snowflake mr-2"></i> ${data.label}`;
     }
     setTimeout(() => {
+      isConnectButtonInCooldown = false;
       connectBtn.disabled = false;
       connectBtn.classList.remove('opacity-50', 'cursor-not-allowed');
       connectBtn.innerHTML = originalHtml;
@@ -233,6 +237,7 @@ window.electronAPI.onKrakenCleanupStarted(() => {
   console.log('Background kraken cleanup started - disabling connect button');
   const connectBtn = document.getElementById('connect-sensors-button');
   if (connectBtn) {
+    isConnectButtonInCooldown = true;
     connectBtn.disabled = true;
     connectBtn.classList.add('opacity-50', 'cursor-not-allowed');
     connectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Cleaning up krakens...';
@@ -243,6 +248,7 @@ window.electronAPI.onKrakenCleanupCompleted(() => {
   console.log('Background kraken cleanup completed - re-enabling connect button');
   const connectBtn = document.getElementById('connect-sensors-button');
   if (connectBtn) {
+    isConnectButtonInCooldown = false;
     connectBtn.disabled = false;
     connectBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     connectBtn.innerHTML = '<i class="fa-solid fa-upload mr-2"></i> Connect Sensors';
@@ -365,6 +371,12 @@ function renderSensorList(devices) {
 function updateConnectButtonState() {
   const anyChecked = document.querySelectorAll('.sensor-checkbox:checked').length > 0;
   const connectBtn = document.getElementById('connect-sensors-button');
+  
+  // Don't update button state if it's in cooldown
+  if (isConnectButtonInCooldown) {
+    return;
+  }
+  
   connectBtn.disabled = !anyChecked;
   connectBtn.classList.toggle('opacity-50', !anyChecked);
   connectBtn.classList.toggle('cursor-not-allowed', !anyChecked);

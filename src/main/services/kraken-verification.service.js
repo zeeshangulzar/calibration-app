@@ -241,15 +241,6 @@ class KrakenVerificationService {
 
       if (errorCount === 0) {
         this.showLogOnScreen(`📋 Certification results processed successfully for ${processedCount} device(s).`);
-        
-        // Send PDF generation success notification
-        if (pdfGeneratedCount > 0) {
-          await addDelay(2000);
-          this.sendToRenderer('show-notification', {
-            type: 'success',
-            message: `Kraken PDFs are saved successfully to your desktop`,
-          });
-        }
       } else {
         this.showLogOnScreen(`📋 Certification processing completed with ${errorCount} error(s). ${processedCount} device(s) processed successfully.`);
       }
