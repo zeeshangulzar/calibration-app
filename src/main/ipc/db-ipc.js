@@ -38,14 +38,14 @@ function registerFlukeSettingsHandlers() {
   });
 
   // Save Fluke settings
-  ipcMain.handle('db:save-fluke-settings', async (event, { ip, port }) => {
+  ipcMain.handle('db:save-fluke-settings', async (event, { ip, port, mockFlukeEnabled }) => {
     try {
       const validationResult = validateFlukeSettings(ip, port);
       if (!validationResult.success) {
         return validationResult;
       }
 
-      const result = saveFlukeSettings(ip, port);
+      const result = saveFlukeSettings(ip, port, mockFlukeEnabled);
       return result;
     } catch (error) {
       console.error('Failed to save Fluke settings:', error);

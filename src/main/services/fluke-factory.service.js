@@ -1,34 +1,38 @@
 import { FlukeMockService } from './fluke-mock.service.js';
 import { FlukeManager } from './fluke.manager.js';
+import { getFlukeSettings } from '../db/index.js';
 
 /**
  * Simple Factory Service for Fluke
- * Automatically chooses between mock and real services based on environment
+ * Automatically chooses between mock and real services based on user setting
  */
 class FlukeFactoryService {
   constructor() {
-    this.isDevelopment = this.isDevelopmentEnvironment();
     this.instance = null;
+    this.mockFlukeEnabled = this.getMockFlukeSetting();
 
-    console.log(`🔧 Fluke Factory initialized. Environment: ${this.isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+    console.log(`🔧 Fluke Factory initialized. Mock Fluke: ${this.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
   }
 
   /**
    * Gets the appropriate Fluke service instance
    * @param {Function} showLogOnScreen - Function to show logs on screen
    * @param {Function} isProcessActiveFn - Function to check if process is active
-   * @returns {Object} Fluke service instance (mock in dev, real in production)
+   * @returns {Object} Fluke service instance (mock if enabled, real otherwise)
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
     if (this.instance) {
       return this.instance;
     }
 
-    if (this.isDevelopment) {
-      console.log('🔧 Creating Mock Fluke service for development');
+    // Check current setting (in case it changed)
+    this.mockFlukeEnabled = this.getMockFlukeSetting();
+
+    if (this.mockFlukeEnabled) {
+      console.log('🔧 Creating Mock Fluke service (user setting enabled)');
       this.instance = new FlukeMockService();
     } else {
-      console.log('🔧 Creating Real Fluke service for production');
+      console.log('🔧 Creating Real Fluke service (user setting disabled)');
       this.instance = this.createRealFlukeService(showLogOnScreen, isProcessActiveFn);
     }
 
@@ -36,23 +40,24 @@ class FlukeFactoryService {
   }
 
   /**
-   * Determines if the current environment is development
-   * @returns {boolean} True if development environment
+   * Gets the mock Fluke setting from database
+   * @returns {boolean} True if mock Fluke is enabled
    */
-  isDevelopmentEnvironment() {
-    // Check only NODE_ENV environment variable
-    const nodeEnv = process.env.NODE_ENV;
+  getMockFlukeSetting() {
+    try {
+      const settings = getFlukeSettings();
+      const mockEnabled = settings.mock_fluke_enabled === 1;
 
-    // Log environment detection for debugging
-    console.log('🔧 Environment detection:', {
-      NODE_ENV: nodeEnv,
-    });
+      console.log('🔧 Mock Fluke setting from database:', {
+        mock_fluke_enabled: settings.mock_fluke_enabled,
+        resolved: mockEnabled,
+      });
 
-    // Development if NODE_ENV is 'development' or 'dev'
-    const isDevelopment = ['development', 'dev'].includes(nodeEnv);
-
-    console.log(`🔧 Environment determined as: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
-    return isDevelopment;
+      return mockEnabled;
+    } catch (error) {
+      console.warn('🔧 Failed to read mock Fluke setting from database, defaulting to false:', error);
+      return false;
+    }
   }
 
   /**

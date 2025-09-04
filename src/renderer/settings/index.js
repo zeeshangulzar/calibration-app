@@ -29,6 +29,7 @@ function initializeElements() {
     flukeSettingsForm: document.getElementById('fluke-settings-form'),
     flukeIpInput: document.getElementById('fluke-ip'),
     flukePortInput: document.getElementById('fluke-port'),
+    mockFlukeEnabled: document.getElementById('mock-fluke-enabled'),
     testConnectionBtn: document.getElementById('test-connection-btn'),
 
     // Command interface
@@ -161,6 +162,7 @@ async function loadSettings() {
     if (result.success) {
       elements.flukeIpInput.value = result.settings.fluke_ip || '';
       elements.flukePortInput.value = result.settings.fluke_port || '';
+      elements.mockFlukeEnabled.checked = result.settings.mock_fluke_enabled === 1;
       validateForm();
     }
   } catch (error) {
@@ -177,6 +179,7 @@ async function handleSaveSettings(event) {
 
   const ip = elements.flukeIpInput.value.trim();
   const port = elements.flukePortInput.value.trim();
+  const mockFlukeEnabled = elements.mockFlukeEnabled.checked;
 
   if (!validateInputs(ip, port)) {
     return;
@@ -185,7 +188,7 @@ async function handleSaveSettings(event) {
   showLoading('Saving settings...');
 
   try {
-    const result = await window.electronAPI.saveFlukeSettings(ip, port);
+    const result = await window.electronAPI.saveFlukeSettings(ip, port, mockFlukeEnabled);
 
     if (result.success) {
       showNotification('Settings saved successfully', 'success');

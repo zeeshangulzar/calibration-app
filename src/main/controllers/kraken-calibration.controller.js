@@ -53,9 +53,9 @@ class KrakenCalibrationController {
     // Initialize UI Manager first (needed by other managers)
     this.uiManager = new KrakenUIManager(this.mainWindow, this.globalState, this.sendToRenderer.bind(this));
 
-    // Initialize Fluke Manager using factory (mock in dev, real in production)
-    const flukeFactory = new FlukeFactoryService();
-    this.flukeManager = flukeFactory.getFlukeService(
+    // Initialize Fluke Manager using factory with fresh settings from DB
+    this.flukeFactory = new FlukeFactoryService();
+    this.flukeManager = this.flukeFactory.getFlukeService(
       log => this.uiManager.showLogOnScreen(log),
       () => this.globalState.isCalibrationActive
     );

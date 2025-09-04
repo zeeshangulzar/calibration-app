@@ -62,8 +62,7 @@ function runMigrations() {
   ).run();
 
   // Get current schema version
-  const currentVersion =
-    db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
+  const currentVersion = db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
 
   // Define migrations
   const migrations = [
@@ -89,6 +88,12 @@ function runMigrations() {
           related_command TEXT,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+      `,
+    },
+    {
+      version: 3,
+      sql: `
+        ALTER TABLE app_settings ADD COLUMN mock_fluke_enabled INTEGER DEFAULT 0
       `,
     },
   ];
@@ -134,49 +139,45 @@ export function closeDatabase() {
 export function getFlukeSettings() {
   const db = getDatabase();
   try {
-    const settings = db
-      .prepare('SELECT fluke_ip, fluke_port FROM app_settings ORDER BY id DESC LIMIT 1')
-      .get();
-    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+    const settings = db.prepare('SELECT fluke_ip, fluke_port, mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
+    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
   } catch (error) {
     console.error('Failed to get fluke settings:', error);
-    return { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+    return { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
   }
 }
 
 /**
  * Save Fluke settings
  */
-export function saveFlukeSettings(ip, port) {
+export function saveFlukeSettings(ip, port, mockFlukeEnabled = false) {
   const db = getDatabase();
   try {
     const transaction = db.transaction(() => {
-      const existingSettings = db
-        .prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1')
-        .get();
+      const existingSettings = db.prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1').get();
 
       if (existingSettings) {
         // Update existing settings
         db.prepare(
           `
           UPDATE app_settings
-          SET fluke_ip = ?, fluke_port = ?, updated_at = CURRENT_TIMESTAMP
+          SET fluke_ip = ?, fluke_port = ?, mock_fluke_enabled = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `
-        ).run(ip, port, existingSettings.id);
+        ).run(ip, port, mockFlukeEnabled ? 1 : 0, existingSettings.id);
       } else {
         // Insert new settings
         db.prepare(
           `
-          INSERT INTO app_settings (fluke_ip, fluke_port)
-          VALUES (?, ?)
+          INSERT INTO app_settings (fluke_ip, fluke_port, mock_fluke_enabled)
+          VALUES (?, ?, ?)
         `
-        ).run(ip, port);
+        ).run(ip, port, mockFlukeEnabled ? 1 : 0);
       }
     });
 
     transaction();
-    console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}`);
+    console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}, Mock Fluke: ${mockFlukeEnabled}`);
     return { success: true, message: 'Settings saved successfully' };
   } catch (error) {
     console.error('Failed to save fluke settings:', error);

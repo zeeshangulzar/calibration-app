@@ -122,12 +122,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Fluke settings (backward compatibility)
   getFlukeSettings: () => ipcRenderer.invoke('settings-get-fluke-settings'),
-  saveFlukeSettings: (ip, port) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port),
+  saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port, mockFlukeEnabled),
 
   // Database operations (new API)
   db: {
     getFlukeSettings: () => ipcRenderer.invoke('db:get-fluke-settings'),
-    saveFlukeSettings: (ip, port) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port }),
+    saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port, mockFlukeEnabled }),
     addCommandToHistory: (type, content, relatedCommand) => ipcRenderer.invoke('db:add-command-to-history', { type, content, relatedCommand }),
     getCommandHistory: limit => ipcRenderer.invoke('db:get-command-history', { limit }),
     clearCommandHistory: () => ipcRenderer.invoke('db:clear-command-history'),

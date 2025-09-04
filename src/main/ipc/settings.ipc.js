@@ -3,13 +3,7 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { SettingsController } from '../controllers/settings.controller.js';
 import { registerDatabaseIpcHandlers } from './db-ipc.js';
-import {
-  getFlukeSettings,
-  saveFlukeSettings,
-  getCommandHistory,
-  clearCommandHistory,
-} from '../db/index.js';
-
+import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory } from '../db/index.js';
 let settingsController = null;
 
 /**
@@ -61,9 +55,9 @@ export function registerSettingsIpcHandlers() {
     }
   });
 
-  ipcMain.handle('settings-save-fluke-settings', async (event, ip, port) => {
+  ipcMain.handle('settings-save-fluke-settings', async (event, ip, port, mockFlukeEnabled) => {
     try {
-      const result = saveFlukeSettings(ip, port);
+      const result = saveFlukeSettings(ip, port, mockFlukeEnabled);
       return result;
     } catch (error) {
       console.error('Failed to save Fluke settings:', error);

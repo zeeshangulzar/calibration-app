@@ -52,9 +52,7 @@
             <form id="fluke-settings-form">
               <div class="space-y-4">
                 <div class="space-y-2">
-                  <label for="fluke-ip" class="block font-semibold text-gray-700"
-                    >Fluke IP Address</label
-                  >
+                  <label for="fluke-ip" class="block font-semibold text-gray-700">Fluke IP Address</label>
                   <input
                     type="text"
                     id="fluke-ip"
@@ -62,14 +60,10 @@
                     placeholder="10.10.69.27"
                     required
                   />
-                  <small class="text-gray-600 text-sm"
-                    >IP address of the Fluke calibration device</small
-                  >
+                  <small class="text-gray-600 text-sm">IP address of the Fluke calibration device</small>
                 </div>
                 <div class="space-y-2">
-                  <label for="fluke-port" class="block font-semibold text-gray-700"
-                    >Fluke Port</label
-                  >
+                  <label for="fluke-port" class="block font-semibold text-gray-700">Fluke Port</label>
                   <input
                     type="number"
                     id="fluke-port"
@@ -80,6 +74,13 @@
                     required
                   />
                   <small class="text-gray-600 text-sm">Port number for Telnet connection</small>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-3">
+                    <input type="checkbox" id="mock-fluke-enabled" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2" />
+                    <label for="mock-fluke-enabled" class="font-semibold text-gray-700">Use Mock Fluke Service</label>
+                  </div>
+                  <small class="text-gray-600 text-sm ml-7">Enable to use simulated Fluke device instead of real hardware (useful for testing)</small>
                 </div>
               </div>
 
@@ -163,25 +164,16 @@
                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md mr-2 font-mono text-sm transition-all duration-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                   placeholder="Enter SCPI command (e.g., *IDN?)"
                 />
-                <button
-                  id="send-command-btn"
-                  class="px-4 py-2 bg-black text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-800 mr-2"
-                >
+                <button id="send-command-btn" class="px-4 py-2 bg-black text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-800 mr-2">
                   <i class="fas fa-paper-plane mr-1"></i>Send
                 </button>
-                <button
-                  id="clear-history-btn"
-                  class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-200"
-                >
+                <button id="clear-history-btn" class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-gray-200">
                   <i class="fas fa-trash mr-1"></i>Clear
                 </button>
               </div>
 
               <!-- Command History -->
-              <div
-                id="command-history"
-                class="h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-xs p-3"
-              >
+              <div id="command-history" class="h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-xs p-3">
                 <div class="text-gray-400 text-center py-12">
                   Command history will appear here...
                   <br />
@@ -192,19 +184,13 @@
 
             <!-- Command Help -->
             <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h5 class="font-semibold text-blue-800 mb-2 text-sm">
-                <i class="fas fa-info-circle mr-1"></i>Command Help
-              </h5>
+              <h5 class="font-semibold text-blue-800 mb-2 text-sm"><i class="fas fa-info-circle mr-1"></i>Command Help</h5>
               <div class="text-xs text-blue-700 space-y-1">
                 <p><strong>Query commands</strong> (ending with ?) will wait for a response.</p>
                 <p><strong>Set commands</strong> will be sent without waiting for a response.</p>
+                <p>Use <code class="bg-blue-200 px-1 rounded">*IDN?</code> to test connection and get device information.</p>
                 <p>
-                  Use <code class="bg-blue-200 px-1 rounded">*IDN?</code> to test connection and get
-                  device information.
-                </p>
-                <p>
-                  Examples: <code class="bg-blue-200 px-1 rounded">*IDN?</code>,
-                  <code class="bg-blue-200 px-1 rounded">OUTPut:STATe ON</code>,
+                  Examples: <code class="bg-blue-200 px-1 rounded">*IDN?</code>, <code class="bg-blue-200 px-1 rounded">OUTPut:STATe ON</code>,
                   <code class="bg-blue-200 px-1 rounded">MEASure:PRESsure?</code>
                 </p>
               </div>
@@ -215,14 +201,9 @@
     </main>
 
     <!-- Loading Overlay -->
-    <div
-      id="loading-overlay"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
-    >
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
       <div class="bg-white p-6 rounded-lg flex items-center">
-        <div
-          class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-indigo-500 mr-3"
-        ></div>
+        <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-indigo-500 mr-3"></div>
         <span id="loading-text">Processing...</span>
       </div>
     </div>
