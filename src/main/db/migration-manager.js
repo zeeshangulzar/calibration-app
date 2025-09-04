@@ -89,12 +89,8 @@ export class MigrationManager {
         this.db.prepare(`ALTER TABLE ${this.migrationsTable} ADD COLUMN ${column} ${columnDefaults[column]}`).run();
         console.log(`---- Added ${column} column`);
       } catch (error) {
-        if (error.message.includes('duplicate column name')) {
-          console.log(`----  Column ${column} already exists, skipping`);
-        } else {
-          Sentry.captureException(error);
-          throw error;
-        }
+        Sentry.captureException(error);
+        throw error;
       }
     });
     
@@ -195,14 +191,14 @@ export class MigrationManager {
       return true;
       
     } catch (error) {
-      const executionTime = Date.now() - startTime;
-      console.error(`---- Migration ${migration.version} failed after ${executionTime}ms:`, error);
       Sentry.captureException(error, {
         tags: {
           operation: 'apply_migration',
           migration_version: migration.version
         }
       });
+      const executionTime = Date.now() - startTime;
+      console.error(`---- Migration ${migration.version} failed after ${executionTime}ms:`, error);
       throw error;
     }
   }

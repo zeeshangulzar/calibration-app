@@ -74,5 +74,6 @@ async function checkMigrationStatus() {
     }
   } catch (error) {
     console.error('Failed to check migration status:', error);
+    Sentry.captureException(error);
   }
 }

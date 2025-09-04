@@ -127,8 +127,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }),
   deleteAssembledSensor: (id) =>
     ipcRenderer.send('delete-assembled-sensor', id),
-  updateAssembledSensor: (data) =>
-    ipcRenderer.send('update-assembled-sensor', data),
   checkDuplicateQR: (data) => ipcRenderer.invoke('check-duplicate-qr', data),
 
   //======== Settings APIs ========

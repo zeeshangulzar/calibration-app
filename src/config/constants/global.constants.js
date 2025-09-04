@@ -7,7 +7,5 @@ export const GLOBAL_CONSTANTS = {
 // Pagination constants
 export const PAGINATION = {
   DEFAULT_PAGE: 1,
-  DEFAULT_SIZE: 20,
-  MIN_SIZE: 1,
-  MAX_SIZE: 100
+  DEFAULT_SIZE: 20
 };

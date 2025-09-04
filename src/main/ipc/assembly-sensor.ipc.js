@@ -8,7 +8,6 @@ import {
   getAssembledSensors,
   saveAssembledSensorData,
   deleteAssembledSensorData,
-  updateAssembledSensorData,
   checkDuplicateQR,
 } from '../services/assembly-sensor.service.js';
 
@@ -84,22 +83,6 @@ export function registerAssemblySensorIpcHandlers() {
       }
     } catch (error) {
       console.error('Failed to delete assembled sensor:', error);
-      Sentry.captureException(error);
-      event.sender.send('assembled-saved', 'error');
-    }
-  });
-
-  // Update assembled sensor
-  ipcMain.on('update-assembled-sensor', async (event, updatedData) => {
-    try {
-      const result = await updateAssembledSensorData(updatedData);
-      if (result.success) {
-        event.sender.send('assembled-saved', 'updated');
-      } else {
-        event.sender.send('assembled-saved', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to update assembled sensor:', error);
       Sentry.captureException(error);
       event.sender.send('assembled-saved', 'error');
     }

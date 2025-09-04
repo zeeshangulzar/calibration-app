@@ -44,6 +44,7 @@ export function startCamera(videoElement, onScanCallback) {
               }
             } catch (error) {
               console.error("---- Error scanning QR code:", error);
+              Sentry.captureException(error);
             }
           }
 
@@ -55,6 +56,7 @@ export function startCamera(videoElement, onScanCallback) {
       })
       .catch((err) => {
         console.error("---- Camera access failed:", err);
+        Sentry.captureException(err);
         alert("🚫 Camera access denied or not found.");
       });
   }

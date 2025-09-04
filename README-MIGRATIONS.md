@@ -5,7 +5,6 @@
 This migration system was designed to solve a critical problem in the SmartMonster Calibration application: **database schema evolution without data loss**. 
 
 ### **Why This System Was Needed:**
-- **Legacy Issue**: The old app had hardcoded database schemas that couldn't evolve
 - **Data Loss Risk**: Schema changes required manual database recreation
 - **Version Mismatch**: Different app versions had incompatible database structures
 - **Production Safety**: No safe way to update database schema in production

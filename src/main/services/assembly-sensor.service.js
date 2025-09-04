@@ -3,9 +3,9 @@ import {
   deleteAssembledSensor,
   getAllAssembledSensors,
   getDuplicateAssembly,
-  saveAssembledSensor,
-  updateAssembledSensor,
+  saveAssembledSensor
 } from '../db/assembly-sensor.db.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Get assembled sensors with pagination
@@ -15,6 +15,7 @@ async function getAssembledSensors(page = PAGINATION.DEFAULT_PAGE, size = PAGINA
     return getAllAssembledSensors(page, size);
   } catch (error) {
     console.error('Failed to get assembled sensors:', error);
+    Sentry.captureException(error);
     return { rows: [], totalCount: 0 };
   }
 }
@@ -28,6 +29,7 @@ async function saveAssembledSensorData(data) {
     return result;
   } catch (error) {
     console.error('Failed to save assembled sensor:', error);
+    Sentry.captureException(error);
     return { success: false, error: error.message };
   }
 }
@@ -41,19 +43,7 @@ async function deleteAssembledSensorData(id) {
     return result;
   } catch (error) {
     console.error('Failed to delete assembled sensor:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Update assembled sensor
- */
-async function updateAssembledSensorData(updatedData) {
-  try {
-    const result = await updateAssembledSensor(updatedData);
-    return result;
-  } catch (error) {
-    console.error('Failed to update assembled sensor:', error);
+    Sentry.captureException(error);
     return { success: false, error: error.message };
   }
 }
@@ -66,6 +56,7 @@ async function checkDuplicateQR(data) {
     return getDuplicateAssembly(data);
   } catch (error) {
     console.error('Failed to check duplicate QR:', error);
+    Sentry.captureException(error);
     return 'none';
   }
 }
@@ -74,6 +65,5 @@ export {
   getAssembledSensors,
   saveAssembledSensorData,
   deleteAssembledSensorData,
-  updateAssembledSensorData,
   checkDuplicateQR,
 };

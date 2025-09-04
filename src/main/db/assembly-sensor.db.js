@@ -75,29 +75,6 @@ export class AssemblySensorDb {
   }
 
   /**
-   * Update assembled sensor
-   */
-  async updateAssembledSensor({ id, bodyQR, capQR }) {
-    try {
-      const stmt = this.db.prepare(`
-        UPDATE device_assembly
-        SET plastic_body_qr = ?, cap_qr = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `);
-      const result = stmt.run(bodyQR, capQR, id);
-      
-      if (result.changes > 0) {
-        return { success: true };
-      } else {
-        return { success: false, error: 'Sensor not found' };
-      }
-    } catch (err) {
-      Sentry.captureException(err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  /**
    * Check for duplicate assembly
    */
   async getDuplicateAssembly({ bodyQR, capQR }) {
@@ -138,5 +115,4 @@ export const assemblySensorDb = new AssemblySensorDb();
 export const saveAssembledSensor = (...args) => assemblySensorDb.saveAssembledSensor(...args);
 export const getAllAssembledSensors = (...args) => assemblySensorDb.getAllAssembledSensors(...args);
 export const deleteAssembledSensor = (...args) => assemblySensorDb.deleteAssembledSensor(...args);
-export const updateAssembledSensor = (...args) => assemblySensorDb.updateAssembledSensor(...args);
 export const getDuplicateAssembly = (...args) => assemblySensorDb.getDuplicateAssembly(...args);
