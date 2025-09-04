@@ -150,7 +150,7 @@ export function getFlukeSettings() {
 /**
  * Save Fluke settings
  */
-export function saveFlukeSettings(ip, port, mockFlukeEnabled = false) {
+export function saveFlukeSettings(ip, port) {
   const db = getDatabase();
   try {
     const transaction = db.transaction(() => {
@@ -161,23 +161,23 @@ export function saveFlukeSettings(ip, port, mockFlukeEnabled = false) {
         db.prepare(
           `
           UPDATE app_settings
-          SET fluke_ip = ?, fluke_port = ?, mock_fluke_enabled = ?, updated_at = CURRENT_TIMESTAMP
+          SET fluke_ip = ?, fluke_port = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `
-        ).run(ip, port, mockFlukeEnabled ? 1 : 0, existingSettings.id);
+        ).run(ip, port, existingSettings.id);
       } else {
         // Insert new settings
         db.prepare(
           `
-          INSERT INTO app_settings (fluke_ip, fluke_port, mock_fluke_enabled)
-          VALUES (?, ?, ?)
+          INSERT INTO app_settings (fluke_ip, fluke_port)
+          VALUES (?, ?)
         `
-        ).run(ip, port, mockFlukeEnabled ? 1 : 0);
+        ).run(ip, port);
       }
     });
 
     transaction();
-    console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}, Mock Fluke: ${mockFlukeEnabled}`);
+    console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}`);
     return { success: true, message: 'Settings saved successfully' };
   } catch (error) {
     console.error('Failed to save fluke settings:', error);
@@ -249,6 +249,55 @@ export function clearCommandHistory() {
     return { success: true, message: 'Command history cleared' };
   } catch (error) {
     console.error('Failed to clear command history:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Developer Settings Functions
+export function getDeveloperSettings() {
+  const db = getDatabase();
+  try {
+    const settings = db.prepare('SELECT mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
+
+    return {
+      mockFlukeEnabled: settings?.mock_fluke_enabled === 1 || false,
+    };
+  } catch (error) {
+    console.error('Failed to get developer settings:', error);
+    return {
+      mockFlukeEnabled: false,
+    };
+  }
+}
+
+export function saveDeveloperSettings(settings) {
+  const db = getDatabase();
+  try {
+    const transaction = db.transaction(() => {
+      const existingSettings = db.prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1').get();
+
+      if (existingSettings) {
+        db.prepare(
+          `
+          UPDATE app_settings
+          SET mock_fluke_enabled = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+        ).run(settings.mockFlukeEnabled ? 1 : 0, existingSettings.id);
+      } else {
+        db.prepare(
+          `
+          INSERT INTO app_settings (mock_fluke_enabled)
+          VALUES (?)
+        `
+        ).run(settings.mockFlukeEnabled ? 1 : 0);
+      }
+    });
+    transaction();
+    console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled}`);
+    return { success: true, message: 'Developer settings saved successfully' };
+  } catch (error) {
+    console.error('Failed to save developer settings:', error);
     return { success: false, error: error.message };
   }
 }

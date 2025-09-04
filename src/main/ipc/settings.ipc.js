@@ -55,9 +55,9 @@ export function registerSettingsIpcHandlers() {
     }
   });
 
-  ipcMain.handle('settings-save-fluke-settings', async (event, ip, port, mockFlukeEnabled) => {
+  ipcMain.handle('settings-save-fluke-settings', async (event, ip, port) => {
     try {
-      const result = saveFlukeSettings(ip, port, mockFlukeEnabled);
+      const result = saveFlukeSettings(ip, port);
       return result;
     } catch (error) {
       console.error('Failed to save Fluke settings:', error);

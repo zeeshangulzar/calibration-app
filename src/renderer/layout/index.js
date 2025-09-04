@@ -12,12 +12,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add click handler for Settings button
-  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
+    settingsBtn.addEventListener('click', () => {
       if (window.electronAPI && window.electronAPI.loadSettings) {
         window.electronAPI.loadSettings();
       }
+    });
+  }
+
+  // Add click handler for Developer Settings button
+  const developerSettingsBtn = document.getElementById('developerSettingsBtn');
+  if (developerSettingsBtn) {
+    developerSettingsBtn.addEventListener('click', () => {
+      window.location.href = '../developer-settings/index.html';
     });
   }
 });

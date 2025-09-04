@@ -188,4 +188,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Notifications
   onShowNotification: callback => ipcRenderer.on('show-notification', (_, data) => callback(data)),
+
+  //======== Developer Settings APIs ========
+  validateDeveloperPassword: password => ipcRenderer.invoke('developer-settings-validate-password', password),
+  getDeveloperSettings: () => ipcRenderer.invoke('developer-settings-get'),
+  saveDeveloperSettings: settings => ipcRenderer.invoke('developer-settings-save', settings),
+  developerSettingsGoBack: () => ipcRenderer.send('developer-settings-go-back'),
 });
