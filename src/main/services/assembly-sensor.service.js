@@ -1,4 +1,4 @@
-import { PAGINATION } from '../../config/constants/app.constants.js';
+import { PAGINATION } from '../../config/constants/global.constants.js';
 import {
   deleteAssembledSensor,
   getAllAssembledSensors,

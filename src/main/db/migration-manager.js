@@ -1,5 +1,6 @@
 import { migrations } from './migrations/index.js';
-import { DATABASE } from '../../config/constants/app.constants.js';
+import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Migration Manager
@@ -20,7 +21,7 @@ import { DATABASE } from '../../config/constants/app.constants.js';
 export class MigrationManager {
   constructor(database) {
     this.db = database;
-    this.migrationsTable = DATABASE.MIGRATIONS_TABLE;
+    this.migrationsTable = GLOBAL_CONSTANTS.MIGRATIONS_TABLE;
   }
 
   /**
@@ -40,6 +41,7 @@ export class MigrationManager {
       }
     } catch (error) {
       console.error('---- Failed to initialize migrations table:', error);
+      Sentry.captureException(error);
       throw error;
     }
   }
@@ -90,6 +92,7 @@ export class MigrationManager {
         if (error.message.includes('duplicate column name')) {
           console.log(`----  Column ${column} already exists, skipping`);
         } else {
+          Sentry.captureException(error);
           throw error;
         }
       }
@@ -109,6 +112,7 @@ export class MigrationManager {
       return result?.version || 0;
     } catch (error) {
       console.error('---- Failed to get current version:', error);
+      Sentry.captureException(error);
       return 0;
     }
   }
@@ -193,6 +197,12 @@ export class MigrationManager {
     } catch (error) {
       const executionTime = Date.now() - startTime;
       console.error(`---- Migration ${migration.version} failed after ${executionTime}ms:`, error);
+      Sentry.captureException(error, {
+        tags: {
+          operation: 'apply_migration',
+          migration_version: migration.version
+        }
+      });
       throw error;
     }
   }
@@ -214,6 +224,7 @@ export class MigrationManager {
         if (error.message.includes('duplicate column name')) {
           console.log(`---- Column already exists, skipping: ${statement}`);
         } else {
+          Sentry.captureException(error);
           throw error;
         }
       }
@@ -265,6 +276,7 @@ export class MigrationManager {
       
     } catch (error) {
       console.error('---- Migration process failed:', error);
+      Sentry.captureException(error);
       return {
         success: false,
         error: error.message,
@@ -304,6 +316,7 @@ export class MigrationManager {
       };
     } catch (error) {
       console.error('---- Failed to get migration status:', error);
+      Sentry.captureException(error);
       return null;
     }
   }

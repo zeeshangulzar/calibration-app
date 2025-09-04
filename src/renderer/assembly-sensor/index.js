@@ -1,9 +1,10 @@
 import { formatDateTime } from "../../shared/helpers/date-helper.js";
 import { startCamera, pauseScanning, resumeScanning, stopCamera } from "../../shared/helpers/camera-helper.js";
-import { showNotification } from "../../shared/helpers/notification-helper.js";
+import { showNotification, showSuccess, showInfo, showConfirmationModal } from "../../shared/helpers/notification-helper.js";
+import { PAGINATION } from "../../config/constants/global.constants.js";
 
-let currentPage = 1;
-const pageSize = 20;
+let currentPage = PAGINATION.DEFAULT_PAGE;
+const pageSize = PAGINATION.DEFAULT_SIZE;
 
 /**
  * Check if a field is a duplicate based on duplicate field type and target field
@@ -20,13 +21,6 @@ function isDuplicateField(duplicateField, targetField) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Check if jsQR library is loaded
-  if (typeof jsQR === 'undefined') {
-    console.error('jsQR library not loaded! QR scanning will not work.');
-    showCustomAlert("---- QR scanning library not loaded. Please check if jsQR.min.js is available.");
-  } else {
-    console.log('jsQR library loaded successfully:', jsQR);
-  }
 
   document
     .getElementById("back-button-assembly")
@@ -43,13 +37,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const capQR = document.getElementById("capQR").value.trim();
 
       if (!bodyQR && !capQR) {
-        showCustomAlert("Please scan both Body QR and Cap QR.");
+        showNotification("Please scan both Body QR and Cap QR.", 'error');
         return;
       } else if (!bodyQR) {
-        showCustomAlert("Please scan Body QR code first.");
+        showNotification("Please scan Body QR code first.", 'error');
         return;
       } else if (!capQR) {
-        showCustomAlert("Please scan Cap QR code first.");
+        showNotification("Please scan Cap QR code first.", 'error');
         return;
       }
 
@@ -182,28 +176,25 @@ async function handleScannedQR(qrValue) {
     const [, yearStr, weekStr] = qrValue.match(capPattern);
     const week = parseInt(weekStr, 10);
     if (week < 1 || week > 53) {
-      showCustomAlert(`Invalid week number in Cap QR: ${week}`, () => {
-        resumeScanning();
-      });
+      showNotification(`Invalid week number in Cap QR: ${week}`, 'error');
+      resumeScanning();
       return;
     }
     targetField = "capQR";
   } else if (bodyPattern.test(qrValue)) {
     targetField = "bodyQR";
   } else {
-    showCustomAlert("Invalid QR format scanned: " + qrValue, () => {
-      resumeScanning();
-    });
+    showNotification("Invalid QR format scanned: " + qrValue, 'error');
+    resumeScanning();
     return;
   }
 
   if (document.getElementById(targetField).value.trim()) {
-    showCustomAlert(
+    showNotification(
       `The ${targetField === "bodyQR" ? "Body" : "Cap"} QR is already filled.`,
-      () => {
-        resumeScanning();
-      }
+      'error'
     );
+    resumeScanning();
     return;
   }
 
@@ -218,14 +209,13 @@ async function handleScannedQR(qrValue) {
     });
 
     if (isDuplicateField(duplicateField, targetField)) {
-      showCustomAlert(
+      showNotification(
         `This ${targetField === "bodyQR" ? "Body" : "Cap"} QR (${
           targetField === "bodyQR" ? bodyQR : capQR
         }) is already saved.`,
-        () => {
-          resumeScanning();
-        }
+        'error'
       );
+      resumeScanning();
       return;
     }
   }
@@ -233,17 +223,12 @@ async function handleScannedQR(qrValue) {
   // If all good, assign value
   document.getElementById(targetField).value = qrValue;
 
-  showCustomAlert(
-    `Scanned ${targetField === "bodyQR" ? "Body" : "Cap"} QR: ${qrValue}`,
-    () => {
-      if (
-        !document.getElementById("bodyQR").value.trim() ||
-        !document.getElementById("capQR").value.trim()
-      ) {
-        resumeScanning(); // resume scanning if the other field is still empty
-      }
-    }
+  showSuccess(
+    `Scanned ${targetField === "bodyQR" ? "Body" : "Cap"} QR: ${qrValue}`
   );
+  
+  // Always resume scanning for continuous operation
+  resumeScanning();
 }
 
 // Listen for assembly saved events
@@ -271,42 +256,10 @@ window.addEventListener("beforeunload", () => {
   stopCamera();
 });
 
-function showCustomAlert(message, onConfirm = null, onCancel = null) {
-  const alertBox = document.getElementById("custom-alert");
-  const alertMessage = document.getElementById("custom-alert-message");
-  const alertOkBtn = document.getElementById("custom-alert-ok");
-  const alertCancelBtn = document.getElementById("custom-alert-cancel");
-
-  alertMessage.textContent = message;
-  alertBox.classList.remove("hidden");
-
-  // Show or hide Cancel button
-  if (typeof onCancel === "function") {
-    alertCancelBtn.classList.remove("hidden");
-  } else {
-    alertCancelBtn.classList.add("hidden");
-  }
-
-  alertOkBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onConfirm === "function") {
-      onConfirm();
-      resumeScanning();
-    }
-  };
-
-  alertCancelBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onCancel === "function") {
-      onCancel();
-      resumeScanning();
-    }
-  };
-}
 
 function deleteSensor(id) {
   pauseScanning();
-  showCustomAlert(
+  showConfirmationModal(
     "Are you sure you want to delete this sensor?",
     () => {
       if (window.electronAPI && window.electronAPI.deleteAssembledSensor) {
@@ -315,7 +268,7 @@ function deleteSensor(id) {
     },
     () => {
       resumeScanning();
-      console.log("---- Deletion cancelled");
+      console.log("Deletion cancelled");
     }
   );
 }

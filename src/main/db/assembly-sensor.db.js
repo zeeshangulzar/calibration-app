@@ -7,7 +7,7 @@ import * as Sentry from '@sentry/node';
  * Manages all database operations related to assembled sensors
  * using a class-based architecture for better organization and maintainability
  */
-export class AssemblySensorController {
+export class AssemblySensorDb {
   constructor() {
     this.db = getDatabase();
   }
@@ -132,11 +132,11 @@ export class AssemblySensorController {
 }
 
 // Export a singleton instance for backward compatibility
-export const assemblySensorController = new AssemblySensorController();
+export const assemblySensorDb = new AssemblySensorDb();
 
 // Export individual methods for backward compatibility
-export const saveAssembledSensor = (...args) => assemblySensorController.saveAssembledSensor(...args);
-export const getAllAssembledSensors = (...args) => assemblySensorController.getAllAssembledSensors(...args);
-export const deleteAssembledSensor = (...args) => assemblySensorController.deleteAssembledSensor(...args);
-export const updateAssembledSensor = (...args) => assemblySensorController.updateAssembledSensor(...args);
-export const getDuplicateAssembly = (...args) => assemblySensorController.getDuplicateAssembly(...args);
+export const saveAssembledSensor = (...args) => assemblySensorDb.saveAssembledSensor(...args);
+export const getAllAssembledSensors = (...args) => assemblySensorDb.getAllAssembledSensors(...args);
+export const deleteAssembledSensor = (...args) => assemblySensorDb.deleteAssembledSensor(...args);
+export const updateAssembledSensor = (...args) => assemblySensorDb.updateAssembledSensor(...args);
+export const getDuplicateAssembly = (...args) => assemblySensorDb.getDuplicateAssembly(...args);

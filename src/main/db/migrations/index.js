@@ -18,6 +18,8 @@
  * 4. Export them individually for debugging/testing
  */
 
+import * as Sentry from '@sentry/electron/main';
+
 // Import all migrations with descriptive names
 import { migration as migration001 } from './001_initial_schema.js';
 import { migration as migration002 } from './002_command_history.js';
@@ -41,7 +43,14 @@ const importedMigrations = [
 function validateMigrationStructure(migration, filename) {
   // Check if migration object exists
   if (!migration) {
-    throw new Error(`---- Migration import failed: ${filename} - migration object is undefined`);
+    const error = new Error(`---- Migration import failed: ${filename} - migration object is undefined`);
+    Sentry.captureException(error, {
+      tags: {
+        operation: 'validate_migration_structure',
+        migration_file: filename
+      }
+    });
+    throw error;
   }
   
   const checks = [
@@ -53,7 +62,14 @@ function validateMigrationStructure(migration, filename) {
   
   for (const { key, valid } of checks) {
     if (!valid(migration[key])) {
-      throw new Error(`---- Migration validation failed: ${filename} - invalid or missing ${key}`);
+      const error = new Error(`---- Migration validation failed: ${filename} - invalid or missing ${key}`);
+      Sentry.captureException(error, {
+        tags: {
+          operation: 'validate_migration_structure',
+          migration_file: filename
+        }
+      });
+      throw error;
     }
   }
   
@@ -71,7 +87,9 @@ function validateMigrationStructure(migration, filename) {
  */
 function validateMigrationVersions(migrations) {
   if (migrations.length === 0) {
-    throw new Error('---- No migrations found - migration system cannot function');
+    const error = new Error('---- No migrations found - migration system cannot function');
+    Sentry.captureException(error);
+    throw error;
   }
   
   // Extract and validate version numbers
@@ -81,7 +99,9 @@ function validateMigrationVersions(migrations) {
   // Check for duplicate versions
   if (versions.length !== uniqueVersions.length) {
     const duplicates = versions.filter((v, i) => versions.indexOf(v) !== i);
-    throw new Error(`---- Duplicate migration versions detected: ${[...new Set(duplicates)].join(', ')}`);
+    const error = new Error(`---- Duplicate migration versions detected: ${[...new Set(duplicates)].join(', ')}`);
+    Sentry.captureException(error);
+    throw error;
   }
   
   // Check for missing versions (gaps in sequence)
@@ -100,7 +120,9 @@ function validateMigrationVersions(migrations) {
   // Validate version numbers are positive integers
   const invalidVersions = versions.filter(v => v <= 0 || !Number.isInteger(v));
   if (invalidVersions.length > 0) {
-    throw new Error(`---- Invalid migration versions detected: ${invalidVersions.join(', ')} - versions must be positive integers`);
+    const error = new Error(`---- Invalid migration versions detected: ${invalidVersions.join(', ')} - versions must be positive integers`);
+    Sentry.captureException(error)
+    throw error;
   }
   
   return true;
@@ -127,6 +149,7 @@ function validateAllMigrations() {
     
   } catch (error) {
     console.error('---- Migration validation failed:', error.message);
+    Sentry.captureException(error);
     throw error;
   }
 }

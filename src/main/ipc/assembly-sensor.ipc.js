@@ -2,7 +2,8 @@ import { ipcMain } from 'electron';
 import { getMainWindow } from '../windows/main.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PAGINATION } from '../../config/constants/app.constants.js';
+import { PAGINATION } from '../../config/constants/global.constants.js';
+import * as Sentry from '@sentry/electron/main';
 import {
   getAssembledSensors,
   saveAssembledSensorData,
@@ -31,6 +32,7 @@ export function registerAssemblySensorIpcHandlers() {
         });
       } catch (error) {
         console.error('Error loading assembly sensor page:', error);
+        Sentry.captureException(error);
         // Try alternative path
         const altPath = path.join(__dirname, '../../../renderer/assembly-sensor', 'index.html');
         try {
@@ -38,6 +40,7 @@ export function registerAssemblySensorIpcHandlers() {
           console.log('Assembly sensor page loaded from alternative path');
         } catch (altError) {
           console.error('Failed to load assembly sensor page from both paths');
+          Sentry.captureException(error);
         }
       }
     }
@@ -49,6 +52,7 @@ export function registerAssemblySensorIpcHandlers() {
       return await getAssembledSensors(page, size);
     } catch (error) {
       console.error('Failed to get assembled sensors:', error);
+      Sentry.captureException(error);
       return { rows: [], totalCount: 0 };
     }
   });
@@ -64,6 +68,7 @@ export function registerAssemblySensorIpcHandlers() {
       }
     } catch (error) {
       console.error('Failed to save assembled sensor:', error);
+      Sentry.captureException(error);
       event.sender.send('assembled-saved', 'error');
     }
   });
@@ -79,6 +84,7 @@ export function registerAssemblySensorIpcHandlers() {
       }
     } catch (error) {
       console.error('Failed to delete assembled sensor:', error);
+      Sentry.captureException(error);
       event.sender.send('assembled-saved', 'error');
     }
   });
@@ -94,6 +100,7 @@ export function registerAssemblySensorIpcHandlers() {
       }
     } catch (error) {
       console.error('Failed to update assembled sensor:', error);
+      Sentry.captureException(error);
       event.sender.send('assembled-saved', 'error');
     }
   });
@@ -104,6 +111,7 @@ export function registerAssemblySensorIpcHandlers() {
       return await checkDuplicateQR(data);
     } catch (error) {
       console.error('Failed to check duplicate QR:', error);
+      Sentry.captureException(error);
       return 'none';
     }
   });
