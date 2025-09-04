@@ -1,5 +1,6 @@
 // Developer Settings Page - Optimized
 import { showNotification } from '../../shared/helpers/notification-helper.js';
+import * as Sentry from '@sentry/electron/renderer';
 
 class DeveloperSettings {
   constructor() {
@@ -78,6 +79,9 @@ class DeveloperSettings {
       this.updateToggleAppearance();
     } catch (error) {
       console.error('Error loading developer settings:', error);
+      Sentry.captureException(error, {
+        tags: { component: 'developer-settings', action: 'load-settings' },
+      });
       showNotification('Error loading settings', 'error');
     }
   }
@@ -91,6 +95,10 @@ class DeveloperSettings {
       showNotification(result.success ? 'Developer settings saved successfully' : `Failed to save settings: ${result.error}`, result.success ? 'success' : 'error');
     } catch (error) {
       console.error('Error saving developer settings:', error);
+      Sentry.captureException(error, {
+        tags: { component: 'developer-settings', action: 'save-settings' },
+        extra: { mockFlukeEnabled: this.elements.mockFlukeCheckbox.checked },
+      });
       showNotification('Error saving settings. Please try again.', 'error');
     }
   }
