@@ -190,11 +190,12 @@ async function handleScannedQR(qrValue) {
   }
 
   if (document.getElementById(targetField).value.trim()) {
-    showNotification(
+    showCustomAlert(
       `The ${targetField === "bodyQR" ? "Body" : "Cap"} QR is already filled.`,
-      'error'
+      () => {
+        resumeScanning();
+      }
     );
-    resumeScanning();
     return;
   }
 
@@ -209,13 +210,14 @@ async function handleScannedQR(qrValue) {
     });
 
     if (isDuplicateField(duplicateField, targetField)) {
-      showNotification(
+      showCustomAlert(
         `This ${targetField === "bodyQR" ? "Body" : "Cap"} QR (${
           targetField === "bodyQR" ? bodyQR : capQR
         }) is already saved.`,
-        'error'
+        () => {
+          resumeScanning();
+        }
       );
-      resumeScanning();
       return;
     }
   }
@@ -223,12 +225,17 @@ async function handleScannedQR(qrValue) {
   // If all good, assign value
   document.getElementById(targetField).value = qrValue;
 
-  showSuccess(
-    `Scanned ${targetField === "bodyQR" ? "Body" : "Cap"} QR: ${qrValue}`
+  showCustomAlert(
+    `Scanned ${targetField === "bodyQR" ? "Body" : "Cap"} QR: ${qrValue}`,
+    () => {
+      if (
+        !document.getElementById("bodyQR").value.trim() ||
+        !document.getElementById("capQR").value.trim()
+      ) {
+        resumeScanning(); // resume scanning if the other field is still empty
+      }
+    }
   );
-  
-  // Always resume scanning for continuous operation
-  resumeScanning();
 }
 
 // Listen for assembly saved events
@@ -256,6 +263,38 @@ window.addEventListener("beforeunload", () => {
   stopCamera();
 });
 
+function showCustomAlert(message, onConfirm = null, onCancel = null) {
+  const alertBox = document.getElementById("custom-alert");
+  const alertMessage = document.getElementById("custom-alert-message");
+  const alertOkBtn = document.getElementById("custom-alert-ok");
+  const alertCancelBtn = document.getElementById("custom-alert-cancel");
+
+  alertMessage.textContent = message;
+  alertBox.classList.remove("hidden");
+
+  // Show or hide Cancel button
+  if (typeof onCancel === "function") {
+    alertCancelBtn.classList.remove("hidden");
+  } else {
+    alertCancelBtn.classList.add("hidden");
+  }
+
+  alertOkBtn.onclick = () => {
+    alertBox.classList.add("hidden");
+    if (typeof onConfirm === "function") {
+      onConfirm();
+      resumeScanning();
+    }
+  };
+
+  alertCancelBtn.onclick = () => {
+    alertBox.classList.add("hidden");
+    if (typeof onCancel === "function") {
+      onCancel();
+      resumeScanning();
+    }
+  };
+}
 
 function deleteSensor(id) {
   pauseScanning();
