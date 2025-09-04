@@ -18,7 +18,7 @@ class TelnetClientService extends EventEmitter {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 3;
 
-    this._loadSettings();
+    this.loadSettings();
 
     // Add error listener to prevent unhandled errors from crashing the app
     this.on('error', error => {
@@ -29,9 +29,8 @@ class TelnetClientService extends EventEmitter {
 
   /**
    * Load settings from database
-   * @private
    */
-  _loadSettings() {
+  loadSettings() {
     try {
       const settings = getFlukeSettings();
       this.host = settings.fluke_ip;
@@ -101,7 +100,7 @@ class TelnetClientService extends EventEmitter {
         this.emit('error', { error: error.message, host: this.host, port: this.port });
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-          this._attemptReconnect();
+          this.attemptReconnect();
         }
 
         reject({ success: false, error: errorMessage });
@@ -115,7 +114,7 @@ class TelnetClientService extends EventEmitter {
         this.emit('disconnected');
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-          this._attemptReconnect();
+          this.attemptReconnect();
         }
       });
 
@@ -136,9 +135,8 @@ class TelnetClientService extends EventEmitter {
 
   /**
    * Attempt to reconnect
-   * @private
    */
-  _attemptReconnect() {
+  attemptReconnect() {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff
 

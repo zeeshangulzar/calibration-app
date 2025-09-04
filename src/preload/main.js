@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
   krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
   krakenCalibrationStopVerification: () => ipcRenderer.invoke('kraken-calibration-stop-verification'),
+  krakenCalibrationViewPDF: deviceId => ipcRenderer.invoke('kraken-calibration-view-pdf', deviceId),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),
@@ -160,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEnableKrakenCalibrationButton: callback => ipcRenderer.on('enable-kraken-calibration-button', () => callback()),
   onShowKrakenVerificationButton: callback => ipcRenderer.on('show-kraken-verification-button', () => callback()),
   onHideKrakenVerificationButton: callback => ipcRenderer.on('hide-kraken-verification-button', () => callback()),
+  onKrakenVerificationStarted: callback => ipcRenderer.on('kraken-verification-started', () => callback()),
   onKrakenVerificationSweepCompleted: callback => ipcRenderer.on('kraken-verification-sweep-completed', (_, data) => callback(data)),
   onKrakenVerificationRealtimeUpdate: callback => ipcRenderer.on('kraken-verification-realtime-update', (_, data) => callback(data)),
 
@@ -168,6 +170,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowKrakenCalibrationButton: callback => ipcRenderer.on('show-kraken-calibration-button', () => callback()),
   onHideKrakenCalibrationButton: callback => ipcRenderer.on('hide-kraken-calibration-button', () => callback()),
   onDeviceCalibrationStatusUpdate: callback => ipcRenderer.on('device-calibration-status-update', (_, data) => callback(data)),
+  onCertificationStatusUpdate: callback => ipcRenderer.on('certification-status-update', (_, data) => callback(data)),
 
   // Back button events
   onDisableKrakenBackButton: callback => ipcRenderer.on('disable-kraken-back-button', () => callback()),

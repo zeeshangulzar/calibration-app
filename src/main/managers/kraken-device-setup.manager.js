@@ -3,6 +3,7 @@ import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import { parsePressureData, discoverWithTimeout } from '../utils/ble.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
+import * as Sentry from '@sentry/electron/main';
 /**
  * Kraken Device Setup Manager
  * Handles Kraken device initialization, setup, and BLE characteristic management
@@ -87,6 +88,7 @@ export class KrakenDeviceSetupManager {
       } catch (error) {
         lastError = error;
         console.warn(`Setup attempt ${attempt}/${maxRetries} failed for device ${deviceId}:`, error.message);
+        Sentry.captureException(error);
 
         if (attempt < maxRetries) {
           // Update status to show retry will happen
@@ -147,6 +149,7 @@ export class KrakenDeviceSetupManager {
       return true;
     } catch (error) {
       console.error(`Error setting up device ${deviceId}:`, error);
+      Sentry.captureException(error);
       this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', error.message);
       this.sendToRenderer('device-setup-failed', {
         deviceId,
@@ -210,6 +213,7 @@ export class KrakenDeviceSetupManager {
       }
     } catch (connectError) {
       console.error(`Failed to reconnect device ${deviceId}:`, connectError);
+      Sentry.captureException(connectError);
       throw new Error(`Failed to reconnect: ${connectError.message}`);
     }
   }
@@ -297,6 +301,34 @@ export class KrakenDeviceSetupManager {
         }
       }
 
+      // Get model number
+      const modelChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.MODEL_NUMBER_CHARACTERISTIC_UUID);
+
+      if (modelChar) {
+        const modelData = await this.safeReadKrakenCharacteristic(modelChar);
+        if (modelData && modelData.length > 0) {
+          const modelNumber = modelData.toString('utf8').trim();
+          if (modelNumber) {
+            device.modelNumber = modelNumber;
+            console.log(`Device ${deviceId}: Updated model number to ${modelNumber}`);
+          }
+        }
+      }
+
+      // Get serial number
+      const serialChar = characteristics.find(c => c.uuid === KRAKEN_CONSTANTS.SERIAL_NUMBER_CHARACTERISTIC_UUID);
+
+      if (serialChar) {
+        const serialData = await this.safeReadKrakenCharacteristic(serialChar);
+        if (serialData && serialData.length > 0) {
+          const serialNumber = serialData.toString('utf8').trim();
+          if (serialNumber) {
+            device.serialNumber = serialNumber;
+            console.log(`Device ${deviceId}: Updated serial number to ${serialNumber}`);
+          }
+        }
+      }
+
       // Update the device in global state with new details
       this.globalState.connectedDevices.set(deviceId, device);
 
@@ -305,9 +337,12 @@ export class KrakenDeviceSetupManager {
         deviceId,
         firmwareVersion: device.firmwareVersion,
         displayName: device.displayName,
+        modelNumber: device.modelNumber,
+        serialNumber: device.serialNumber,
       });
     } catch (error) {
       console.warn(`Device ${deviceId}: Error reading device details:`, error.message);
+      Sentry.captureException(error);
       // Don't throw - this is not critical for functionality
     }
   }
@@ -382,6 +417,7 @@ export class KrakenDeviceSetupManager {
       });
     } catch (error) {
       console.error(`Error parsing data from device ${deviceId}:`, error);
+      Sentry.captureException(error);
     }
   }
 
@@ -416,6 +452,7 @@ export class KrakenDeviceSetupManager {
       }
     } catch (error) {
       console.error(`Error in manual retry process for device ${deviceId}:`, error);
+      Sentry.captureException(error);
       this.globalState.updateDeviceStatus(deviceId, 'failed', 'error', error.message);
       this.sendToRenderer('device-manual-retry-failed', { deviceId, error: error.message });
       return { success: false, error: error.message };
@@ -481,6 +518,7 @@ export class KrakenDeviceSetupManager {
       } catch (error) {
         console.error(`Failed to re-setup device ${device.id}:`, error.message);
         console.log(`❌ Failed to re-setup ${device.name || device.id}: ${error.message}`);
+        Sentry.captureException(error);
 
         // Mark device as failed
         this.globalState.updateDeviceStatus(device.id, 'failed', 'error', error.message);

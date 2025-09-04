@@ -1,0 +1,126 @@
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <title>Kraken Calibration Certificate</title>
+    <link rel='stylesheet' href='./stylesheets/kraken-report.css' />
+  </head>
+  <body>
+    <div class='top-header'>
+      <div class='logo-and-address'>
+        {{#if logoUrl}}
+          <img src='{{logoUrl}}' alt='Logo' style='height: 70px; width: 70px; object-fit: contain' />
+        {{/if}}
+        <div class='company-details'>
+          {{companyAddress}}<br />{{companyArea}}<br />{{companyPhone}}<br />{{companyEmail}}
+        </div>
+      </div>
+      <div class='report-box'>
+        REPORT #:
+        <span class='report-number'>{{reportId}}</span>
+      </div>
+    </div>
+
+    <div class='header'>
+      <h1>Product Calibration Certificate and Test Data Sheet</h1>
+    </div>
+
+    <div class='info-boxes'>
+      <div class='info-box'>
+        <div class='product-serial-row'>
+          <div class='product-description'>
+            <span>{{productDescription}}</span>
+            <label>Product Description</label>
+          </div>
+          <div class='serial-number'>
+            <span>{{serialNumber}}</span>
+            <label>Serial Number</label>
+          </div>
+        </div>
+        <div class='product-serial-row'>
+          <div class='product-description'>
+            <span>{{modelNumber}}</span>
+            <label>Model Number</label>
+          </div>
+
+          {{!-- <div class='product-description'>
+            <span>{{gaugeName}}</span>
+            <label>Gauge</label>
+          </div> --}}
+        </div>
+        <div class='product-serial-row'>
+          <div class='product-description'>
+            <span>{{calDate}}</span>
+            <label>Cal Date</label>
+          </div>
+          <div class='serial-number'>
+            <span>{{calDueDate}}</span>
+            <label>Cal Due Date</label>
+          </div>
+        </div>
+        <div style='font-size: 11px; color: #666; margin-top: 8px; text-align: center; font-weight: bold'>
+          This certificate is valid only for one year.
+        </div>
+      </div>
+      <div class='info-box' style='display: flex; align-items: center'>
+        <p>
+          This document certifies that the device listed under Product Description is calibrated traceable through the recognized national measurement institutes (NIST) in compliance with ANSI/NCSL
+          Z540.1 and ISO/IEC17025:2005.
+        </p>
+      </div>
+    </div>
+
+    <table class='summary-table'>
+      <tr>
+        <th>Reference Standard</th>
+        <th>SMPT10 Accuracy</th>
+        <th>Condition</th>
+      </tr>
+      <tr>
+        <td>
+          Automated Pressure Calibrator: Fluke 2271A<br />
+          Serial #: 5191390
+        </td>
+        <td>
+          0 to
+          {{sweepValue}}
+          psi operating pressure range<br />
+          +/-
+          {{tolerance}}
+          PSI Read of Tested Pressure
+        </td>
+        <td>Calibrated Temp: {{calibratedTemp}} ℉</td>
+      </tr>
+    </table>
+
+    <h3 style='color: #000'>Calibration Data</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Reference Pressure (PSI)</th>
+          <th>Kraken Reading (PSI)</th>
+          <th>Discrepancy (PSI)</th>
+          <th style='background-color: #93C572'>Pass/Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each certificationData}}
+          <tr>
+            <td>{{target}}</td>
+            <td>{{reading}}</td>
+            <td>{{discrepancy}}</td>
+            <td style='color: {{resultColor}}'>{{result}}</td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class='footer' style='width: 70%; margin-left: auto;'>
+      <div style='border: 1px solid black; padding: 10px 15px;'>
+        <p style='display: flex; justify-content: space-between;'><strong>Inspected By:&nbsp;&nbsp;</strong> <span>{{testerName}}</span></p>
+
+        <hr />
+        <p style='display: flex; justify-content: space-between;'><strong>Date:&nbsp;&nbsp;</strong> <span>{{testDate}}</span></p>
+      </div>
+    </div>
+  </body>
+</html>

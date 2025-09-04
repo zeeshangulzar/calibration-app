@@ -34,5 +34,8 @@ export default defineConfig([
       'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/no-require-imports': 'off',
     },
+    '[handlebars]': {
+      'files.insertFinalNewline': true,
+    },
   },
 ]);
