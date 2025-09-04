@@ -511,6 +511,12 @@ window.electronAPI.onCertificationStatusUpdate(data => {
   updateDeviceCertificationStatus(deviceId, certificationResult);
 });
 
+// Listen for kraken name updates
+window.electronAPI.onKrakenNameUpdated(data => {
+  const { deviceId, newName } = data;
+  updateKrakenWidgetName(deviceId, newName);
+});
+
 window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
   updateKrakenCalibrationReferencePressure(pressure);
 });
@@ -1391,4 +1397,13 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
 
   // Update device widget status to show verification completed with certification result
   updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
+}
+
+// Update kraken widget name after successful BLE write
+function updateKrakenWidgetName(deviceId, newName) {
+  const deviceNameElement = document.getElementById(`device-name-${deviceId}`);
+  if (deviceNameElement) {
+    deviceNameElement.textContent = newName;
+    console.log(`Updated kraken widget name for device ${deviceId} to: ${newName}`);
+  }
 }

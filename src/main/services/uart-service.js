@@ -5,9 +5,11 @@ import {
   PROPIUSCOMMS_STANDARD_PACKET_LEN,
   STANDARD_PACKET_SERVER_ID_INDEX,
   SID_PRESSURE_SENSOR,
+  SID_MEMORY_MANAGER,
   CID_PRESSURE_CALIB_ZERO_OFFSET,
   CID_PRESSURE_CALIB_UPPER,
   CID_PRESSURE_CALIB_LOWER,
+  CID_SET_LOCAL_BLE_NAME,
   UART_TIMEOUT_MS,
 } from '../../config/constants/uart.constants.js';
 
@@ -24,7 +26,7 @@ class UARTService {
     this.retryDelay = 5000; // Default to 5 seconds delay between retries
   }
 
-  async executeCommand(device, command, minPressure = 0, maxPressure = 0) {
+  async executeCommand(device, command, minPressure = 0, maxPressure = 0, newName = '') {
     const deviceName = device.name || device.id;
     let lastError;
 
@@ -40,7 +42,7 @@ class UARTService {
           throw new Error('Device missing required UART characteristics');
         }
 
-        const commandData = this.createCommandData(command, minPressure, maxPressure);
+        const commandData = this.createCommandData(command, minPressure, maxPressure, newName);
         const rawData = this.createRawCommand(command, commandData);
         const result = await this.executeCommandWithTimeout(rxChar, txChar, rawData, command);
 
@@ -176,12 +178,14 @@ class UARTService {
    * @param {number} maxPressure - Maximum pressure
    * @returns {Object} Command data
    */
-  createCommandData(command, minPressure, maxPressure) {
+  createCommandData(command, minPressure, maxPressure, newName = '') {
     switch (command) {
       case 'psi.calibrate.upper':
         return { measuredPressure_PSIG: maxPressure };
       case 'psi.calibrate.lower':
         return { measuredPressure_PSIG: minPressure };
+      case 'ble.set.name':
+        return { newName: newName };
       default:
         return {};
     }
@@ -201,6 +205,8 @@ class UARTService {
         return this.createCalibUpperPressureWriteCommand(data);
       case 'psi.calibrate.lower':
         return this.createCalibLowerPressureWriteCommand(data);
+      case 'ble.set.name':
+        return this.createSetBleNameCommand(data);
       default:
         throw new Error(`Unknown command: ${command}`);
     }
@@ -437,6 +443,36 @@ class UARTService {
     };
 
     console.log('Response Lower Pressure:', retData);
+    return retData;
+  }
+
+  // Set BLE Name Command
+  createSetBleNameCommand(data) {
+    let index = 0;
+    const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
+    const newName = data.newName || '';
+
+    // --- COMMAND ID ---
+    retData[index] = (CID_SET_LOCAL_BLE_NAME >> 8) & 0xff; // Command ID high byte
+    index += 1;
+    retData[index] = (CID_SET_LOCAL_BLE_NAME >> 0) & 0xff; // Command ID low byte
+    index += 1;
+
+    // --- LENGTH ---
+    retData[index] = PROPIUSCOMMS_STANDARD_PACKET_LEN; // Length of the entire packet
+    index += 1;
+
+    // --- DATA (Name as UTF-8 bytes) ---
+    const nameBytes = Buffer.from(newName, 'utf8');
+    const maxNameLength = PROPIUSCOMMS_STANDARD_PACKET_LEN - 4; // Reserve space for command, length, and server ID
+
+    for (let i = 0; i < Math.min(nameBytes.length, maxNameLength); i++) {
+      retData[index + i] = nameBytes[i];
+    }
+
+    // --- SERVER ID ---
+    retData[STANDARD_PACKET_SERVER_ID_INDEX] = SID_MEMORY_MANAGER; // Server ID for BLE name
+
     return retData;
   }
 }

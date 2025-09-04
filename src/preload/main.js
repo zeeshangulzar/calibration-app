@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceManualDisconnectFailed: callback => ipcRenderer.on('device-manual-disconnect-failed', (_, data) => callback(data)),
   onUpdateCalibrationButtonState: callback => ipcRenderer.on('update-calibration-button-state', (_, data) => callback(data)),
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', () => callback()),
+  onKrakenNameUpdated: callback => ipcRenderer.on('kraken-name-updated', (_, data) => callback(data)),
 
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
