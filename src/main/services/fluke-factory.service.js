@@ -55,6 +55,7 @@ class FlukeFactoryService {
 
       return mockEnabled;
     } catch (error) {
+      Sentry.captureException(error);
       console.warn('🔧 Failed to read mock Fluke setting from database, defaulting to false:', error);
       return false;
     }
@@ -74,6 +75,7 @@ class FlukeFactoryService {
 
       return new FlukeManager(logFunction, processActiveFunction);
     } catch (error) {
+      Sentry.captureException(error);
       console.error('❌ Failed to create real Fluke service:', error);
       console.log('🔄 Falling back to Mock Fluke service');
 
