@@ -2,13 +2,10 @@
  * Utility functions for BLE operations
  */
 
+import * as Sentry from '@sentry/electron/main';
+
 export async function discoverWithTimeout(peripheral, timeoutMs = 20000) {
-  return Promise.race([
-    peripheral.discoverAllServicesAndCharacteristicsAsync(),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Discovery timed out')), timeoutMs)
-    ),
-  ]);
+  return Promise.race([peripheral.discoverAllServicesAndCharacteristicsAsync(), new Promise((_, reject) => setTimeout(() => reject(new Error('Discovery timed out')), timeoutMs))]);
 }
 
 export function parsePressureData(data) {
@@ -18,6 +15,10 @@ export function parsePressureData(data) {
 
     return Math.round(parseFloat(devicePressure)) / 10;
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { service: 'ble-utils', method: 'parsePressureData' },
+      extra: { devicePressure },
+    });
     console.error('Failed to parse pressure data:', error);
     return 0.0;
   }

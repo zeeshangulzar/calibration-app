@@ -16,7 +16,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables first
-dotenv.config();
+const envPath = path.resolve(__dirname, '../../.env');
+dotenv.config({ path: envPath });
 
 // Initialize Sentry for crash tracking only
 if (isSentryConfigured()) {

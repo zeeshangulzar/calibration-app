@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { getFlukeSettings, saveFlukeSettings, addCommandToHistory, getCommandHistory, clearCommandHistory } from '../db/index.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Validate IP address format
@@ -32,6 +33,9 @@ function registerFlukeSettingsHandlers() {
       const settings = getFlukeSettings();
       return { success: true, data: settings };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'db-ipc', method: 'getFlukeSettings' },
+      });
       console.error('Failed to get Fluke settings:', error);
       return { success: false, error: error.message };
     }
@@ -48,6 +52,9 @@ function registerFlukeSettingsHandlers() {
       const result = saveFlukeSettings(ip, port);
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'db-ipc', method: 'saveFlukeSettings' },
+      });
       console.error('Failed to save Fluke settings:', error);
       return { success: false, error: error.message };
     }
@@ -66,6 +73,9 @@ function registerCommandHistoryHandlers() {
       const result = addCommandToHistory(type, content, relatedCommand);
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'db-ipc', method: 'addCommandToHistory' },
+      });
       console.error('Failed to add command to history:', error);
       return { success: false, error: error.message };
     }
@@ -82,6 +92,9 @@ function registerCommandHistoryHandlers() {
       const history = getCommandHistory(validationResult.limit);
       return { success: true, data: history };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'db-ipc', method: 'getCommandHistory' },
+      });
       console.error('Failed to get command history:', error);
       return { success: false, error: error.message };
     }
@@ -93,6 +106,9 @@ function registerCommandHistoryHandlers() {
       const result = clearCommandHistory();
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'db-ipc', method: 'clearCommandHistory' },
+      });
       console.error('Failed to clear command history:', error);
       return { success: false, error: error.message };
     }

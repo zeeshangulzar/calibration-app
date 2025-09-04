@@ -97,6 +97,10 @@ export class KrakenCalibrationManager {
           await addDelay(1000);
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-manager', method: 'executeCommandForDevice' },
+          extra: { commandType, deviceId: device.id, deviceName: device.name },
+        });
         console.error(`${commandType} command failed for device ${device.name || device.id}:`, error.message);
         this.showLogOnScreen(`❌ ${commandType} command failed for ${device.name || device.id}: ${error.message}`);
 
@@ -197,6 +201,10 @@ export class KrakenCalibrationManager {
       await UART_service(device, 'psi.calibrate.zero');
       return true;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-manager', method: 'executeZeroCommand' },
+        extra: { deviceName },
+      });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
         this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during zero command - removing from calibration`);
@@ -224,6 +232,10 @@ export class KrakenCalibrationManager {
       await UART_service(device, 'psi.calibrate.lower', 0);
       return true;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-manager', method: 'executeLowCommand' },
+        extra: { deviceName },
+      });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
         this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during low command - removing from calibration`);
@@ -251,6 +263,10 @@ export class KrakenCalibrationManager {
       await UART_service(device, 'psi.calibrate.upper', undefined, this.sweepValue * 1000);
       return true;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-manager', method: 'executeHighCommand' },
+        extra: { deviceName },
+      });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
         this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during high command - removing from calibration`);
@@ -309,6 +325,10 @@ export class KrakenCalibrationManager {
 
       console.log(`Device ${deviceName} removed from calibration due to disconnection`);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-manager', method: 'removeDisconnectedDeviceFromCalibration' },
+        extra: { deviceName },
+      });
       console.error(`Error removing disconnected device ${deviceName}:`, error);
       this.showLogOnScreen(`⚠️ Error removing ${deviceName}: ${error.message}`);
     }
@@ -357,6 +377,10 @@ export class KrakenCalibrationManager {
 
         console.log(`Device ${deviceName} removed from calibration due to failed ${commandType}`);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-manager', method: 'removeFailedDeviceFromCalibration' },
+          extra: { deviceName, commandType },
+        });
         console.error(`Error removing device ${deviceName}:`, error);
         this.showLogOnScreen(`⚠️ Error removing ${deviceName}: ${error.message}`);
       }
@@ -427,6 +451,9 @@ export class KrakenCalibrationManager {
         message: isUserRequestedStop ? 'Calibration stopped' : `Calibration failed: ${reason}`,
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-manager', method: 'stopCalibration' },
+      });
       console.error('Error stopping calibration:', error);
       // Even if cleanup fails, ensure UI is restored
       this.sendToRenderer('enable-kraken-calibration-button'); // Ensure re-enabled even on error

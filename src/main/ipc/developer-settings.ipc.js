@@ -12,6 +12,7 @@ export function registerDeveloperSettingsIpcHandlers() {
   ipcMain.handle('developer-settings-validate-password', async (event, password) => {
     try {
       // Get developer password from environment variable, fallback to default
+
       const correctPassword = process.env.DEVELOPER_PASSWORD || 'dev123';
       return password === correctPassword;
     } catch (error) {

@@ -30,6 +30,9 @@ export class FlukeManager {
       this.showLogOnScreen(response.message);
       return response;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'connect' },
+      });
       const errorMessage = error.error || error.message || 'Unknown connection error';
       log = `❌ Failed to connect to Fluke: ${errorMessage}`;
       this.showLogOnScreen(log);
@@ -168,6 +171,9 @@ export class FlukeManager {
         await this.waitForFlukeToReachZeroPressure();
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ensureZeroPressure' },
+      });
       const errorMessage = error.error || error.message || 'Unknown error';
       this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
       throw new Error(`Zero pressure setup failed: ${errorMessage}`);
@@ -240,6 +246,9 @@ export class FlukeManager {
 
       return response && response.length > 0;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'isFlukeResponsive' },
+      });
       console.warn('Fluke responsiveness check failed:', error.message);
       return false;
     }

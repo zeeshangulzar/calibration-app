@@ -14,6 +14,7 @@ import {
 } from '../../config/constants/uart.constants.js';
 
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
+import * as Sentry from '@sentry/electron/main';
 /**
  * UART Service for Kraken device communication
  * Uses device characteristics from global state (no re-discovery needed)
@@ -52,6 +53,10 @@ class UARTService {
         return { success: true, data: result, attempts: attempt };
       } catch (error) {
         lastError = error;
+        Sentry.captureException(error, {
+          tags: { service: 'uart-service', method: 'executeCommand' },
+          extra: { command, deviceName, attempt },
+        });
 
         // Device disconnection errors should not be retried
         if (this.isDeviceDisconnectionError(error)) {
@@ -246,6 +251,10 @@ class UARTService {
             const result = this.processResponse(command, data);
             finish(true, result);
           } catch (error) {
+            Sentry.captureException(error, {
+              tags: { service: 'uart-service', method: 'executeCommandWithTimeout' },
+              extra: { command },
+            });
             finish(false, error);
           }
         });

@@ -1,6 +1,7 @@
 import { getTelnetClient } from '../services/telnet-client.service.js';
 import { COMMAND_HELPERS } from '../constants/fluke-commands.js';
 import { addCommandToHistory } from '../db/index.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Controller for managing application settings
@@ -87,6 +88,9 @@ class SettingsController {
       this.sendToRenderer('fluke-test-result', result);
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-controller', method: 'testFlukeConnection' },
+      });
       console.error('Error testing Fluke connection:', error);
       const result = { success: false, error: error.message };
       this.sendToRenderer('fluke-test-result', result);
@@ -102,6 +106,9 @@ class SettingsController {
     try {
       return await this.telnetClient.connect();
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-controller', method: 'connectToFluke' },
+      });
       console.error('Error connecting to Fluke:', error);
       return { success: false, error: error.message };
     }
@@ -141,6 +148,10 @@ class SettingsController {
         };
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-controller', method: 'sendFlukeCommand' },
+        extra: { command },
+      });
       console.error('Error sending Fluke command:', error);
       return {
         success: false,
@@ -183,8 +194,7 @@ class SettingsController {
    * @returns {boolean} True if valid
    */
   isValidIP(ip) {
-    const ipRegex =
-      /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipRegex.test(ip);
   }
 
@@ -230,6 +240,9 @@ class SettingsController {
 
       return { success: true };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-controller', method: 'initialize' },
+      });
       console.error('Error initializing settings controller:', error);
       return { success: false, error: error.message };
     }

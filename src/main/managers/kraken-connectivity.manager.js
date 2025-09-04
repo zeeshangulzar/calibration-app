@@ -1,4 +1,5 @@
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Kraken Connectivity Manager
@@ -161,6 +162,10 @@ export class KrakenConnectivityManager {
         throw new Error('Failed to setup device after reconnection');
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connectivity', method: 'reconnectDevice' },
+        extra: { deviceId },
+      });
       console.error(`Failed to reconnect device ${deviceId}:`, error);
       this.globalState.updateDeviceStatus(deviceId, 'disconnected', 'offline', error.message);
       this.sendToRenderer('device-reconnection-failed', {
@@ -254,6 +259,10 @@ export class KrakenConnectivityManager {
             });
           });
         } catch (disconnectError) {
+          Sentry.captureException(disconnectError, {
+            tags: { service: 'kraken-connectivity', method: 'disconnectDeviceBeforeRemoval' },
+            extra: { deviceId },
+          });
           console.warn(`Failed to disconnect device ${deviceId}:`, disconnectError.message);
           // Continue with removal even if disconnect fails
         }
@@ -264,6 +273,10 @@ export class KrakenConnectivityManager {
       // Complete the removal process
       return this.completeDeviceRemoval(deviceId, isDeviceDiscoverable ? 'Device manually disconnected and removed' : 'Device removed from list (device was turned off)');
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connectivity', method: 'manuallyDisconnectDevice' },
+        extra: { deviceId },
+      });
       console.error(`Error manually disconnecting device ${deviceId}:`, error);
       this.sendToRenderer('device-manual-disconnect-failed', {
         deviceId,
@@ -305,6 +318,10 @@ export class KrakenConnectivityManager {
       console.log(`Device ${deviceId}: ${statusMessage}`);
       return { success: true };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connectivity', method: 'completeDeviceRemoval' },
+        extra: { deviceId },
+      });
       console.error(`Error completing removal for device ${deviceId}:`, error);
       return { success: true }; // Return success anyway to clear UI
     }
