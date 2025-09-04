@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceManualDisconnectFailed: callback => ipcRenderer.on('device-manual-disconnect-failed', (_, data) => callback(data)),
   onUpdateCalibrationButtonState: callback => ipcRenderer.on('update-calibration-button-state', (_, data) => callback(data)),
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', () => callback()),
+  onKrakenNameUpdated: callback => ipcRenderer.on('kraken-name-updated', (_, data) => callback(data)),
 
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
@@ -122,12 +123,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Fluke settings (backward compatibility)
   getFlukeSettings: () => ipcRenderer.invoke('settings-get-fluke-settings'),
-  saveFlukeSettings: (ip, port) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port),
+  saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port, mockFlukeEnabled),
 
   // Database operations (new API)
   db: {
     getFlukeSettings: () => ipcRenderer.invoke('db:get-fluke-settings'),
-    saveFlukeSettings: (ip, port) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port }),
+    saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port, mockFlukeEnabled }),
     addCommandToHistory: (type, content, relatedCommand) => ipcRenderer.invoke('db:add-command-to-history', { type, content, relatedCommand }),
     getCommandHistory: limit => ipcRenderer.invoke('db:get-command-history', { limit }),
     clearCommandHistory: () => ipcRenderer.invoke('db:clear-command-history'),
@@ -187,4 +188,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Notifications
   onShowNotification: callback => ipcRenderer.on('show-notification', (_, data) => callback(data)),
+
+  //======== Developer Settings APIs ========
+  validateDeveloperPassword: password => ipcRenderer.invoke('developer-settings-validate-password', password),
+  getDeveloperSettings: () => ipcRenderer.invoke('developer-settings-get'),
+  saveDeveloperSettings: settings => ipcRenderer.invoke('developer-settings-save', settings),
+  developerSettingsGoBack: () => ipcRenderer.send('developer-settings-go-back'),
 });

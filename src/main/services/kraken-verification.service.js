@@ -2,6 +2,7 @@ import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { KrakenPDFService } from './kraken-pdf.service.js';
+import { uartService } from './uart-service.js';
 
 import * as Sentry from '@sentry/electron/main';
 
@@ -229,6 +230,11 @@ class KrakenVerificationService {
               pdfGeneratedCount++;
             }
 
+            // Update kraken name after successful verification (only if certification passed)
+            if (certificationResult.certified) {
+              await this.updateKrakenName(device);
+            }
+
             processedCount++;
             this.showLogOnScreen(`✅ Processed certification for ${device.displayName || device.id}`);
           } else {
@@ -341,6 +347,50 @@ class KrakenVerificationService {
       Sentry.captureException(error);
       console.error(`Error generating PDF for device ${device.id}:`, error);
       this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF for ${device.displayName || device.id}: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Update kraken device name after successful verification
+   * @param {Object} device - Device object
+   * @returns {Promise<Object>} Result object with success status
+   */
+  async updateKrakenName(device) {
+    try {
+      if (!device.serialNumber) {
+        this.showLogOnScreen(`⚠️ Cannot update name for ${device.displayName || device.id}: No serial number`);
+        return { success: false, error: 'No serial number available' };
+      }
+
+      // Generate new name: "SM Gauge *Last 5 of serial number*"
+      const lastFiveDigits = device.serialNumber.slice(-5);
+      const newName = `SM Gauge ${lastFiveDigits}`;
+
+      this.showLogOnScreen(`📝 Updating kraken name to: ${newName}`);
+
+      // Execute BLE name update command
+      const result = await uartService.executeCommand(device, 'ble.set.name', 0, 0, newName);
+
+      if (result.success) {
+        // Update device display name in global state
+        device.displayName = newName;
+        this.globalState.connectedDevices.set(device.id, device);
+
+        // Send update to renderer
+        this.sendToRenderer('kraken-name-updated', {
+          deviceId: device.id,
+          newName: newName,
+        });
+
+        this.showLogOnScreen(`✅ Successfully updated kraken name to: ${newName}`);
+        return { success: true, newName: newName };
+      } else {
+        throw new Error('UART command failed');
+      }
+    } catch (error) {
+      Sentry.captureException(error);
+      this.showLogOnScreen(`❌ Failed to update kraken name: ${error.message}`);
       return { success: false, error: error.message };
     }
   }

@@ -16,11 +16,11 @@
             <h1 class="text-xl">Sensor Dashboard</h1>
           </div>
           <div class="flex items-center space-x-4">
-            <button
-              id="settingsBtn"
-              class="px-4 py-2 border border-neutral-300 rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-100"
-            >
+            <button id="settingsBtn" class="px-4 py-2 border border-neutral-300 rounded-lg flex items-center transition-colors duration-200 hover:bg-neutral-100">
               <i class="fa-solid fa-gear mr-2"></i> Settings
+            </button>
+            <button id="developerSettingsBtn" class="px-4 py-2 border border-gray-400 rounded-lg flex items-center transition-colors duration-200 hover:bg-gray-100 text-gray-700">
+              <i class="fa-solid fa-code mr-2"></i> Dev
             </button>
             <p id="app-version" class="mt-4 text-neutral-600 mb-4"></p>
           </div>
@@ -34,17 +34,12 @@
             <h2 class="text-2xl mb-6 mt-6">Select Calibration Type</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div
-                id="smart-monster-card"
-                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
-              >
+              <div id="smart-monster-card" class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer">
                 <div class="flex items-center mb-4">
                   <i class="fa-solid fa-brain text-3xl text-neutral-700 mr-3"></i>
                   <h3 class="text-xl">Smart Monster</h3>
                 </div>
-                <p class="text-neutral-600 mb-4">
-                  Automated intelligent calibration system with advanced algorithms
-                </p>
+                <p class="text-neutral-600 mb-4">Automated intelligent calibration system with advanced algorithms</p>
               </div>
             </div>
           </div>

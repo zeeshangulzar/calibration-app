@@ -3,13 +3,7 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { SettingsController } from '../controllers/settings.controller.js';
 import { registerDatabaseIpcHandlers } from './db-ipc.js';
-import {
-  getFlukeSettings,
-  saveFlukeSettings,
-  getCommandHistory,
-  clearCommandHistory,
-} from '../db/index.js';
-
+import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory } from '../db/index.js';
 let settingsController = null;
 
 /**

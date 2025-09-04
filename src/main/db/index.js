@@ -62,8 +62,7 @@ function runMigrations() {
   ).run();
 
   // Get current schema version
-  const currentVersion =
-    db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
+  const currentVersion = db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
 
   // Define migrations
   const migrations = [
@@ -89,6 +88,12 @@ function runMigrations() {
           related_command TEXT,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+      `,
+    },
+    {
+      version: 3,
+      sql: `
+        ALTER TABLE app_settings ADD COLUMN mock_fluke_enabled INTEGER DEFAULT 0
       `,
     },
   ];
@@ -134,13 +139,11 @@ export function closeDatabase() {
 export function getFlukeSettings() {
   const db = getDatabase();
   try {
-    const settings = db
-      .prepare('SELECT fluke_ip, fluke_port FROM app_settings ORDER BY id DESC LIMIT 1')
-      .get();
-    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+    const settings = db.prepare('SELECT fluke_ip, fluke_port, mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
+    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
   } catch (error) {
     console.error('Failed to get fluke settings:', error);
-    return { fluke_ip: '10.10.69.27', fluke_port: '3490' };
+    return { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
   }
 }
 
@@ -151,9 +154,7 @@ export function saveFlukeSettings(ip, port) {
   const db = getDatabase();
   try {
     const transaction = db.transaction(() => {
-      const existingSettings = db
-        .prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1')
-        .get();
+      const existingSettings = db.prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1').get();
 
       if (existingSettings) {
         // Update existing settings
@@ -248,6 +249,55 @@ export function clearCommandHistory() {
     return { success: true, message: 'Command history cleared' };
   } catch (error) {
     console.error('Failed to clear command history:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Developer Settings Functions
+export function getDeveloperSettings() {
+  const db = getDatabase();
+  try {
+    const settings = db.prepare('SELECT mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
+
+    return {
+      mockFlukeEnabled: settings?.mock_fluke_enabled === 1 || false,
+    };
+  } catch (error) {
+    console.error('Failed to get developer settings:', error);
+    return {
+      mockFlukeEnabled: false,
+    };
+  }
+}
+
+export function saveDeveloperSettings(settings) {
+  const db = getDatabase();
+  try {
+    const transaction = db.transaction(() => {
+      const existingSettings = db.prepare('SELECT id FROM app_settings ORDER BY id DESC LIMIT 1').get();
+
+      if (existingSettings) {
+        db.prepare(
+          `
+          UPDATE app_settings
+          SET mock_fluke_enabled = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+        ).run(settings.mockFlukeEnabled ? 1 : 0, existingSettings.id);
+      } else {
+        db.prepare(
+          `
+          INSERT INTO app_settings (mock_fluke_enabled)
+          VALUES (?)
+        `
+        ).run(settings.mockFlukeEnabled ? 1 : 0);
+      }
+    });
+    transaction();
+    console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled}`);
+    return { success: true, message: 'Developer settings saved successfully' };
+  } catch (error) {
+    console.error('Failed to save developer settings:', error);
     return { success: false, error: error.message };
   }
 }

@@ -526,6 +526,12 @@ window.electronAPI.onCertificationStatusUpdate(data => {
   updateDeviceCertificationStatus(deviceId, certificationResult);
 });
 
+// Listen for kraken name updates
+window.electronAPI.onKrakenNameUpdated(data => {
+  const { deviceId, newName } = data;
+  updateKrakenWidgetName(deviceId, newName);
+});
+
 window.electronAPI.onUpdateKrakenCalibrationReferencePressure(pressure => {
   updateKrakenCalibrationReferencePressure(pressure);
 });
@@ -597,7 +603,7 @@ function createDeviceWidget(device) {
   widget.innerHTML = `
     <!-- Header with disconnect button -->
     <div class="flex justify-between items-start mb-2">
-      <h4 class="font-medium device-name">Sensor ${device.displayName}</h4>
+      <h4 class="font-medium device-name" id="device-name-${device.id}">Sensor ${device.displayName}</h4>
       <button 
         onclick="disconnectDevice('${device.id}')"
         class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors duration-200"
@@ -1406,4 +1412,13 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
 
   // Update device widget status to show verification completed with certification result
   updateDeviceWidget(deviceId, 'verification-completed', 'Calibrated and verified!');
+}
+
+// Update kraken widget name after successful BLE write
+function updateKrakenWidgetName(deviceId, newName) {
+  const deviceNameElement = document.getElementById(`device-name-${deviceId}`);
+  if (deviceNameElement) {
+    deviceNameElement.textContent = newName;
+    console.log(`Updated kraken widget name for device ${deviceId} to: ${newName}`);
+  }
 }

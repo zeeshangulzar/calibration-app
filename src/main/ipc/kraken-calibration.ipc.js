@@ -209,6 +209,14 @@ function registerStatusHandlers() {
     }
     return krakenCalibrationController.getStatus();
   });
+
+  // Kraken name update event
+  ipcMain.on('kraken-name-updated', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-name-updated', data);
+    }
+  });
 }
 
 function registerCleanupHandlers() {
