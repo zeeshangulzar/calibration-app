@@ -588,7 +588,7 @@ function createDeviceWidget(device) {
   widget.innerHTML = `
     <!-- Header with disconnect button -->
     <div class="flex justify-between items-start mb-2">
-      <h4 class="font-medium device-name">Sensor ${device.displayName}</h4>
+      <h4 class="font-medium device-name" id="device-name-${device.id}">Sensor ${device.displayName}</h4>
       <button 
         onclick="disconnectDevice('${device.id}')"
         class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors duration-200"
