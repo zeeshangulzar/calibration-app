@@ -4,6 +4,8 @@ import { getMainWindow } from "../windows/main.js";
 import { registerKrakenListIpcHandlers } from "./kraken-list.ipc.js";
 import { registerKrakenCalibrationIpcHandlers, cleanupKrakenCalibration } from "./kraken-calibration.ipc.js";
 import { registerSettingsIpcHandlers } from "./settings.ipc.js";
+import { registerAssemblySensorIpcHandlers } from "./assembly-sensor.ipc.js";
+import { registerMigrationIpcHandlers } from "./migration.ipc.js";
 
 /**
  * Register all IPC handlers for the application
@@ -16,6 +18,8 @@ export function registerIpcHandlers() {
   registerKrakenListIpcHandlers();
   registerKrakenCalibrationIpcHandlers();
   registerSettingsIpcHandlers();
+  registerAssemblySensorIpcHandlers();
+  registerMigrationIpcHandlers();
 }
 
 function registerCoreIpcHandlers() {

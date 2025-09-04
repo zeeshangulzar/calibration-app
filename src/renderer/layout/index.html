@@ -26,6 +26,11 @@
           </div>
         </div>
       </header>
+      <!-- Migration Status Banner -->
+      <div id="migration-status" class="bg-blue-50 border-b border-blue-200 py-2 px-4 text-center text-sm text-blue-800 hidden">
+        <i class="fa-solid fa-database mr-2"></i>
+        <span id="migration-status-text"></span>
+      </div>
 
       <main id="main-content" class="pt-16 container mx-auto px-4">
         <div class="py-6">
@@ -33,7 +38,7 @@
           <div id="calibration-selection" class="mb-8">
             <h2 class="text-2xl mb-6 mt-6">Select Calibration Type</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div
                 id="smart-monster-card"
                 class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
@@ -44,6 +49,19 @@
                 </div>
                 <p class="text-neutral-600 mb-4">
                   Automated intelligent calibration system with advanced algorithms
+                </p>
+              </div>
+              
+              <div
+                id="assembly-sensor-card"
+                class="calibration-card bg-white p-6 rounded-lg border border-neutral-200 hover:border-neutral-400 cursor-pointer"
+              >
+                <div class="flex items-center mb-4">
+                  <i class="fa-solid fa-puzzle-piece text-3xl text-neutral-700 mr-3"></i>
+                  <h3 class="text-xl">Assembly Sensor</h3>
+                </div>
+                <p class="text-neutral-600 mb-4">
+                  Assemble and manage sensor components with QR code scanning
                 </p>
               </div>
             </div>
