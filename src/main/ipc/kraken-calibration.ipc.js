@@ -1,9 +1,11 @@
-import { ipcMain } from 'electron';
+import { ipcMain, shell, app } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { getMainWindow } from '../windows/main.js';
 import { KrakenCalibrationController } from '../controllers/kraken-calibration.controller.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
+import * as Sentry from '@sentry/electron/main';
 
 let krakenCalibrationController = null;
 
@@ -85,15 +87,112 @@ function registerCalibrationHandlers() {
     return await krakenCalibrationController.stopCalibration('Calibration stopped', '', true);
   });
 
-  ipcMain.handle('kraken-verification-start', async () => {
+  ipcMain.handle('kraken-calibration-start-verification', async () => {
     const error = checkControllerInitialized();
 
     if (error) return error;
-    // For now, return a placeholder - verification logic can be implemented later
-    return {
-      success: false,
-      error: 'Verification functionality not yet implemented. This will be added in future updates.',
-    };
+    return await krakenCalibrationController.startVerification();
+  });
+
+  ipcMain.handle('kraken-calibration-stop-verification', async () => {
+    try {
+      if (!krakenCalibrationController) {
+        return { success: false, error: 'No calibration session active' };
+      }
+      await krakenCalibrationController.stopVerification();
+      return { success: true };
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error stopping verification:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // PDF view handler
+  ipcMain.handle('kraken-calibration-view-pdf', async (event, deviceId) => {
+    console.log('=== PDF VIEW IPC HANDLER CALLED ===');
+    console.log('Device ID:', deviceId);
+    console.log('Controller available:', !!krakenCalibrationController);
+
+    try {
+      if (!krakenCalibrationController) {
+        console.log('No calibration session active');
+        return { success: false, error: 'No calibration session active' };
+      }
+
+      // Get PDF path from global state
+      const pdfPath = krakenCalibrationController.globalState.getDevicePDFPath(deviceId);
+      console.log('PDF path from global state:', pdfPath);
+
+      if (!pdfPath) {
+        console.log('PDF not found for this device');
+        return { success: false, error: 'PDF not found for this device' };
+      }
+
+      // Check if file exists
+      const fileExists = fs.existsSync(pdfPath);
+      console.log('File exists:', fileExists);
+
+      if (!fileExists) {
+        console.log('PDF file does not exist at the specified path');
+        return { success: false, error: 'PDF file does not exist at the specified path' };
+      }
+
+      // Open the PDF directly from its original location (following old app pattern)
+      console.log('Opening PDF at path:', pdfPath);
+
+      // Use the same pattern as the old app - don't await, just handle the promise
+      shell.openPath(pdfPath).catch(err => {
+        console.error('Failed to open PDF:', err);
+      });
+
+      console.log('PDF open command sent successfully');
+      return { success: true, filePath: pdfPath };
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error opening PDF:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Real-time verification updates
+  ipcMain.on('kraken-verification-realtime-update', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-verification-realtime-update', data);
+    }
+  });
+
+  ipcMain.on('update-kraken-calibration-reference-pressure', (event, pressure) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('update-kraken-calibration-reference-pressure', pressure);
+    }
+  });
+
+  ipcMain.on('update-kraken-pressure', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('update-kraken-pressure', data);
+    }
+  });
+
+  ipcMain.handle('kraken-verification-start', async (event, testerName) => {
+    const error = checkControllerInitialized();
+
+    if (error) return error;
+
+    try {
+      await krakenCalibrationController.startVerification();
+      return { success: true };
+    } catch (error) {
+      console.error('Error starting verification:', error);
+      Sentry.captureException(error);
+      return {
+        success: false,
+        error: error.message || 'Failed to start verification process',
+      };
+    }
   });
 }
 
@@ -110,11 +209,19 @@ function registerStatusHandlers() {
     }
     return krakenCalibrationController.getStatus();
   });
+
+  // Kraken name update event
+  ipcMain.on('kraken-name-updated', (event, data) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('kraken-name-updated', data);
+    }
+  });
 }
 
 function registerCleanupHandlers() {
   // Navigation back to sensor list (with background cleanup like old app)
-  ipcMain.on('kraken-calibration-go-back', async () => {
+  ipcMain.handle('kraken-calibration-go-back', async () => {
     console.log('Back button clicked - starting background cleanup...');
 
     const mainWindow = getMainWindow();
@@ -154,6 +261,7 @@ function registerCleanupHandlers() {
         }
       } catch (error) {
         console.error('Error during background cleanup:', error);
+        Sentry.captureException(error);
 
         // Even if kraken cleanup fails, re-enable the button after a delay
         if (mainWindow) {
@@ -168,6 +276,8 @@ function registerCleanupHandlers() {
         mainWindow.webContents.send('kraken-cleanup-completed');
       }
     }
+
+    return { success: true };
   });
 
   // Cleanup handler
@@ -190,6 +300,7 @@ export async function cleanupKrakenCalibration() {
       krakenCalibrationController = null;
       console.log('Kraken calibration cleanup completed');
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error during Kraken calibration cleanup on app quit:', error);
     }
   }

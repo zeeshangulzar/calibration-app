@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import * as Sentry from '@sentry/electron/main';
 
 class KrakenConnectionService extends EventEmitter {
   constructor() {
@@ -49,6 +50,11 @@ class KrakenConnectionService extends EventEmitter {
 
       return connectedDevice;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connection', method: 'connectToDevice' },
+        extra: { deviceId: id },
+      });
+
       // Use the new error handling method
       await this.handleConnectionError(id, error, peripheral);
 
@@ -110,6 +116,10 @@ class KrakenConnectionService extends EventEmitter {
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error;
+          Sentry.captureException(error, {
+            tags: { service: 'kraken-connection', method: 'connectToMultipleDevices' },
+            extra: { deviceId, attempt: retry + 1 },
+          });
           console.warn(`Connection attempt ${retry + 1}/${KRAKEN_CONSTANTS.MAX_RETRIES_PER_KRAKEN} failed for device ${deviceId}:`, error.message);
 
           // Clean up any partial connection state
@@ -118,6 +128,10 @@ class KrakenConnectionService extends EventEmitter {
               await this.disconnectPeripheral(deviceInfo.peripheral);
               await this.delay(500); // Brief delay after cleanup
             } catch (cleanupError) {
+              Sentry.captureException(cleanupError, {
+                tags: { service: 'kraken-connection', method: 'cleanupAfterFailedConnection' },
+                extra: { deviceId },
+              });
               console.warn(`Cleanup error for ${deviceId}:`, cleanupError.message);
             }
           }
@@ -178,6 +192,10 @@ class KrakenConnectionService extends EventEmitter {
       this.connectedDevices.delete(deviceId);
       this.emit('deviceDisconnected', { deviceId });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connection', method: 'disconnectDevice' },
+        extra: { deviceId },
+      });
       console.error(`Error disconnecting device ${deviceId}:`, error);
       this.emit('disconnectionError', { deviceId, error: error.message });
     }
@@ -225,6 +243,10 @@ class KrakenConnectionService extends EventEmitter {
       // Skip pressure characteristics to avoid buffer issues
       // These will be handled during calibration setup if needed
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-connection', method: 'gatherDeviceDetails' },
+        extra: { deviceId: deviceInfo.id },
+      });
       console.warn('Error gathering device details:', error);
     }
 
@@ -385,6 +407,10 @@ class KrakenConnectionService extends EventEmitter {
 
       console.log(`Connection service: Error handling completed for device ${deviceId}`);
     } catch (cleanupError) {
+      Sentry.captureException(cleanupError, {
+        tags: { service: 'kraken-connection', method: 'handleDeviceError' },
+        extra: { deviceId },
+      });
       console.warn(`Connection service: Error during error handling for device ${deviceId}:`, cleanupError.message);
     }
   }

@@ -73,12 +73,12 @@
           </div>
         </div>
 
-        <div class="py-6">
+        <div class="pt-6">
           <!-- Connected Devices Section -->
           <div id="connected-devices-section">
             <div class="mb-6">
               <h2 class="text-xl font-semibold mb-2">Connected Krakens</h2>
-              <p class="text-neutral-600">Setting up services and characteristics for each connected sensor</p>
+              <!-- <p class="text-neutral-600">Setting up services and characteristics for each connected sensor</p> -->
               <span id="connection-status" class="text-sm text-neutral-600"></span>
             </div>
 
@@ -88,10 +88,10 @@
             </div>
 
             <div class="items-center">
-              <h2 class="text-xl">Calibration Settings</h2>
-              <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl mt-4">Calibration Settings</h2>
+              <div class="flex items-center justify-between mb-2">
                 <!-- Dropdowns Row -->
-                <div class="flex gap-10 py-6">
+                <div class="flex gap-10 py-2">
                   <!-- Sweep Value Display -->
                   <!-- Tester Name Dropdown -->
                   <div>
@@ -114,6 +114,9 @@
                 </button>
                 <button id="start-verification-btn" class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-check-circle mr-2"></i>Start Verification
+                </button>
+                <button id="stop-verification-button" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
+                  <i class="fa-solid fa-stop mr-2"></i>Stop Verification
                 </button>
                 <button id="stop-calibration-button" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
                   <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
@@ -165,6 +168,19 @@
               <!-- Tab Panels -->
               <div id="panel-verification" class="tab-panel"></div>
             </section>
+          </div>
+        </div>
+
+        <div id="verification-results-container" class="hidden mt-0">
+          <h2 class="text-xl font-semibold mb-2">Verification Sweep Results</h2>
+
+          <div class="flex flex-row">
+            <!-- <button id="remove-verification-button" class="self-end py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+              <i class="fa-solid fa-trash mr-2"></i>Clear Results
+            </button> -->
+          </div>
+          <div class="flex justify-between items-center mb-4">
+            <div id="results-table-wrapper" class="overflow-x-auto flex-1"></div>
           </div>
         </div>
       </main>

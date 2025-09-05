@@ -81,8 +81,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   krakenCalibrationStop: () => ipcRenderer.invoke('kraken-calibration-stop'),
   krakenVerificationStart: testerName => ipcRenderer.invoke('kraken-verification-start', testerName),
   krakenCalibrationGetStatus: () => ipcRenderer.invoke('kraken-calibration-get-status'),
-  krakenCalibrationGoBack: () => ipcRenderer.send('kraken-calibration-go-back'),
+  krakenCalibrationGoBack: () => ipcRenderer.invoke('kraken-calibration-go-back'),
   krakenCalibrationCleanup: () => ipcRenderer.send('kraken-calibration-cleanup'),
+  krakenCalibrationStartVerification: () => ipcRenderer.invoke('kraken-calibration-start-verification'),
+  krakenCalibrationStopVerification: () => ipcRenderer.invoke('kraken-calibration-stop-verification'),
+  krakenCalibrationViewPDF: deviceId => ipcRenderer.invoke('kraken-calibration-view-pdf', deviceId),
 
   // Kraken calibration event listeners
   onShowPageLoader: callback => ipcRenderer.on('show-page-loader', () => callback()),
@@ -112,6 +115,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceManualDisconnectFailed: callback => ipcRenderer.on('device-manual-disconnect-failed', (_, data) => callback(data)),
   onUpdateCalibrationButtonState: callback => ipcRenderer.on('update-calibration-button-state', (_, data) => callback(data)),
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', () => callback()),
+  onKrakenNameUpdated: callback => ipcRenderer.on('kraken-name-updated', (_, data) => callback(data)),
 
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
@@ -119,12 +123,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Fluke settings (backward compatibility)
   getFlukeSettings: () => ipcRenderer.invoke('settings-get-fluke-settings'),
-  saveFlukeSettings: (ip, port) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port),
+  saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('settings-save-fluke-settings', ip, port, mockFlukeEnabled),
 
   // Database operations (new API)
   db: {
     getFlukeSettings: () => ipcRenderer.invoke('db:get-fluke-settings'),
-    saveFlukeSettings: (ip, port) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port }),
+    saveFlukeSettings: (ip, port, mockFlukeEnabled) => ipcRenderer.invoke('db:save-fluke-settings', { ip, port, mockFlukeEnabled }),
     addCommandToHistory: (type, content, relatedCommand) => ipcRenderer.invoke('db:add-command-to-history', { type, content, relatedCommand }),
     getCommandHistory: limit => ipcRenderer.invoke('db:get-command-history', { limit }),
     clearCommandHistory: () => ipcRenderer.invoke('db:clear-command-history'),
@@ -158,9 +162,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEnableKrakenCalibrationButton: callback => ipcRenderer.on('enable-kraken-calibration-button', () => callback()),
   onShowKrakenVerificationButton: callback => ipcRenderer.on('show-kraken-verification-button', () => callback()),
   onHideKrakenVerificationButton: callback => ipcRenderer.on('hide-kraken-verification-button', () => callback()),
+  onKrakenVerificationStarted: callback => ipcRenderer.on('kraken-verification-started', () => callback()),
+  onKrakenVerificationSweepCompleted: callback => ipcRenderer.on('kraken-verification-sweep-completed', (_, data) => callback(data)),
+  onKrakenVerificationRealtimeUpdate: callback => ipcRenderer.on('kraken-verification-realtime-update', (_, data) => callback(data)),
+
+  onUpdateKrakenCalibrationReferencePressure: callback => ipcRenderer.on('update-kraken-calibration-reference-pressure', (_, pressure) => callback(pressure)),
+  onUpdateKrakenPressure: callback => ipcRenderer.on('update-kraken-pressure', (_, data) => callback(data)),
   onShowKrakenCalibrationButton: callback => ipcRenderer.on('show-kraken-calibration-button', () => callback()),
   onHideKrakenCalibrationButton: callback => ipcRenderer.on('hide-kraken-calibration-button', () => callback()),
   onDeviceCalibrationStatusUpdate: callback => ipcRenderer.on('device-calibration-status-update', (_, data) => callback(data)),
+  onCertificationStatusUpdate: callback => ipcRenderer.on('certification-status-update', (_, data) => callback(data)),
 
   // Back button events
   onDisableKrakenBackButton: callback => ipcRenderer.on('disable-kraken-back-button', () => callback()),
@@ -171,6 +182,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHideKrakenStopCalibrationButton: callback => ipcRenderer.on('hide-kraken-stop-calibration-button', () => callback()),
   onEnableKrakenStopCalibrationButton: callback => ipcRenderer.on('enable-kraken-stop-calibration-button', () => callback()),
 
+  // Stop verification button events
+  onShowKrakenStopVerificationButton: callback => ipcRenderer.on('show-kraken-stop-verification-button', () => callback()),
+  onHideKrakenStopVerificationButton: callback => ipcRenderer.on('hide-kraken-stop-verification-button', () => callback()),
+
   // Notifications
   onShowNotification: callback => ipcRenderer.on('show-notification', (_, data) => callback(data)),
+
+  //======== Developer Settings APIs ========
+  validateDeveloperPassword: password => ipcRenderer.invoke('developer-settings-validate-password', password),
+  getDeveloperSettings: () => ipcRenderer.invoke('developer-settings-get'),
+  saveDeveloperSettings: settings => ipcRenderer.invoke('developer-settings-save', settings),
+  developerSettingsGoBack: () => ipcRenderer.send('developer-settings-go-back'),
 });

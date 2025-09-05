@@ -16,7 +16,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables first
-dotenv.config();
+const envPath = path.resolve(__dirname, '../../.env');
+dotenv.config({ path: envPath });
 
 // Initialize Sentry for crash tracking only
 if (isSentryConfigured()) {
@@ -84,6 +85,7 @@ app.whenReady().then(async () => {
     initializeDatabase();
     console.log('Database initialized successfully');
   } catch (error) {
+    Sentry.captureException(error);
     console.error('Failed to initialize database:', error);
     // Continue with app startup even if database fails
   }
@@ -108,6 +110,7 @@ app.on('before-quit', async event => {
 
     console.log('App cleanup completed, quitting...');
   } catch (error) {
+    Sentry.captureException(error);
     console.error('Error during app cleanup:', error);
   } finally {
     // Force quit after cleanup (or timeout)

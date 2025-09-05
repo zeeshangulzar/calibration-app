@@ -1,5 +1,7 @@
 import EventEmitter from 'events';
 
+import * as Sentry from '@sentry/electron/main';
+
 /**
  * Global state manager for Kraken Calibration
  * Maintains state across page navigation and handles proper cleanup
@@ -17,6 +19,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.activeSubscriptions = new Map(); // Track active characteristic subscriptions
     this.deviceCharacteristics = new Map(); // Track device characteristics for cleanup
     this.deviceSweepData = new Map(); // Track device sweep data
+    this.devicePressureData = new Map(); // Track device pressure readings
     this.isCalibrationActive = false;
     this.isVerificationActive = false;
     this.setupQueue = [];
@@ -42,6 +45,7 @@ class KrakenCalibrationStateService extends EventEmitter {
     this.activeSubscriptions.clear();
     this.deviceCharacteristics.clear();
     this.deviceSweepData.clear();
+    this.devicePressureData.clear();
 
     devices.forEach(device => {
       this.connectedDevices.set(device.id, device);
@@ -169,6 +173,9 @@ class KrakenCalibrationStateService extends EventEmitter {
           resolve();
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-state', method: 'disconnect' },
+        });
         console.warn('Error in disconnect:', error.message);
         resolve();
       }
@@ -282,6 +289,10 @@ class KrakenCalibrationStateService extends EventEmitter {
       console.log(`Global state: Successfully reconnected device ${deviceId}`);
       return reconnectedDevice;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'reconnectDevice' },
+        extra: { deviceId, attempt },
+      });
       this.incrementRetryCount(deviceId);
       const delay = this.baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
 
@@ -334,6 +345,10 @@ class KrakenCalibrationStateService extends EventEmitter {
 
         console.log(`Global state: Cleaned up subscription for device ${deviceId}`);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-state', method: 'cleanupSubscription' },
+          extra: { deviceId },
+        });
         console.warn(`Error during subscription cleanup for device ${deviceId}:`, error.message);
       }
     }
@@ -386,6 +401,9 @@ class KrakenCalibrationStateService extends EventEmitter {
           await this.scanner.startScanning();
           console.log('Global state: Scanning restarted');
         } catch (scanError) {
+          Sentry.captureException(scanError, {
+            tags: { service: 'kraken-calibration-state', method: 'restartScanning' },
+          });
           console.warn('Global state: Error restarting scanning:', scanError.message);
         }
       }
@@ -398,6 +416,9 @@ class KrakenCalibrationStateService extends EventEmitter {
       // Emit cleanup complete event
       this.emit('cleanupComplete');
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'cleanup' },
+      });
       console.error('Global state: Error during enhanced cleanup:', error);
       throw error; // Re-throw to handle in calling code
     }
@@ -414,6 +435,10 @@ class KrakenCalibrationStateService extends EventEmitter {
       await this.performDisconnect(peripheral);
       console.log(`Device ${deviceId}: Successfully disconnected`);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'disconnectDeviceWithDelay' },
+        extra: { deviceId },
+      });
       console.warn(`Device ${deviceId}: Disconnect failed - ${error.message}`);
       // Don't throw - we want cleanup to continue even if disconnect fails
     }
@@ -474,6 +499,69 @@ class KrakenCalibrationStateService extends EventEmitter {
   isDeviceCalibrated(deviceId) {
     const device = this.connectedDevices.get(deviceId);
     return device ? !!device.isCalibrated : false;
+  }
+
+  // Pressure data management methods
+  setDevicePressure(deviceId, pressure) {
+    this.devicePressureData.set(deviceId, {
+      value: pressure,
+      timestamp: Date.now(),
+    });
+  }
+
+  getDevicePressure(deviceId) {
+    const pressureData = this.devicePressureData.get(deviceId);
+    return pressureData ? pressureData.value : null;
+  }
+
+  clearDevicePressures() {
+    this.devicePressureData.clear();
+  }
+
+  // Sweep data management methods
+  addKrakenSweepData(deviceId, dataPoint) {
+    if (!this.deviceSweepData.has(deviceId)) {
+      this.deviceSweepData.set(deviceId, []);
+    }
+    this.deviceSweepData.get(deviceId).push(dataPoint);
+  }
+
+  getKrakenSweepData() {
+    const sweepData = {};
+    for (const [deviceId, dataPoints] of this.deviceSweepData.entries()) {
+      sweepData[deviceId] = dataPoints;
+    }
+    return sweepData;
+  }
+
+  // Certification status management methods
+  setDeviceCertificationStatus(deviceId, certificationResult) {
+    if (!this.deviceCertificationStatus) {
+      this.deviceCertificationStatus = new Map();
+    }
+    this.deviceCertificationStatus.set(deviceId, certificationResult);
+  }
+
+  getDeviceCertificationStatus(deviceId) {
+    if (!this.deviceCertificationStatus) {
+      return null;
+    }
+    return this.deviceCertificationStatus.get(deviceId);
+  }
+
+  // PDF path management methods
+  setDevicePDFPath(deviceId, pdfPath) {
+    if (!this.devicePDFPaths) {
+      this.devicePDFPaths = new Map();
+    }
+    this.devicePDFPaths.set(deviceId, pdfPath);
+  }
+
+  getDevicePDFPath(deviceId) {
+    if (!this.devicePDFPaths) {
+      return null;
+    }
+    return this.devicePDFPaths.get(deviceId);
   }
 }
 

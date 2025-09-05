@@ -3,13 +3,8 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { SettingsController } from '../controllers/settings.controller.js';
 import { registerDatabaseIpcHandlers } from './db-ipc.js';
-import {
-  getFlukeSettings,
-  saveFlukeSettings,
-  getCommandHistory,
-  clearCommandHistory,
-} from '../db/index.js';
-
+import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory } from '../db/index.js';
+import * as Sentry from '@sentry/electron/main';
 let settingsController = null;
 
 /**
@@ -56,6 +51,9 @@ export function registerSettingsIpcHandlers() {
       const settings = getFlukeSettings();
       return { success: true, settings };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'getFlukeSettings' },
+      });
       console.error('Failed to get Fluke settings:', error);
       return { success: false, error: error.message };
     }
@@ -66,6 +64,9 @@ export function registerSettingsIpcHandlers() {
       const result = saveFlukeSettings(ip, port);
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'saveFlukeSettings' },
+      });
       console.error('Failed to save Fluke settings:', error);
       return { success: false, error: error.message };
     }
@@ -108,6 +109,9 @@ export function registerSettingsIpcHandlers() {
       const history = getCommandHistory(limit);
       return { success: true, data: history };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'getCommandHistory' },
+      });
       console.error('Failed to get command history:', error);
       return { success: false, error: error.message };
     }
@@ -118,6 +122,9 @@ export function registerSettingsIpcHandlers() {
       const result = clearCommandHistory();
       return result;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'clearCommandHistory' },
+      });
       console.error('Failed to clear command history:', error);
       return { success: false, error: error.message };
     }
