@@ -27,11 +27,25 @@ class UARTService {
     this.retryDelay = 5000; // Default to 5 seconds delay between retries
   }
 
+  /**
+   * Check if calibration process is still active
+   * @returns {boolean} true if calibration should continue
+   */
+  isProcessActive() {
+    const state = getKrakenCalibrationState();
+    return state.isCalibrationActive;
+  }
+
   async executeCommand(device, command, minPressure = 0, maxPressure = 0, newName = '') {
     const deviceName = device.name || device.id;
     let lastError;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      // Check if calibration was stopped before each attempt
+      if (!this.isProcessActive()) {
+        return; // Stop silently
+      }
+
       try {
         console.log(`Attempt ${attempt}/${this.maxRetries} for command: ${command}`);
 
@@ -68,6 +82,10 @@ class UARTService {
 
         // Wait and check connectivity before next retry (except on last attempt)
         if (attempt < this.maxRetries) {
+          // Check if calibration was stopped before waiting for retry
+          if (!this.isProcessActive()) {
+            return; // Stop silently
+          }
           await this.handleRetryDelay(device.id, deviceName, command);
         }
       }

@@ -183,10 +183,16 @@ class KrakenCalibrationController {
       await this.setupCalibrationUI();
       await this.prepareFlukeAndDevices();
       await this.executeCalibration();
-      await this.completeCalibration();
 
-      // Return success response
-      return { success: true };
+      // Only complete calibration if it wasn't stopped
+      if (this.globalState.isCalibrationActive) {
+        await this.completeCalibration();
+        // Return success response
+        return { success: true };
+      } else {
+        // Calibration was stopped, return early without completing
+        return { success: false, error: 'Calibration was stopped by user' };
+      }
     } catch (error) {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
@@ -282,12 +288,8 @@ class KrakenCalibrationController {
 
     // Check if calibration was stopped due to failures
     if (!this.globalState.isCalibrationActive) {
-      this.uiManager.showLogOnScreen('⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.');
       return;
     }
-
-    // Log calibration completion after high command calibration is done
-    // this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
   }
 
   async completeCalibration() {
