@@ -1,5 +1,7 @@
 import EventEmitter from 'events';
 
+import * as Sentry from '@sentry/electron/main';
+
 /**
  * Global state manager for Kraken Calibration
  * Maintains state across page navigation and handles proper cleanup
@@ -171,6 +173,9 @@ class KrakenCalibrationStateService extends EventEmitter {
           resolve();
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-state', method: 'disconnect' },
+        });
         console.warn('Error in disconnect:', error.message);
         resolve();
       }
@@ -284,6 +289,10 @@ class KrakenCalibrationStateService extends EventEmitter {
       console.log(`Global state: Successfully reconnected device ${deviceId}`);
       return reconnectedDevice;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'reconnectDevice' },
+        extra: { deviceId, attempt },
+      });
       this.incrementRetryCount(deviceId);
       const delay = this.baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
 
@@ -336,6 +345,10 @@ class KrakenCalibrationStateService extends EventEmitter {
 
         console.log(`Global state: Cleaned up subscription for device ${deviceId}`);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'kraken-calibration-state', method: 'cleanupSubscription' },
+          extra: { deviceId },
+        });
         console.warn(`Error during subscription cleanup for device ${deviceId}:`, error.message);
       }
     }
@@ -388,6 +401,9 @@ class KrakenCalibrationStateService extends EventEmitter {
           await this.scanner.startScanning();
           console.log('Global state: Scanning restarted');
         } catch (scanError) {
+          Sentry.captureException(scanError, {
+            tags: { service: 'kraken-calibration-state', method: 'restartScanning' },
+          });
           console.warn('Global state: Error restarting scanning:', scanError.message);
         }
       }
@@ -400,6 +416,9 @@ class KrakenCalibrationStateService extends EventEmitter {
       // Emit cleanup complete event
       this.emit('cleanupComplete');
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'cleanup' },
+      });
       console.error('Global state: Error during enhanced cleanup:', error);
       throw error; // Re-throw to handle in calling code
     }
@@ -416,6 +435,10 @@ class KrakenCalibrationStateService extends EventEmitter {
       await this.performDisconnect(peripheral);
       console.log(`Device ${deviceId}: Successfully disconnected`);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-calibration-state', method: 'disconnectDeviceWithDelay' },
+        extra: { deviceId },
+      });
       console.warn(`Device ${deviceId}: Disconnect failed - ${error.message}`);
       // Don't throw - we want cleanup to continue even if disconnect fails
     }

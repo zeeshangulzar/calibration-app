@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import noble from '@abandonware/noble';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
+import * as Sentry from '@sentry/electron/main';
 
 class KrakenScannerService extends EventEmitter {
   constructor() {
@@ -35,11 +36,7 @@ class KrakenScannerService extends EventEmitter {
       const serviceUuids = peripheral.advertisement?.serviceUuids || [];
 
       // Check if this is a Kraken device
-      const hasKrakenService = serviceUuids.some(
-        uuid =>
-          uuid?.toLowerCase().replace(/-/g, '') ===
-          KRAKEN_CONSTANTS.SERVICE_UUID.toLowerCase().replace(/-/g, '')
-      );
+      const hasKrakenService = serviceUuids.some(uuid => uuid?.toLowerCase().replace(/-/g, '') === KRAKEN_CONSTANTS.SERVICE_UUID.toLowerCase().replace(/-/g, ''));
 
       // Also check by device name as fallback (for Windows BLE issues)
       const isKrakenByName = deviceName.toLowerCase().includes('kraken');
@@ -73,6 +70,10 @@ class KrakenScannerService extends EventEmitter {
         this.emit('deviceUpdated', deviceInfo);
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-scanner', method: 'handleDeviceDiscovery' },
+        extra: { deviceId: peripheral.id },
+      });
       console.error('Error handling device discovery:', error);
     }
   }
@@ -97,6 +98,9 @@ class KrakenScannerService extends EventEmitter {
       return true;
     } catch (error) {
       this.isScanning = false;
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-scanner', method: 'startScanning' },
+      });
       console.error('Failed to start scanning:', error);
       this.emit('scanError', error);
       throw error;
@@ -111,6 +115,9 @@ class KrakenScannerService extends EventEmitter {
         this.emit('scanStopped');
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-scanner', method: 'stopScanning' },
+      });
       console.error('Error stopping scan:', error);
       this.emit('scanError', error);
     }
@@ -122,6 +129,9 @@ class KrakenScannerService extends EventEmitter {
       await new Promise(resolve => setTimeout(resolve, KRAKEN_CONSTANTS.SCANNER_REFRESH_DELAY)); // Brief pause
       await this.startScanning();
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-scanner', method: 'refreshScan' },
+      });
       console.error('Error refreshing scan:', error);
       throw error;
     }

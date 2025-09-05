@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { KrakenListController } from '../controllers/kraken-list.controller.js';
+import * as Sentry from '@sentry/electron/main';
 
 let krakenListController = null;
 
@@ -95,12 +96,12 @@ export function registerKrakenListIpcHandlers() {
       }
 
       // Proceed to calibration with the devices
-      krakenListController.proceedToCalibration(
-        connectedDevices,
-        krakenListController.selectedDeviceIds.size
-      );
+      krakenListController.proceedToCalibration(connectedDevices, krakenListController.selectedDeviceIds.size);
       return { success: true };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'kraken-list-ipc', method: 'proceedToCalibration' },
+      });
       console.error('Error proceeding to calibration:', error);
       return { success: false, error: error.message };
     }
@@ -116,17 +117,11 @@ export function registerKrakenListIpcHandlers() {
   });
 
   ipcMain.handle('kraken-get-scan-status', () => {
-    return getControllerDataOrDefault(
-      { isScanning: false, bluetoothState: 'unknown', deviceCount: 0 },
-      controller => controller.getScanStatus()
-    );
+    return getControllerDataOrDefault({ isScanning: false, bluetoothState: 'unknown', deviceCount: 0 }, controller => controller.getScanStatus());
   });
 
   ipcMain.handle('kraken-get-connection-status', () => {
-    return getControllerDataOrDefault(
-      { connectedCount: 0, connectingCount: 0, connectedDeviceIds: [] },
-      controller => controller.getConnectionStatus()
-    );
+    return getControllerDataOrDefault({ connectedCount: 0, connectingCount: 0, connectedDeviceIds: [] }, controller => controller.getConnectionStatus());
   });
 
   // Cleanup operations

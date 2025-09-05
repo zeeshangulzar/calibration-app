@@ -1,6 +1,7 @@
 import { FlukeMockService } from './fluke-mock.service.js';
 import { FlukeManager } from './fluke.manager.js';
 import { getFlukeSettings } from '../db/index.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Simple Factory Service for Fluke
