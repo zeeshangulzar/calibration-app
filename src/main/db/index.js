@@ -1,6 +1,8 @@
 import path from 'path';
 import { app } from 'electron';
 import Database from 'better-sqlite3';
+import * as Sentry from '@sentry/electron/main';
+import { MigrationManager } from './migration-manager.js';
 
 // Store DB in user's app data directory
 let dbPath = null;
@@ -34,8 +36,15 @@ export function initializeDatabase() {
     db.pragma('cache_size = 10000');
     db.pragma('temp_store = MEMORY');
 
-    // Run migrations
-    runMigrations();
+    // Run migrations using the new MigrationManager
+    const migrationManager = new MigrationManager(db);
+    const migrationResult = migrationManager.runMigrations();
+    
+    if (!migrationResult.success) {
+      throw new Error(`Migration failed: ${migrationResult.error}`);
+    }
+    
+    console.log(`Migrations completed: ${migrationResult.applied} applied, current version: ${migrationResult.currentVersion}`);
 
     isInitialized = true;
     console.log('Database initialized successfully');
@@ -47,65 +56,6 @@ export function initializeDatabase() {
   }
 }
 
-/**
- * Run database migrations
- */
-function runMigrations() {
-  // Create migrations table if it doesn't exist
-  db.prepare(
-    `
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `
-  ).run();
-
-  // Get current schema version
-  const currentVersion =
-    db.prepare('SELECT MAX(version) as version FROM schema_migrations').get()?.version || 0;
-
-  // Define migrations
-  const migrations = [
-    {
-      version: 1,
-      sql: `
-        CREATE TABLE IF NOT EXISTS app_settings (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          fluke_ip TEXT DEFAULT '10.10.69.27',
-          fluke_port TEXT DEFAULT '3490',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `,
-    },
-    {
-      version: 2,
-      sql: `
-        CREATE TABLE IF NOT EXISTS command_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          type TEXT NOT NULL CHECK (type IN ('command', 'response')),
-          content TEXT NOT NULL,
-          related_command TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `,
-    },
-  ];
-
-  // Run pending migrations
-  const transaction = db.transaction(() => {
-    for (const migration of migrations) {
-      if (migration.version > currentVersion) {
-        db.prepare(migration.sql).run();
-        db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(migration.version);
-        console.log(`Applied migration ${migration.version}`);
-      }
-    }
-  });
-
-  transaction();
-}
 
 /**
  * Get database instance
@@ -115,6 +65,24 @@ export function getDatabase() {
     return initializeDatabase();
   }
   return db;
+}
+
+/**
+ * Get migration status using the new MigrationManager
+ */
+export function getMigrationStatus() {
+  if (!isInitialized) {
+    return null;
+  }
+  
+  try {
+    const migrationManager = new MigrationManager(db);
+    return migrationManager.getMigrationStatus();
+  } catch (error) {
+    console.error('Failed to get migration status:', error);
+    Sentry.captureException(error);
+    return null;
+  }
 }
 
 /**
