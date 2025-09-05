@@ -20,10 +20,16 @@ export class KrakenCalibrationManager {
   async calibrateAllSensors() {
     try {
       await this.sendZeroCommandToAllSensors();
+      if (this.shouldStopCalibration()) return;
+
       await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
       await this.sendLowCommandToAllSensors();
+      if (this.shouldStopCalibration()) return;
+
       await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
       await this.sendHighCommandToAllSensors();
+      if (this.shouldStopCalibration()) return;
+
       await addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_COMMANDS);
       await this.markSensorsAsCalibrated();
       this.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
@@ -36,6 +42,14 @@ export class KrakenCalibrationManager {
       // Re-throw the error to prevent continuation of the main calibration flow
       throw error;
     }
+  }
+
+  /**
+   * Helper method to check if calibration should stop
+   * @returns {boolean} true if calibration should stop
+   */
+  shouldStopCalibration() {
+    return !this.globalState.isCalibrationActive;
   }
 
   async markSensorsAsCalibrated() {
@@ -66,6 +80,11 @@ export class KrakenCalibrationManager {
 
     for (const device of connectedDevices) {
       try {
+        // Check if calibration was stopped before processing each device
+        if (this.shouldStopCalibration()) {
+          break;
+        }
+
         // TODO: implement device retry connect logic
         // Check if device is still connected before sending command
         if (!this.isDeviceConnectedInGlobalState(device.id)) {

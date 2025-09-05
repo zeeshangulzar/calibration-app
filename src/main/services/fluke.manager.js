@@ -84,17 +84,25 @@ export class FlukeManager {
 
     for (const command of commands) {
       if (!this.isProcessActive()) return;
+
       await addDelay(1000);
       this.showLogOnScreen(`Checking ${command.name}...`);
+
+      if (!this.isProcessActive()) return;
+
       const initialResponse = await this.telnetClient.sendCommand(command.check);
       this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {
+        if (!this.isProcessActive()) return;
+
         this.showLogOnScreen(`Setting ${command.name}...`);
 
         // Send the setting command
         await this.telnetClient.sendCommand(command.action);
         await addDelay(1000);
+
+        if (!this.isProcessActive()) return;
 
         // Verify the setting was applied correctly
         const verificationResponse = await this.telnetClient.sendCommand(command.check);
@@ -213,8 +221,14 @@ export class FlukeManager {
   }
 
   async waitForFlukeToReachZeroPressure(silent = false) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       let check = setInterval(async () => {
+        if (!this.isProcessActive()) {
+          clearInterval(check);
+          reject(new Error('Process stopped'));
+          return;
+        }
+
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           if (!silent) {
@@ -228,8 +242,14 @@ export class FlukeManager {
   }
 
   async waitForFlukeToReachTargetPressure(targetPressure) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       let check = setInterval(async () => {
+        if (!this.isProcessActive()) {
+          clearInterval(check);
+          reject(new Error('Process stopped'));
+          return;
+        }
+
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           this.showLogOnScreen(`Pressure set to ${targetPressure}`);

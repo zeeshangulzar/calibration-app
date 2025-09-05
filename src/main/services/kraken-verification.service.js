@@ -27,6 +27,14 @@ class KrakenVerificationService {
   }
 
   /**
+   * Helper method to check if verification should stop
+   * @returns {boolean} true if verification should stop
+   */
+  shouldStopVerification() {
+    return !this.isSweepRunning;
+  }
+
+  /**
    * Stops the verification sweep process.
    */
   async stopVerification() {
@@ -104,6 +112,8 @@ class KrakenVerificationService {
    */
   async setFlukeAndCaptureReadings(targetPressure) {
     try {
+      if (this.shouldStopVerification()) return;
+
       this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
 
       // if (targetPressure === 0) {
@@ -111,18 +121,25 @@ class KrakenVerificationService {
       //   await this.fluke.waitForFlukeToReachZeroPressure();
       // } else {
       await this.fluke.setHighPressureToFluke(targetPressure);
+      if (this.shouldStopVerification()) return;
+
       await this.fluke.waitForFlukeToReachTargetPressure(targetPressure);
       // }
+
+      if (this.shouldStopVerification()) return;
 
       this.showLogOnScreen(`✅ Fluke reached ${targetPressure.toFixed(2)} PSI. Stabilizing...`);
       // Send current Fluke pressure to renderer for display
       this.sendToRenderer('update-kraken-calibration-reference-pressure', targetPressure);
       await addDelay(KRAKEN_CONSTANTS.DELAY_AFTER_PRESSURE_SET);
 
+      if (this.shouldStopVerification()) return;
+
       this.showLogOnScreen('📸 Capturing pressure readings from Krakens...');
       const devices = this.globalState.getConnectedDevices();
 
       for (const device of devices) {
+        if (this.shouldStopVerification()) break;
         // Get the latest pressure reading from global state (which is continuously updated via BLE)
         const latestPressure = this.globalState.getDevicePressure(device.id);
         if (latestPressure !== null) {
