@@ -66,6 +66,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  window.electronAPI.onKrakenCalibrationLogsData(log => {
+    const logContainer = document.getElementById('log-messages');
+
+    const newLog = document.createElement('p');
+    newLog.className = 'font-mono';
+    newLog.textContent = `[${getLocalTimestamp()}] ${log}`;
+    logContainer.appendChild(newLog);
+
+    // Auto-scroll to bottom
+    const scrollContainer = document.getElementById('calibration-log-content');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    }
+  });
+
   // Remove verification results button FOR DEV ONLY
   // const removeVerificationBtn = document.getElementById('remove-verification-button');
   // if (removeVerificationBtn) {
@@ -468,21 +483,6 @@ window.electronAPI.onDeviceCalibrationStatusUpdate(data => {
   updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasError);
 });
 
-window.electronAPI.onKrakenCalibrationLogsData(log => {
-  const logContainer = document.getElementById('log-messages');
-
-  const newLog = document.createElement('p');
-  newLog.className = 'font-mono';
-  newLog.textContent = `[${getLocalTimestamp()}] ${log}`;
-  logContainer.appendChild(newLog);
-
-  // Auto-scroll to bottom
-  const scrollContainer = document.getElementById('calibration-log-content');
-  if (scrollContainer) {
-    scrollContainer.scrollTop = scrollContainer.scrollHeight;
-  }
-});
-
 window.electronAPI.onKrakenVerificationSweepCompleted(data => {
   console.log('Verification sweep data received:', data);
   displayVerificationResults(data);
@@ -751,7 +751,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         // Show calibrated indicator
         if (indicator) {
           indicator.className = 'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
-          
+
           // Determine the appropriate message based on verification status
           let statusMessage;
           if (message && message.includes('Calibrated and verified')) {
@@ -761,7 +761,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
           } else {
             statusMessage = `Calibrated - ${message}`;
           }
-          
+
           indicator.innerHTML = `
             <div class="flex items-center w-full">
               <i class="fa-solid fa-check-circle text-green-600 mr-2"></i>
@@ -1338,12 +1338,12 @@ async function viewDevicePDF(deviceId) {
   console.log('Device ID:', deviceId);
   console.log('Electron API available:', !!window.electronAPI);
   console.log('View PDF method available:', !!window.electronAPI?.krakenCalibrationViewPDF);
-  
+
   try {
     console.log('Attempting to view PDF for device:', deviceId);
     const result = await window.electronAPI.krakenCalibrationViewPDF(deviceId);
     console.log('PDF view result:', result);
-    
+
     if (result.success) {
       NotificationHelper.showSuccess(`PDF opened successfully`);
     } else {
