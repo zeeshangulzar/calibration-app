@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { getDatabase } from '../db/index.js';
+import { getDatabase, getMigrationStatus } from '../db/index.js';
 import { MigrationManager } from '../db/migration-manager.js';
 import * as Sentry from '@sentry/electron/main';
 
@@ -10,9 +10,7 @@ export function registerMigrationIpcHandlers() {
   // Get migration status
   ipcMain.handle("get-migration-status", async () => {
     try {
-      const db = getDatabase();
-      const migrationManager = new MigrationManager(db);
-      const status = migrationManager.getMigrationStatus();
+      const status = getMigrationStatus();
       
       return { 
         success: true, 
