@@ -65,4 +65,4 @@ export const MONSTER_METER_CONSTANTS = {
       'SensorLo.vAVG',
     ],
   };
-  
+
