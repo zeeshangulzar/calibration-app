@@ -33,13 +33,13 @@
   },
   "homepage": "https://github.com/zeeshangulzar/calibration-app#readme",
   "devDependencies": {
+    "@electron/rebuild": "^3.2.9",
     "@eslint/js": "^9.32.0",
     "@types/electron": "^1.4.38",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "electron": "^37.2.6",
     "electron-builder": "^26.0.12",
-    "@electron/rebuild": "^3.2.9",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -50,12 +50,15 @@
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
-    "better-sqlite3": "^12.2.0",
     "@sentry/browser": "^10.5.0",
     "@sentry/electron": "^6.11.0",
     "@sentry/node": "^10.5.0",
+    "better-sqlite3": "^12.2.0",
     "dotenv": "^16.5.0",
-    "handlebars": "^4.7.8"
+    "handlebars": "^4.7.8",
+    "ml-regression-polynomial": "^3.0.2",
+    "serialport": "^13.0.0",
+    "usb": "^2.16.0"
   },
   "build": {
     "appId": "com.smartmonster.calibration.app",
