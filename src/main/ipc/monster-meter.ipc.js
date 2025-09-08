@@ -1,9 +1,11 @@
 import { ipcMain } from 'electron';
 import { getMainWindow } from '../windows/main.js';
 import { MonsterMeterController } from '../controllers/monster-meter.controller.js';
+import { MonsterMeterCalibrationService } from '../services/monster-meter-calibration.service.js';
 import * as Sentry from '@sentry/electron/main';
 
 let monsterMeterController = null;
+let monsterMeterCalibrationService = null;
 
 /**
  * Generic handler wrapper for error handling and controller validation
@@ -116,6 +118,11 @@ const handlers = {
   async cleanupModule(event) {
     console.log('Cleaning up Monster Meter module...');
 
+    if (monsterMeterCalibrationService) {
+      await monsterMeterCalibrationService.destroy();
+      monsterMeterCalibrationService = null;
+    }
+
     if (monsterMeterController) {
       await monsterMeterController.destroy();
       monsterMeterController = null;
@@ -123,6 +130,57 @@ const handlers = {
 
     console.log('Monster Meter module cleanup completed');
     return { success: true };
+  },
+
+  // Calibration handlers
+  async startCalibration(event, testerName, model, serialNumber) {
+    console.log('🔍 Debug - IPC startCalibration received parameters:');
+    console.log('🔍 Debug - testerName:', testerName);
+    console.log('🔍 Debug - model:', model);
+    console.log('🔍 Debug - serialNumber:', serialNumber);
+    
+    if (!monsterMeterController) {
+      return { success: false, error: 'Monster Meter not initialized' };
+    }
+
+    if (!monsterMeterCalibrationService) {
+      const monsterMeterState = monsterMeterController.getStateService();
+      const monsterMeterCommunication = monsterMeterController.getCommunicationService();
+      const mainWindow = getMainWindow();
+      
+      monsterMeterCalibrationService = new MonsterMeterCalibrationService(
+        monsterMeterState,
+        monsterMeterCommunication,
+        (event, data) => mainWindow.webContents.send(event, data),
+        (message) => mainWindow.webContents.send('monster-meter-log', message)
+      );
+      
+      // Set the calibration service reference in the controller
+      monsterMeterController.setCalibrationService(monsterMeterCalibrationService);
+      
+      await monsterMeterCalibrationService.initialize();
+    }
+
+    const result = await monsterMeterCalibrationService.startCalibration(testerName, model, serialNumber);
+    return result;
+  },
+
+  async stopCalibration(event, reason) {
+    if (!monsterMeterCalibrationService) {
+      return { success: false, error: 'No calibration service active' };
+    }
+
+    const result = await monsterMeterCalibrationService.stopCalibration(reason);
+    return result;
+  },
+
+  async getCalibrationStatus(event) {
+    if (!monsterMeterCalibrationService) {
+      return { success: true, status: { isActive: false, isStopped: false } };
+    }
+
+    const status = monsterMeterCalibrationService.getStatus();
+    return { success: true, status };
   },
 
   async cleanup(event) {
@@ -156,6 +214,11 @@ const ipcHandlers = [
 
   // Cleanup handlers
   { event: 'monster-meter-cleanup', handler: 'cleanup' },
+
+  // Calibration handlers
+  { event: 'monster-meter-start-calibration', handler: 'startCalibration' },
+  { event: 'monster-meter-stop-calibration', handler: 'stopCalibration' },
+  { event: 'monster-meter-get-calibration-status', handler: 'getCalibrationStatus' },
 ];
 
 /**
