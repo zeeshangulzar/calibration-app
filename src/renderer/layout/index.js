@@ -11,6 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Add click handler for Monster Meter card
+  const monsterMeterCard = document.getElementById('monster-meter-card');
+  if (monsterMeterCard) {
+    monsterMeterCard.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.loadMonsterMeter) {
+        window.electronAPI.loadMonsterMeter();
+      }
+    });
+  }
+
   // Add click handler for Settings button
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {

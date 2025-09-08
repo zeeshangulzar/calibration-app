@@ -194,4 +194,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDeveloperSettings: () => ipcRenderer.invoke('developer-settings-get'),
   saveDeveloperSettings: settings => ipcRenderer.invoke('developer-settings-save', settings),
   developerSettingsGoBack: () => ipcRenderer.send('developer-settings-go-back'),
+
+  //======== Monster Meter APIs ========
+  loadMonsterMeter: () => ipcRenderer.send('load-monster-meter'),
+  monsterMeterGoBack: () => ipcRenderer.send('monster-meter-go-back'),
+  monsterMeterRefreshPorts: () => ipcRenderer.invoke('monster-meter-refresh-ports'),
+  monsterMeterConnectPort: portPath => ipcRenderer.invoke('monster-meter-connect-port', portPath),
+  monsterMeterDisconnect: () => ipcRenderer.invoke('monster-meter-disconnect'),
+  monsterMeterGetStatus: () => ipcRenderer.invoke('monster-meter-get-status'),
+  monsterMeterReadData: () => ipcRenderer.invoke('monster-meter-read-data'),
+  monsterMeterTestCommunication: () => ipcRenderer.invoke('monster-meter-test-communication'),
+  monsterMeterGetUsbDevices: () => ipcRenderer.invoke('monster-meter-get-usb-devices'),
+  monsterMeterCleanup: () => ipcRenderer.invoke('monster-meter-cleanup'),
+  monsterMeterCleanupModule: () => ipcRenderer.invoke('monster-meter-cleanup-module'),
+
+  // Monster Meter event listeners
+  onMonsterMeterPortsUpdated: callback => ipcRenderer.on('monster-meter-ports-updated', (_, ports) => callback(ports)),
+  onMonsterMeterConnected: callback => ipcRenderer.on('monster-meter-connected', (_, data) => callback(data)),
+  onMonsterMeterDisconnected: callback => ipcRenderer.on('monster-meter-disconnected', (_, data) => callback(data)),
+  onMonsterMeterConnectionError: callback => ipcRenderer.on('monster-meter-connection-error', (_, data) => callback(data)),
+  onMonsterMeterDataUpdated: callback => ipcRenderer.on('monster-meter-data-updated', (_, data) => callback(data)),
+  onMonsterMeterError: callback => ipcRenderer.on('monster-meter-error', (_, data) => callback(data)),
+
+  // Monster Meter cleanup
+  removeAllMonsterMeterListeners: () => {
+    ipcRenderer.removeAllListeners('monster-meter-ports-updated');
+    ipcRenderer.removeAllListeners('monster-meter-connected');
+    ipcRenderer.removeAllListeners('monster-meter-disconnected');
+    ipcRenderer.removeAllListeners('monster-meter-connection-error');
+    ipcRenderer.removeAllListeners('monster-meter-data-updated');
+    ipcRenderer.removeAllListeners('monster-meter-error');
+  },
 });
