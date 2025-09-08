@@ -112,6 +112,11 @@ class MonsterMeterController {
 
   async disconnect() {
     try {
+      // Stop calibration if active due to disconnection
+      if (this.monsterMeterCalibrationService && this.monsterMeterCalibrationService.isCalibrationActive) {
+        await this.monsterMeterCalibrationService.stopCalibration('Monster Meter disconnected');
+      }
+      
       await this.connection.disconnect();
       this.communication.cleanup();
       this.state.removeConnectedDevice();
@@ -164,6 +169,26 @@ class MonsterMeterController {
     } catch (error) {
       this.handleError('cleanup', error);
     }
+  }
+
+  /**
+   * Get the state service instance
+   * @returns {MonsterMeterStateService} The state service
+   */
+  getStateService() {
+    return this.state;
+  }
+
+  /**
+   * Get the communication service instance
+   * @returns {MonsterMeterCommunicationService} The communication service
+   */
+  getCommunicationService() {
+    return this.communication;
+  }
+
+  setCalibrationService(calibrationService) {
+    this.monsterMeterCalibrationService = calibrationService;
   }
 
   async destroy() {
