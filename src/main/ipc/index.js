@@ -6,6 +6,8 @@ import { registerKrakenCalibrationIpcHandlers, cleanupKrakenCalibration } from '
 import { registerSettingsIpcHandlers } from './settings.ipc.js';
 import { registerDeveloperSettingsIpcHandlers } from './developer-settings.ipc.js';
 import { registerMonsterMeterIpcHandlers } from './monster-meter.ipc.js';
+import { registerAssemblySensorIpcHandlers } from './assembly-sensor.ipc.js';
+import { registerMigrationIpcHandlers } from './migration.ipc.js';
 
 /**
  * Register all IPC handlers for the application
@@ -20,6 +22,8 @@ export function registerIpcHandlers() {
   registerSettingsIpcHandlers();
   registerDeveloperSettingsIpcHandlers();
   registerMonsterMeterIpcHandlers();
+  registerAssemblySensorIpcHandlers();
+  registerMigrationIpcHandlers();
 }
 
 function registerCoreIpcHandlers() {

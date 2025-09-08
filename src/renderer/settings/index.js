@@ -1,3 +1,4 @@
+import { formatTime } from "../../shared/helpers/date-helper.js";
 /**
  * Settings Page JavaScript
  * Handles Fluke configuration and interactive commands
@@ -333,7 +334,7 @@ function updateCommandHistoryDisplay() {
 
   const historyHtml = commandHistory
     .map(entry => {
-      const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+      const timestamp = formatTime(entry.timestamp);
       let entryClass = '';
       let icon = '';
 
