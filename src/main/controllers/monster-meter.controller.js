@@ -227,7 +227,7 @@ class MonsterMeterController {
 
       return hasValidCoefficients ? coefficients : null;
     } catch (error) {
-      Sentry.captureException(error);
+      this.handleError('extractCoefficients', error);
       return null;
     }
   }
