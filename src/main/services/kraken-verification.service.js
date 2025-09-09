@@ -43,11 +43,7 @@ class KrakenVerificationService {
     console.log('Verification sweep stopped by user');
 
     // Set Fluke to zero pressure in background without waiting or logging
-    this.fluke.setZeroPressureToFluke(true).catch(error => {
-      // Silently log error to console only, no user notification
-      console.error('Background Fluke zero pressure failed:', error);
-      Sentry.captureException(error);
-    });
+    this.fluke.setZeroPressureToFluke(true);
   }
 
   /**
@@ -97,11 +93,7 @@ class KrakenVerificationService {
       console.error('Error during verification sweep:', error);
     } finally {
       // Always set Fluke to zero pressure after verification completes or fails (silently)
-      this.fluke.setZeroPressureToFluke(true).catch(error => {
-        // Silently log error to console only, no user notification
-        console.error('Background Fluke zero pressure failed after completion:', error);
-        Sentry.captureException(error);
-      });
+      this.fluke.setZeroPressureToFluke(true);
       this.isSweepRunning = false;
     }
   }
