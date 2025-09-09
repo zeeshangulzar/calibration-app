@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/electron/main';
 /**
  * Simple Factory Service for Fluke
  * Automatically chooses between mock and real services based on user setting
+ * Singleton pattern to ensure consistent settings across the app
  */
 class FlukeFactoryService {
   constructor() {
@@ -13,6 +14,29 @@ class FlukeFactoryService {
     this.mockFlukeEnabled = this.getMockFlukeSetting();
 
     console.log(`🔧 Fluke Factory initialized. Mock Fluke: ${this.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+
+  /**
+   * Get singleton instance of FlukeFactoryService
+   * @returns {FlukeFactoryService} Singleton instance
+   */
+  static getInstance() {
+    if (!FlukeFactoryService._instance) {
+      FlukeFactoryService._instance = new FlukeFactoryService();
+    }
+    return FlukeFactoryService._instance;
+  }
+
+  /**
+   * Reload settings from database
+   * Call this when settings are updated
+   */
+  reloadSettings() {
+    this.mockFlukeEnabled = this.getMockFlukeSetting();
+    console.log(`🔧 Fluke Factory settings reloaded. Mock Fluke: ${this.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
+    
+    // Clear existing instance to force recreation with new settings
+    this.instance = null;
   }
 
   /**
@@ -86,5 +110,8 @@ class FlukeFactoryService {
     }
   }
 }
+
+// Export singleton getter function
+export const getFlukeFactory = () => FlukeFactoryService.getInstance();
 
 export { FlukeFactoryService };
