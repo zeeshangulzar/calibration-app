@@ -4,6 +4,7 @@ import { getMainWindow } from '../windows/main.js';
 import { SettingsController } from '../controllers/settings.controller.js';
 import { registerDatabaseIpcHandlers } from './db-ipc.js';
 import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory } from '../db/index.js';
+import { getFlukeFactory } from '../services/fluke-factory.service.js';
 import * as Sentry from '@sentry/electron/main';
 let settingsController = null;
 
@@ -61,7 +62,20 @@ export function registerSettingsIpcHandlers() {
 
   ipcMain.handle('settings-save-fluke-settings', async (event, ip, port) => {
     try {
+      // Save to database
       const result = saveFlukeSettings(ip, port);
+      
+      // Update the TelnetClientService instance if controller is available
+      if (settingsController && settingsController.telnetClient) {
+        settingsController.telnetClient.updateSettings(ip, port);
+        console.log(`Updated TelnetClientService with new settings - IP: ${ip}, Port: ${port}`);
+      }
+      
+      // Reload FlukeFactoryService settings to ensure all services use updated settings
+      const flukeFactory = getFlukeFactory();
+      flukeFactory.reloadSettings();
+      console.log(`Reloaded FlukeFactoryService settings - IP: ${ip}, Port: ${port}`);
+      
       return result;
     } catch (error) {
       Sentry.captureException(error, {
