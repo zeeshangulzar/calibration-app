@@ -15,17 +15,10 @@ export default defineConfig([
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     languageOptions: {
-      // browser + node if you have scripts/tools
       globals: { ...globals.browser, ...globals.node },
     },
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.recommended,
-      // turn off rules that conflict with Prettier
-      eslintConfigPrettier,
-    ],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended, eslintConfigPrettier],
     plugins: {
-      // run Prettier as an ESLint rule
       prettier,
     },
     rules: {
@@ -33,9 +26,15 @@ export default defineConfig([
       'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
       'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/no-require-imports': 'off',
-    },
-    '[handlebars]': {
-      'files.insertFinalNewline': true,
+
+      // ✅ Enforce uppercase hex (0xa1 → 0xA1)
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/^0x[a-f0-9]+$/]',
+          message: 'Use uppercase hex digits (e.g., 0xA1 instead of 0xa1).',
+        },
+      ],
     },
   },
 ]);

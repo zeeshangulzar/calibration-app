@@ -2,10 +2,12 @@ import { ipcMain } from 'electron';
 import { getMainWindow } from '../windows/main.js';
 import { MonsterMeterController } from '../controllers/monster-meter.controller.js';
 import { MonsterMeterCalibrationService } from '../services/monster-meter-calibration.service.js';
+import { MonsterMeterVerificationService } from '../services/monster-meter-verification.service.js';
 import * as Sentry from '@sentry/electron/main';
 
 let monsterMeterController = null;
 let monsterMeterCalibrationService = null;
+let monsterMeterVerificationService = null;
 
 /**
  * Generic handler wrapper for error handling and controller validation
@@ -123,6 +125,11 @@ const handlers = {
       monsterMeterCalibrationService = null;
     }
 
+    if (monsterMeterVerificationService) {
+      await monsterMeterVerificationService.destroy();
+      monsterMeterVerificationService = null;
+    }
+
     if (monsterMeterController) {
       await monsterMeterController.destroy();
       monsterMeterController = null;
@@ -183,6 +190,50 @@ const handlers = {
     return { success: true, status };
   },
 
+  // Verification handlers
+  async startVerification(event, testerName, model, serialNumber) {
+    console.log('🔍 Debug - IPC startVerification received parameters:');
+    console.log('🔍 Debug - testerName:', testerName);
+    console.log('🔍 Debug - model:', model);
+    console.log('🔍 Debug - serialNumber:', serialNumber);
+    
+    if (!monsterMeterController) {
+      return { success: false, error: 'Monster Meter not initialized' };
+    }
+
+    if (!monsterMeterVerificationService) {
+      const monsterMeterState = monsterMeterController.getStateService();
+      const monsterMeterCommunication = monsterMeterController.getCommunicationService();
+      const mainWindow = getMainWindow();
+      
+      monsterMeterVerificationService = new MonsterMeterVerificationService(
+        monsterMeterState,
+        monsterMeterCommunication,
+        (event, data) => mainWindow.webContents.send(event, data),
+        (message) => mainWindow.webContents.send('monster-meter-log', message)
+      );
+      
+      await monsterMeterVerificationService.initialize();
+    }
+
+    const result = await monsterMeterVerificationService.startVerification(testerName, model, serialNumber);
+    return result;
+  },
+
+  async stopVerification(event, reason) {
+    if (!monsterMeterVerificationService) {
+      return { success: false, error: 'Verification service not initialized' };
+    }
+    return await monsterMeterVerificationService.stopVerification(reason);
+  },
+
+  async getVerificationStatus(event) {
+    if (!monsterMeterVerificationService) {
+      return { success: true, status: { isActive: false, isStopped: false } };
+    }
+    return { success: true, status: monsterMeterVerificationService.getVerificationStatus() };
+  },
+
   async cleanup(event) {
     if (monsterMeterController) {
       await monsterMeterController.cleanup();
@@ -219,6 +270,11 @@ const ipcHandlers = [
   { event: 'monster-meter-start-calibration', handler: 'startCalibration' },
   { event: 'monster-meter-stop-calibration', handler: 'stopCalibration' },
   { event: 'monster-meter-get-calibration-status', handler: 'getCalibrationStatus' },
+
+  // Verification handlers
+  { event: 'monster-meter-start-verification', handler: 'startVerification' },
+  { event: 'monster-meter-stop-verification', handler: 'stopVerification' },
+  { event: 'monster-meter-get-verification-status', handler: 'getVerificationStatus' },
 ];
 
 /**

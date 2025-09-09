@@ -113,6 +113,12 @@
               <button id="stop-calibration-btn" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
                 <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
               </button>
+              <button id="start-verification-btn" class="rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden" disabled>
+                <i class="fa-solid fa-check mr-2"></i>Start Verification
+              </button>
+              <button id="stop-verification-btn" class="rounded-md bg-orange-600 hover:bg-orange-700 px-4 py-2 text-white transition-colors hidden">
+                <i class="fa-solid fa-stop mr-2"></i>Stop Verification
+              </button>
             </div>
           </div>
         </section>
@@ -161,8 +167,58 @@
             </div>
 
             <!-- Tab Panels -->
-            <div id="monster-meter-panel-calibration" class="tab-panel"></div>
-            <div id="monster-meter-panel-verification" class="tab-panel"></div>
+            <div id="monster-meter-panel-calibration" class="tab-panel">
+              <!-- Calibration Results Table -->
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">Calibration Results</h3>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border border-neutral-300">
+                    <thead class="bg-neutral-100">
+                      <tr>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Point</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Reference Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Pressure (PSI)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="calibration-results-tbody">
+                      <!-- Calibration data will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+                <div id="calibration-progress-text" class="mt-2 text-sm text-neutral-600">Waiting for calibration data...</div>
+              </div>
+            </div>
+            <div id="monster-meter-panel-verification" class="tab-panel">
+              <!-- Verification Results Table -->
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">Verification Results</h3>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border border-neutral-300">
+                    <thead class="bg-neutral-100">
+                      <tr>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Point</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Reference Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="verification-results-tbody">
+                      <!-- Verification data will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+                <div id="verification-progress-text" class="mt-2 text-sm text-neutral-600">Waiting for verification data...</div>
+                <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-lg hidden">
+                  <!-- Verification summary will be populated here -->
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </main>
