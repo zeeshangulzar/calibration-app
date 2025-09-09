@@ -100,6 +100,11 @@ class MonsterMeterController {
       };
 
       this.state.setConnectedDevice(deviceInfo);
+      // Extract and store old coefficients
+      const oldCoefficients = this.extractCoefficients(deviceData);
+      if (oldCoefficients) {
+        this.state.setOldCoefficients(oldCoefficients);
+      }
       console.log('[Monster Meter] Successfully connected and device info stored');
 
       return { success: true, deviceInfo };
@@ -112,6 +117,11 @@ class MonsterMeterController {
 
   async disconnect() {
     try {
+      // Stop calibration if active due to disconnection
+      if (this.monsterMeterCalibrationService && this.monsterMeterCalibrationService.isCalibrationActive) {
+        await this.monsterMeterCalibrationService.stopCalibration('Monster Meter disconnected');
+      }
+
       await this.connection.disconnect();
       this.communication.cleanup();
       this.state.removeConnectedDevice();
@@ -163,6 +173,62 @@ class MonsterMeterController {
       console.log('[Controller] Cleanup completed');
     } catch (error) {
       this.handleError('cleanup', error);
+    }
+  }
+
+  /**
+   * Get the state service instance
+   * @returns {MonsterMeterStateService} The state service
+   */
+  getStateService() {
+    return this.state;
+  }
+
+  /**
+   * Get the communication service instance
+   * @returns {MonsterMeterCommunicationService} The communication service
+   */
+  getCommunicationService() {
+    return this.communication;
+  }
+
+  setCalibrationService(calibrationService) {
+    this.monsterMeterCalibrationService = calibrationService;
+  }
+
+  /**
+   * Extract coefficients from Monster Meter device data
+   */
+  extractCoefficients(data) {
+    try {
+      if (!data) return null;
+
+      const coefficients = {
+        hi: {
+          coeffA: data['SensorHi.coeA'],
+          coeffB: data['SensorHi.coeB'],
+          coeffC: data['SensorHi.coeC'],
+        },
+        lo: {
+          coeffA: data['SensorLo.coeA'],
+          coeffB: data['SensorLo.coeB'],
+          coeffC: data['SensorLo.coeC'],
+        },
+      };
+
+      // Check if we have valid coefficient data
+      const hasValidCoefficients =
+        coefficients.hi.coeffA !== undefined &&
+        coefficients.hi.coeffB !== undefined &&
+        coefficients.hi.coeffC !== undefined &&
+        coefficients.lo.coeffA !== undefined &&
+        coefficients.lo.coeffB !== undefined &&
+        coefficients.lo.coeffC !== undefined;
+
+      return hasValidCoefficients ? coefficients : null;
+    } catch (error) {
+      this.handleError('extractCoefficients', error);
+      return null;
     }
   }
 

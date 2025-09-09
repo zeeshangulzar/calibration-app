@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html class="" lang="en">
   <head>
     <link rel="stylesheet" href="../styles/index_styles.css" />
@@ -9,6 +9,21 @@
       window.FontAwesomeConfig = { autoReplaceSvg: 'nest' };
     </script>
     <script src="../../assets/js/font-awesome.min.js"></script>
+    <style>
+      .fade-in {
+        transition: opacity 0.3s ease;
+      }
+
+      .fade-in.hidden {
+        display: none;
+        opacity: 0;
+      }
+
+      .fade-in.fade-in {
+        display: block;
+        opacity: 1;
+      }
+    </style>
     <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
     <title>Monster Meter Calibration</title>
   </head>
@@ -61,6 +76,46 @@
           </div>
         </div>
 
+        <section id="monster-meter-calibration-control" class="mb-8">
+          <h2 class="text-xl">Calibration Settings</h2>
+          <div class="flex items-center justify-between mb-4">
+            <!-- Dropdowns Row -->
+            <div class="flex gap-10 py-6">
+              <!-- Tester Name Dropdown -->
+              <div>
+                <label for="tester-name" class="block text-sm font-medium text-neutral-700 mb-1"> Select Tester Name <span class="text-red-500">*</span> </label>
+                <select id="tester-name" class="border border-neutral-300 rounded-md px-10 py-2 text-sm">
+                  <option value="">Select Tester Name</option>
+                </select>
+              </div>
+
+              <!-- Model Dropdown -->
+              <div>
+                <label for="model-select" class="block text-sm font-medium text-neutral-700 mb-1"> Select Model <span class="text-red-500">*</span> </label>
+                <select id="model-select" class="border border-neutral-300 rounded-md px-10 py-2 text-sm">
+                  <option value="">Select Model</option>
+                </select>
+              </div>
+
+              <!-- Serial Number Input -->
+              <div>
+                <label for="serial-number" class="block text-sm font-medium text-neutral-700 mb-1"> Serial Number <span class="text-red-500">*</span> </label>
+                <input type="text" id="serial-number" class="border border-neutral-300 rounded-md px-3 py-2 text-sm w-40" placeholder="Enter serial number" />
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl">Calibration Control</h2>
+            <div class="flex gap-3">
+              <button id="start-calibration-btn" class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fa-solid fa-play mr-2"></i>Start Calibration
+              </button>
+              <button id="stop-calibration-btn" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors hidden">
+                <i class="fa-solid fa-stop mr-2"></i>Stop Calibration
+              </button>
+            </div>
+          </div>
+        </section>
 
         <div class="grid gap-6 lg:grid-cols-2">
           <section id="monster-meter-pressure-readings" class="rounded-lg border bg-white p-6">
@@ -102,7 +157,7 @@
             <!-- Tabs -->
             <div class="mb-4 flex space-x-2">
               <button id="monster-meter-tab-calibration" class="tab-button bg-neutral-900 text-white px-4 py-2 rounded">Calibration Results</button>
-              <button id="monster-meter-tab-verification" class="tab-button bg-neutral-900 text-white px-4 py-2 rounded">Verification Results</button>
+              <button id="monster-meter-tab-verification" class="tab-button bg-neutral-300 text-neutral-500 px-4 py-2 rounded cursor-not-allowed" disabled>Verification Results</button>
             </div>
 
             <!-- Tab Panels -->

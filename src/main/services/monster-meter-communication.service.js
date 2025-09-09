@@ -37,6 +37,34 @@ class MonsterMeterCommunicationService extends EventEmitter {
     }
   }
 
+  async writeBuffer(buffer) {
+    if (!this.port?.isOpen) {
+      throw new Error('Serial port not available or not open');
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        // Set DTR to false and flush before writing
+        this.port.set({ dtr: false }, () => {
+          this.port.flush(() => {
+            this.port.write(buffer, err => {
+              if (err) {
+                console.log('Buffer writing failed: ', err.message);
+                return reject(err);
+              }
+              resolve();
+            });
+          });
+        });
+      });
+
+      console.log(`Buffer of ${buffer.length} bytes written successfully`);
+    } catch (error) {
+      this.handleError('writeBuffer', error, { bufferLength: buffer.length });
+      throw error;
+    }
+  }
+
   async readData(maxAttempts = MONSTER_METER_CONSTANTS.MAX_RETRIES) {
     if (!this.port?.isOpen) {
       throw new Error('Serial port not available or not open');
