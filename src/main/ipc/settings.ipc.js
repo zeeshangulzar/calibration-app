@@ -3,8 +3,7 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { SettingsController } from '../controllers/settings.controller.js';
 import { registerDatabaseIpcHandlers } from './db-ipc.js';
-import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory } from '../db/index.js';
-import { getFlukeFactory } from '../services/fluke-factory.service.js';
+import { getFlukeSettings, saveFlukeSettings, getCommandHistory, clearCommandHistory, getDeveloperSettings, saveDeveloperSettings } from '../db/index.js';
 import * as Sentry from '@sentry/electron/main';
 let settingsController = null;
 
@@ -64,18 +63,16 @@ export function registerSettingsIpcHandlers() {
     try {
       // Save to database
       const result = saveFlukeSettings(ip, port);
-      
+
       // Update the TelnetClientService instance if controller is available
       if (settingsController && settingsController.telnetClient) {
         settingsController.telnetClient.updateSettings(ip, port);
         console.log(`Updated TelnetClientService with new settings - IP: ${ip}, Port: ${port}`);
       }
-      
-      // Reload FlukeFactoryService settings to ensure all services use updated settings
-      const flukeFactory = getFlukeFactory();
-      flukeFactory.reloadSettings();
-      console.log(`Reloaded FlukeFactoryService settings - IP: ${ip}, Port: ${port}`);
-      
+
+      // FlukeFactoryService will automatically get updated settings on next use
+      console.log(`FlukeFactoryService will automatically use updated settings on next use - IP: ${ip}, Port: ${port}`);
+
       return result;
     } catch (error) {
       Sentry.captureException(error, {
@@ -116,6 +113,80 @@ export function registerSettingsIpcHandlers() {
     const error = checkControllerInitialized();
     if (error) return error;
     return await settingsController.sendFlukeCommand(command);
+  });
+
+  // Developer settings operations
+  ipcMain.handle('settings-get-developer-settings', async () => {
+    try {
+      const settings = getDeveloperSettings();
+      return { success: true, settings };
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'getDeveloperSettings' },
+      });
+      console.error('Failed to get developer settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('settings-save-developer-settings', async (event, settings) => {
+    try {
+      // Save to database
+      const result = saveDeveloperSettings(settings);
+      console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
+
+      return result;
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'saveDeveloperSettings' },
+      });
+      console.error('Failed to save developer settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Developer settings IPC handlers (matching preload API)
+  ipcMain.handle('developer-settings-get', async () => {
+    try {
+      const settings = getDeveloperSettings();
+      return { success: true, settings };
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'developer-settings-get' },
+      });
+      console.error('Failed to get developer settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('developer-settings-save', async (event, settings) => {
+    try {
+      // Save to database
+      const result = saveDeveloperSettings(settings);
+      console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
+
+      return result;
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'settings-ipc', method: 'developer-settings-save' },
+      });
+      console.error('Failed to save developer settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('developer-settings-validate-password', async (event, password) => {
+    // Simple password validation (you can make this more secure)
+    const validPassword = password === 'developer123'; // Change this to your desired password
+    return { success: true, valid: validPassword };
+  });
+
+  ipcMain.on('developer-settings-go-back', () => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      // Navigate back to home screen (main layout)
+      mainWindow.loadFile(path.join('src', 'renderer', 'layout', 'index.html'));
+    }
   });
 
   ipcMain.handle('settings-get-command-history', async (event, limit) => {
