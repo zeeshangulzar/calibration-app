@@ -12,6 +12,7 @@
 import { FlukeFactoryService } from './fluke-factory.service.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
+import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
 import * as Sentry from '@sentry/electron/main';
 
 class MonsterMeterVerificationService {
@@ -22,6 +23,7 @@ class MonsterMeterVerificationService {
     this.showLogOnScreen = showLogOnScreen;
 
     this.flukeFactory = new FlukeFactoryService();
+    this.pdfService = new MonsterMeterPDFService();
     this.toleranceRange = MONSTER_METER_CONSTANTS.TOLERANCE_RANGE;
 
     this.reset();
@@ -129,7 +131,7 @@ class MonsterMeterVerificationService {
   }
 
   generateSweepIntervals() {
-    this.sweepIntervals = generateStepArray(0, this.maxPressure, 8);
+    this.sweepIntervals = generateStepArray(this.maxPressure);
     this.logDebugInfo('generateSweepIntervals', { 
       intervals: this.sweepIntervals,
       count: this.sweepIntervals.length 
@@ -144,7 +146,7 @@ class MonsterMeterVerificationService {
     try {
       // Step 1: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
-      await this.delay(2000);
+      await this.delay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
 
       // Step 2: Run the pressure sweep
       this.showLogOnScreen('Verification sweep starting...');
@@ -271,6 +273,7 @@ class MonsterMeterVerificationService {
       pressureHiArray: this.pressureHiArray,
       voltagesLoArray: this.voltagesLoArray,
       pressureLoArray: this.pressureLoArray,
+      verificationData: this.dbDataVerification,
       completed: this.sweepIntervalsCompleted.length,
       total: this.sweepIntervals.length
     });
@@ -293,6 +296,13 @@ class MonsterMeterVerificationService {
   async completeVerification() {
     try {
       this.updateVerificationFlags(false, false);
+      
+      // Generate verification summary
+      const summary = this.generateVerificationSummary();
+      
+      // Generate PDF report
+      await this.generatePDFReport(summary);
+      
       this.sendFinalResults();
       this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
@@ -309,6 +319,44 @@ class MonsterMeterVerificationService {
       verificationData: this.dbDataVerification,
       summary: this.generateVerificationSummary()
     });
+  }
+
+  /**
+   * Generate PDF report for verification results
+   * @param {Object} summary - Verification summary
+   * @private
+   */
+  async generatePDFReport(summary) {
+    try {
+      const device = {
+        id: this.serialNumber,
+        displayName: `Monster Meter ${this.model}`,
+        model: this.model
+      };
+
+      const result = await this.pdfService.generateMonsterMeterPDF(
+        device,
+        this.dbDataVerification,
+        summary,
+        this.testerName,
+        this.model,
+        this.serialNumber
+      );
+
+      if (result.success) {
+        this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
+        // Send PDF path to renderer for view PDF button
+        this.sendToRenderer('monster-meter-pdf-generated', {
+          filePath: result.filePath,
+          filename: result.filename
+        });
+      } else {
+        this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
+      }
+    } catch (error) {
+      this.handleError('generatePDFReport', error);
+      this.showLogOnScreen(`⚠️ Warning: PDF generation failed: ${error.message}`);
+    }
   }
 
   /**

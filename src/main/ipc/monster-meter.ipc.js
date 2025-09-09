@@ -241,6 +241,26 @@ const handlers = {
     }
     return { success: true };
   },
+
+  async openPDF(event, filePath) {
+    const { shell } = await import('electron');
+    
+    try {
+      // Check if file exists
+      const fs = await import('fs');
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'PDF file does not exist' };
+      }
+
+      // Open the PDF using the system default application
+      await shell.openPath(filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      console.error('Error opening PDF:', error);
+      Sentry.captureException(error);
+      return { success: false, error: error.message };
+    }
+  },
 };
 
 /**
@@ -275,6 +295,9 @@ const ipcHandlers = [
   { event: 'monster-meter-start-verification', handler: 'startVerification' },
   { event: 'monster-meter-stop-verification', handler: 'stopVerification' },
   { event: 'monster-meter-get-verification-status', handler: 'getVerificationStatus' },
+
+  // File operations
+  { event: 'open-pdf', handler: 'openPDF', requiresController: false },
 ];
 
 /**

@@ -299,7 +299,7 @@ const ipcHandlers = {
     isVerificationActive = true;
     isCalibrationCompleted = false; // Reset when verification starts
     updateCalibrationButtons();
-    showCalibrationResultsSection();
+    showVerificationResultsSection();
     // Don't clear calibration data - keep it visible
     NotificationHelper.showSuccess('Verification started successfully!');
   },
@@ -321,15 +321,26 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
     enableVerificationTab();
+    hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
     showVerificationResults(data);
   },
 
   onMonsterMeterVerificationData: data => {
-    // updateCalibrationProgress(data);
-    // updateCalibrationResultsTable(data);
     updateVerificationProgress(data);
     updateVerificationResultsTable(data.verificationData || []);
+    // Add log message for each verification point
+    if (data.verificationData && data.verificationData.length > 0) {
+      const latestPoint = data.verificationData[data.verificationData.length - 1];
+      const status = latestPoint.inRange ? 'PASS' : 'FAIL';
+      const statusIcon = latestPoint.inRange ? '✅' : '❌';
+      addLogMessage(`${statusIcon} Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+    }
+  },
+
+  onMonsterMeterPDFGenerated: data => {
+    showViewPDFButton(data.filePath, data.filename);
+    addLogMessage(`📄 PDF report generated: ${data.filename}`);
   },
 };
 
@@ -540,15 +551,21 @@ function updateVerificationResultsTable(data) {
       const row = document.createElement('tr');
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
+      const statusIcon = point.inRange ? '✓' : '✗';
 
       row.innerHTML = `
-        <td class="border border-neutral-300 px-4 py-2">${index + 1}</td>
-        <td class="border border-neutral-300 px-4 py-2">${point.referencePressure.toFixed(1)}</td>
-        <td class="border border-neutral-300 px-4 py-2">${point.voltageHi.toFixed(7)}</td>
-        <td class="border border-neutral-300 px-4 py-2">${point.pressureHi.toFixed(1)}</td>
-        <td class="border border-neutral-300 px-4 py-2">${point.voltageLo.toFixed(7)}</td>
-        <td class="border border-neutral-300 px-4 py-2">${point.pressureLo.toFixed(1)}</td>
-        <td class="border border-neutral-300 px-4 py-2 ${statusClass} font-semibold">${statusText}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">${index + 1}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.referencePressure.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageHi.toFixed(7)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureHi.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageLo.toFixed(7)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureLo.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${statusClass}">
+          <span class="inline-flex items-center">
+            <span class="mr-1">${statusIcon}</span>
+            ${statusText}
+          </span>
+        </td>
       `;
       tbody.appendChild(row);
     });
@@ -569,19 +586,42 @@ function showVerificationSummary(summary) {
   if (!summaryDiv || !summary) return;
 
   const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
+  const statusIcon = summary.status === 'PASSED' ? '✓' : '✗';
+  const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
 
   summaryDiv.innerHTML = `
-    <h4 class="text-lg font-semibold mb-2">Verification Summary</h4>
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
+      <div class="flex items-center ${statusClass} font-semibold">
+        <span class="mr-2 text-xl">${statusIcon}</span>
+        ${summary.status}
+      </div>
+    </div>
     <div class="grid grid-cols-2 gap-4 text-sm">
-      <div>Total Points: <span class="font-semibold">${summary.totalPoints}</span></div>
-      <div>Passed: <span class="font-semibold text-green-600">${summary.passedPoints}</span></div>
-      <div>Failed: <span class="font-semibold text-red-600">${summary.failedPoints}</span></div>
-      <div>Pass Rate: <span class="font-semibold">${summary.passRate}</span></div>
-      <div>Tolerance Range: <span class="font-semibold">±${summary.toleranceRange} PSI</span></div>
-      <div>Overall Status: <span class="font-semibold ${statusClass}">${summary.status}</span></div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Total Points:</span>
+        <span class="font-semibold text-gray-900">${summary.totalPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Passed:</span>
+        <span class="font-semibold text-green-600">${summary.passedPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Failed:</span>
+        <span class="font-semibold text-red-600">${summary.failedPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Pass Rate:</span>
+        <span class="font-semibold text-gray-900">${summary.passRate}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Tolerance Range:</span>
+        <span class="font-semibold text-gray-900">±${summary.toleranceRange} PSI</span>
+      </div>
     </div>
   `;
 
+  summaryDiv.className = `mt-4 p-4 rounded-lg border ${bgClass}`;
   summaryDiv.classList.remove('hidden');
 }
 
@@ -649,8 +689,9 @@ function updateCalibrationButtons() {
   // Calibration buttons
   if (startCalibrationBtn) {
     const canStartCalibration = canStart && !isCalibrationActive && !isVerificationActive;
+    const shouldHideCalibrationBtn = isCalibrationActive || isVerificationActive || isCalibrationCompleted;
     startCalibrationBtn.disabled = !canStartCalibration;
-    startCalibrationBtn.classList.toggle('hidden', isCalibrationActive || isVerificationActive);
+    startCalibrationBtn.classList.toggle('hidden', shouldHideCalibrationBtn);
   }
 
   if (stopCalibrationBtn) {
@@ -682,6 +723,16 @@ function showCalibrationResultsSection() {
   }
 }
 
+function showVerificationResultsSection() {
+  const resultsSection = document.getElementById('monster-meter-calibration-results');
+  if (resultsSection) {
+    resultsSection.classList.remove('hidden');
+    initializeVerificationResultsTable();
+    // Switch to verification tab to show verification results
+    switchTab('verification');
+  }
+}
+
 function initializeCalibrationResultsTable() {
   const calibrationPanel = document.getElementById('monster-meter-panel-calibration');
   if (calibrationPanel) {
@@ -705,6 +756,39 @@ function initializeCalibrationResultsTable() {
       </div>
       <div class="text-sm text-neutral-500">
         <span id="calibration-progress-text">Waiting for calibration data...</span>
+      </div>
+    `;
+  }
+}
+
+function initializeVerificationResultsTable() {
+  const verificationPanel = document.getElementById('monster-meter-panel-verification');
+  if (verificationPanel) {
+    verificationPanel.innerHTML = `
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
+        <div class="overflow-x-auto border border-gray-300 rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
+              <!-- Verification data will be populated here -->
+            </tbody>
+          </table>
+        </div>
+        <div id="verification-progress-text" class="mt-2 text-sm text-neutral-500">Waiting for verification data...</div>
+        <div id="verification-summary" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+          <!-- Verification summary will be populated here -->
+        </div>
       </div>
     `;
   }
@@ -820,20 +904,6 @@ function showCoefficients(coefficients) {
   `;
 }
 
-function showVerificationResults(data) {
-  // Show verification results section
-  const resultsSection = document.getElementById('monster-meter-calibration-results');
-  if (resultsSection) {
-    resultsSection.classList.remove('hidden');
-  }
-
-  // Update results with verification data
-  if (data && data.verificationData) {
-    console.log('Verification completed with data:', data.verificationData);
-    console.log('Verification summary:', data.summary);
-  }
-}
-
 function updateLiveSensorData(data) {
   // Update reference pressure
   const referencePressureEl = document.getElementById('monster-meter-reference-pressure-value');
@@ -939,39 +1009,6 @@ function switchTab(tabName) {
   }
 }
 
-// Handler functions
-async function handleStartCalibration() {
-  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
-  const testerName = testerNameSelect?.value;
-  const model = modelSelect?.value;
-  const serialNumber = serialNumberInput?.value?.trim();
-
-  if (!testerName || !model || !serialNumber) {
-    NotificationHelper.showCustomAlertModal('Please fill in all required fields before starting calibration.');
-    return;
-  }
-
-  try {
-    const result = await window.electronAPI.monsterMeterStartCalibration(testerName, model, serialNumber);
-    if (!result.success) {
-      NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
-    }
-  } catch (error) {
-    NotificationHelper.showError(`Error starting calibration: ${error.message}`);
-  }
-}
-
-async function handleStopCalibration() {
-  try {
-    const result = await window.electronAPI.monsterMeterStopCalibration('Stopped by user');
-    if (!result.success) {
-      NotificationHelper.showError(`Failed to stop calibration: ${result.error}`);
-    }
-  } catch (error) {
-    NotificationHelper.showError(`Error stopping calibration: ${error.message}`);
-  }
-}
-
 async function handleStartVerification() {
   const { testerNameSelect, modelSelect, serialNumberInput } = elements;
   const testerName = testerNameSelect?.value;
@@ -1001,6 +1038,38 @@ async function handleStopVerification() {
     }
   } catch (error) {
     NotificationHelper.showError(`Error stopping verification: ${error.message}`);
+  }
+}
+
+function hideStartVerificationButton() {
+  const startVerificationBtn = document.getElementById('start-verification-btn');
+  if (startVerificationBtn) {
+    startVerificationBtn.classList.add('hidden');
+  }
+}
+
+function showViewPDFButton(filePath, filename) {
+  // Remove existing view PDF button if any
+  const existingBtn = document.getElementById('view-pdf-btn');
+  if (existingBtn) {
+    existingBtn.remove();
+  }
+
+  // Create view PDF button
+  const viewPDFBtn = document.createElement('button');
+  viewPDFBtn.id = 'view-pdf-btn';
+  viewPDFBtn.className = 'rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors';
+  viewPDFBtn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2"></i>View PDF';
+  
+  // Add click handler to open PDF
+  viewPDFBtn.addEventListener('click', () => {
+    window.electronAPI.openPDF(filePath);
+  });
+
+  // Insert button in the same location as Start Verification button (Calibration Control section)
+  const buttonContainer = document.querySelector('.flex.gap-3');
+  if (buttonContainer) {
+    buttonContainer.appendChild(viewPDFBtn);
   }
 }
 

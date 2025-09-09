@@ -235,6 +235,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMonsterMeterVerificationFailed: callback => ipcRenderer.on('monster-meter-verification-failed', (_, data) => callback(data)),
   onMonsterMeterVerificationCompleted: callback => ipcRenderer.on('monster-meter-verification-completed', (_, data) => callback(data)),
   onMonsterMeterVerificationData: callback => ipcRenderer.on('monster-meter-verification-data', (_, data) => callback(data)),
+  onMonsterMeterPDFGenerated: callback => ipcRenderer.on('monster-meter-pdf-generated', (_, data) => callback(data)),
+
+  // File operations
+  openPDF: filePath => ipcRenderer.invoke('open-pdf', filePath),
 
   // Monster Meter cleanup
   removeAllMonsterMeterListeners: () => {
