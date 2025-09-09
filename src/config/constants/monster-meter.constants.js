@@ -1,3 +1,4 @@
+/* prettier-ignore-file */
 /**
  * Monster Meter Constants
  * Centralized configuration for Monster Meter functionality
@@ -7,20 +8,22 @@ export const MONSTER_METER_CONSTANTS = {
   BAUD_RATE: 9600,
   DATA_TIMEOUT: 5000,
   MAX_RETRIES: 3,
-  SWEEP_VALUE: 100,
+  SWEEP_VALUE: 250,
 
   TOLERANCE_RANGE: 1.5,
 
   // Commands (from old app)
+  // eslint-disable prettier/prettier
   COMMANDS: {
-    START_CAL: 0xa1,
-    STOP_CAL: 0xa2,
-    SET_DATA: 0xa3,
-    GET_DATA: 0xa4,
-    ZERO_HIGH: 0xa5,
-    ZERO_LOW: 0xa6,
-    VERIFY_ME: 0xa7,
+    START_CAL: 0xA1,
+    STOP_CAL: 0xA2,
+    SET_DATA: 0xA3,
+    GET_DATA: 0xA4,
+    ZERO_HIGH: 0xA5,
+    ZERO_LOW: 0xA6,
+    VERIFY_ME: 0xA7,
   },
+  // eslint-enable prettier/prettier
 
   // Buffer Sizes
   COMMAND_BUFFER_SIZE: 36,

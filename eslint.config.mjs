@@ -37,4 +37,11 @@ export default defineConfig([
       ],
     },
   },
+  // Disable Prettier for constants files to preserve hex case
+  {
+    files: ['**/constants/**/*.js'],
+    rules: {
+      'prettier/prettier': 'off',
+    },
+  },
 ]);

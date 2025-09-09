@@ -24,6 +24,9 @@ class MonsterMeterCalibrationService {
   async initialize() {
     try {
       this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.isCalibrationActive && !this.isCalibrationStopped);
+
+      // Load old coefficients from state (already stored on connection)
+      this.loadOldCoefficientsFromState();
     } catch (error) {
       this.handleError(error, 'initialize');
       throw error;
@@ -37,7 +40,7 @@ class MonsterMeterCalibrationService {
       this.initializeCalibrationState(testerName, model, serialNumber);
       this.validateConnection();
 
-      await this.storeOldCoefficients();
+      // Old coefficients are already stored on connection
       this.generateSweepIntervals();
 
       this.sendToRenderer('monster-meter-calibration-started');
@@ -112,7 +115,7 @@ class MonsterMeterCalibrationService {
     if (this.isCalibrationStopped) return;
 
     this.showLogOnScreen(`✅ Pressure reached ${pressureValue} PSI. Stabilizing...`);
-    await this.addDelay(5000);
+    await this.addDelay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
     if (this.isCalibrationStopped) return;
 
     this.showLogOnScreen('📸 Capturing Monster Meter readings...');
@@ -182,11 +185,6 @@ class MonsterMeterCalibrationService {
     }
   }
 
-  // logRestoreDebugInfo(isStoppedByUser, canRestore) {
-  //   const debugInfo = [`🔍 Debug - isStoppedByUser: ${isStoppedByUser}`, `🔍 Debug - isConnected: ${this.monsterMeterState.isConnected}`, `🔍 Debug - hasOldCoefficients: ${!!this.oldCoefficients}`];
-  //   debugInfo.forEach(msg => this.showLogOnScreen(msg));
-  // }
-
   // Simplified step methods
   async runFlukePreReqs() {
     await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
@@ -255,25 +253,26 @@ class MonsterMeterCalibrationService {
   }
 
   clearSweepData() {
-    const arrays = ['voltagesHiArray', 'pressureHiArray', 'voltagesLoArray', 'pressureLoArray', 'dbDataCalibration'];
+    const arrays = ['voltagesHiArray', 'pressureHiArray', 'voltagesLoArray', 'pressureLoArray'];
     arrays.forEach(arr => (this[arr] = []));
   }
 
-  async storeOldCoefficients() {
+  loadOldCoefficientsFromState() {
     try {
-      this.showLogOnScreen('📖 Reading current coefficients from Monster Meter...');
-      const data = await this.monsterMeterCommunication.readData();
+      // Load coefficients from Monster Meter state (already stored on connection)
 
-      if (data) {
-        this.oldCoefficients = this.extractCoefficients(data);
-        this.showLogOnScreen('✅ Old coefficients stored successfully');
-        this.logCoefficients('Old', this.oldCoefficients);
+      this.oldCoefficients = this.monsterMeterState.getOldCoefficients();
+
+      if (this.oldCoefficients) {
+        // this.showLogOnScreen('✅ Old coefficients loaded from state');
+        console.log('[Calibration] Loaded old coefficients:', this.oldCoefficients);
       } else {
-        this.showLogOnScreen('⚠️ Could not read old coefficients from Monster Meter');
-        this.oldCoefficients = null;
+        // this.showLogOnScreen('⚠️ No old coefficients found in state');
+        console.log('[Calibration] No old coefficients available');
       }
     } catch (error) {
-      this.showLogOnScreen(`❌ Error reading old coefficients: ${error.message}`);
+      this.handleError(error, 'loadOldCoefficientsFromState');
+      // this.showLogOnScreen(`❌ Error loading old coefficients from state: ${error.message}`);
       this.oldCoefficients = null;
     }
   }
@@ -291,11 +290,6 @@ class MonsterMeterCalibrationService {
         coeffC: data['SensorLo.coeC'],
       },
     };
-  }
-
-  logCoefficients(type, coefficients) {
-    this.showLogOnScreen(`📊 ${type} SensorHi coefficients: A=${coefficients.hi.coeffA}, B=${coefficients.hi.coeffB}, C=${coefficients.hi.coeffC}`);
-    this.showLogOnScreen(`📊 ${type} SensorLo coefficients: A=${coefficients.lo.coeffA}, B=${coefficients.lo.coeffB}, C=${coefficients.lo.coeffC}`);
   }
 
   async writeOldCoefficientsBack() {
@@ -352,8 +346,6 @@ class MonsterMeterCalibrationService {
       referencePressure: pressureValue,
     };
 
-    sensorData.inRange = sensorData.pressureHi >= min && sensorData.pressureHi <= max && sensorData.pressureLo >= min && sensorData.pressureLo <= max;
-
     return sensorData;
   }
 
@@ -362,7 +354,6 @@ class MonsterMeterCalibrationService {
     this.pressureLoArray.push(sensorData.pressureLo);
     this.voltagesHiArray.push(sensorData.voltageHi);
     this.pressureHiArray.push(sensorData.pressureHi);
-    this.dbDataCalibration.push(sensorData);
   }
 
   sendCalibrationUpdate() {
@@ -408,8 +399,6 @@ class MonsterMeterCalibrationService {
       hi: { coeffA: regressions.hi.coefficients[1], coeffB: regressions.hi.coefficients[2], coeffC: regressions.hi.coefficients[3] },
       lo: { coeffA: regressions.lo.coefficients[1], coeffB: regressions.lo.coefficients[2], coeffC: regressions.lo.coefficients[3] },
     };
-
-    this.logCoefficients('New', this.currentCoefficients);
   }
 
   async writeCoefficientsToMonsterMeter() {
@@ -461,7 +450,6 @@ class MonsterMeterCalibrationService {
 
   generateSweepIntervals() {
     this.sweepIntervals = generateStepArray(this.maxPressure);
-    this.showLogOnScreen(`📊 Generated ${this.sweepIntervals.length} pressure points: ${this.sweepIntervals.join(', ')}`);
   }
 
   // Utility and status methods
@@ -491,7 +479,6 @@ class MonsterMeterCalibrationService {
       voltagesLoArray: [],
       pressureLoArray: [],
       currentCoefficients: null,
-      dbDataCalibration: [],
       oldCoefficients: null,
       fluke: null,
     });
