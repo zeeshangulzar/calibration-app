@@ -297,10 +297,7 @@ class KrakenCalibrationController {
     await this.deviceSetupManager.reSetupKrakensAfterCalibration();
     this.uiManager.updateDeviceWidgetsForCalibration(false);
 
-    // Keep calibration active until pressure is zeroed to prevent button re-enabling
-    await this.flukeManager.ensureZeroPressure();
-
-    // Now pressure is zeroed, safe to mark calibration as inactive
+    // Mark calibration as inactive - verification will handle Fluke zero setting
     this.globalState.isCalibrationActive = false;
 
     // Show success notification

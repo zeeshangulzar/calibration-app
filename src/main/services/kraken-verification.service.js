@@ -35,19 +35,53 @@ class KrakenVerificationService {
   }
 
   /**
+   * Update all device widgets to show verification status
+   * @param {boolean} isVerifying - Whether verification is in progress
+   * @param {boolean} hasError - Whether there was an error
+   */
+  updateDeviceWidgetsForVerification(isVerifying, hasError = false) {
+    const devices = this.globalState.getConnectedDevices();
+
+    for (const device of devices) {
+      // Send widget update to renderer
+      let message;
+      if (isVerifying) {
+        message = 'Verification in progress...';
+      } else if (hasError) {
+        message = 'Verification failed - error occurred';
+      } else {
+        message = 'Verification completed';
+      }
+
+      this.sendToRenderer('device-verification-status-update', {
+        deviceId: device.id,
+        isVerifying: isVerifying,
+        hasError: hasError,
+        message: message,
+      });
+    }
+  }
+
+  /**
    * Stops the verification sweep process.
    */
   async stopVerification() {
     this.isSweepRunning = false;
+    this.globalState.isVerificationActive = false;
     this.showLogOnScreen('⏹️ Verification process stopped by user.');
     console.log('Verification sweep stopped by user');
 
+    // Update device widgets to show verification stopped
+    this.updateDeviceWidgetsForVerification(false);
+
+    // Restore Fluke manager to use calibration active check
+    if (this.fluke && this.fluke.updateProcessActiveFunction) {
+      this.fluke.updateProcessActiveFunction(() => this.globalState.isCalibrationActive);
+      console.log('KrakenVerification: Restored Fluke process active function to calibration check');
+    }
+
     // Set Fluke to zero pressure in background without waiting or logging
-    this.fluke.setZeroPressureToFluke(true).catch(error => {
-      // Silently log error to console only, no user notification
-      console.error('Background Fluke zero pressure failed:', error);
-      Sentry.captureException(error);
-    });
+    this.fluke.setZeroPressureToFluke(true);
   }
 
   /**
@@ -57,10 +91,20 @@ class KrakenVerificationService {
     this.showLogOnScreen('--- KRAKEN VERIFICATION PROCESS ---');
     console.log('Starting Kraken verification sweep...');
     this.isSweepRunning = true;
+    this.globalState.isVerificationActive = true;
     this.globalState.clearKrakenSweepData();
+
+    // Update Fluke manager to use verification active check instead of calibration active
+    if (this.fluke && this.fluke.updateProcessActiveFunction) {
+      this.fluke.updateProcessActiveFunction(() => this.globalState.isVerificationActive && this.isSweepRunning);
+      console.log('KrakenVerification: Updated Fluke process active function for verification');
+    }
 
     // Send verification started event to renderer
     this.sendToRenderer('kraken-verification-started');
+
+    // Update device widgets to show verification in progress
+    this.updateDeviceWidgetsForVerification(true);
 
     const devices = this.globalState.getConnectedDevices();
     if (devices.length === 0) {
@@ -73,6 +117,10 @@ class KrakenVerificationService {
     const pressurePoints = generateStepArray(KRAKEN_CONSTANTS.SWEEP_VALUE);
 
     try {
+      // First step: Set Fluke to zero pressure
+      await this.fluke.setZeroPressureToFluke();
+      await this.fluke.waitForFlukeToReachZeroPressure();
+
       for (let i = 0; i < pressurePoints.length; i++) {
         const targetPressure = pressurePoints[i];
         if (!this.isSweepRunning) {
@@ -89,20 +137,31 @@ class KrakenVerificationService {
         // Process certification results and generate PDFs
         await this.processVerificationResults();
 
+        // Update device widgets to show verification completed
+        this.updateDeviceWidgetsForVerification(false);
+
         this.sendToRenderer('kraken-verification-sweep-completed', this.globalState.getKrakenSweepData());
       }
     } catch (error) {
       Sentry.captureException(error);
       this.showLogOnScreen(`❌ Error during verification sweep: ${error.message}`);
       console.error('Error during verification sweep:', error);
+
+      // Update device widgets to show verification error
+      this.updateDeviceWidgetsForVerification(false, true);
     } finally {
-      // Always set Fluke to zero pressure after verification completes or fails (silently)
-      this.fluke.setZeroPressureToFluke(true).catch(error => {
-        // Silently log error to console only, no user notification
-        console.error('Background Fluke zero pressure failed after completion:', error);
-        Sentry.captureException(error);
-      });
+      // Reset verification state and restore Fluke process check
       this.isSweepRunning = false;
+      this.globalState.isVerificationActive = false;
+
+      // Restore Fluke manager to use calibration active check
+      if (this.fluke && this.fluke.updateProcessActiveFunction) {
+        this.fluke.updateProcessActiveFunction(() => this.globalState.isCalibrationActive);
+        console.log('KrakenVerification: Restored Fluke process active function to calibration check');
+      }
+
+      // Always set Fluke to zero pressure after verification completes or fails (silently)
+      this.fluke.setZeroPressureToFluke(true);
     }
   }
 
