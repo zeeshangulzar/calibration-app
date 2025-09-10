@@ -270,7 +270,7 @@ class KrakenCalibrationController {
     } catch (error) {
       // Handle any other errors during Fluke preparation
       this.globalState.isCalibrationActive = false;
-      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.error}`);
+      // this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.error}`);
 
       // Reset UI state to allow retry
       this.uiManager.enableBackButton();
