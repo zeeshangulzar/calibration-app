@@ -6,30 +6,41 @@ import * as Sentry from '@sentry/electron/main';
 /**
  * Simple Factory Service for Fluke
  * Automatically chooses between mock and real services based on user setting
+ * Always queries database for latest settings - no caching
+ * Singleton pattern to ensure consistent settings across the app
  */
 class FlukeFactoryService {
   constructor() {
     this.instance = null;
-    this.mockFlukeEnabled = this.getMockFlukeSetting();
+    console.log(`🔧 Fluke Factory initialized - will always query database for latest settings`);
+  }
 
-    console.log(`🔧 Fluke Factory initialized. Mock Fluke: ${this.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
+  /**
+   * Get singleton instance of FlukeFactoryService
+   * @returns {FlukeFactoryService} Singleton instance
+   */
+  static getInstance() {
+    if (!FlukeFactoryService._instance) {
+      FlukeFactoryService._instance = new FlukeFactoryService();
+    }
+    return FlukeFactoryService._instance;
   }
 
   /**
    * Gets the appropriate Fluke service instance
+   * Always queries database for latest settings - no caching
    * @param {Function} showLogOnScreen - Function to show logs on screen
    * @param {Function} isProcessActiveFn - Function to check if process is active
    * @returns {Object} Fluke service instance (mock if enabled, real otherwise)
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
-    if (this.instance) {
-      return this.instance;
-    }
+    // Always query database for latest settings
+    const mockFlukeEnabled = this.getMockFlukeSetting();
+    
+    // Clear existing instance to ensure fresh creation with latest settings
+    this.instance = null;
 
-    // Check current setting (in case it changed)
-    this.mockFlukeEnabled = this.getMockFlukeSetting();
-
-    if (this.mockFlukeEnabled) {
+    if (mockFlukeEnabled) {
       console.log('🔧 Creating Mock Fluke service (user setting enabled)');
       this.instance = new FlukeMockService();
     } else {
@@ -42,6 +53,7 @@ class FlukeFactoryService {
 
   /**
    * Gets the mock Fluke setting from database
+   * Always queries database for latest settings
    * @returns {boolean} True if mock Fluke is enabled
    */
   getMockFlukeSetting() {
@@ -49,7 +61,7 @@ class FlukeFactoryService {
       const settings = getFlukeSettings();
       const mockEnabled = settings.mock_fluke_enabled === 1;
 
-      console.log('🔧 Mock Fluke setting from database:', {
+      console.log('🔧 Querying database for Mock Fluke setting:', {
         mock_fluke_enabled: settings.mock_fluke_enabled,
         resolved: mockEnabled,
       });
@@ -86,5 +98,8 @@ class FlukeFactoryService {
     }
   }
 }
+
+// Export singleton getter function
+export const getFlukeFactory = () => FlukeFactoryService.getInstance();
 
 export { FlukeFactoryService };
