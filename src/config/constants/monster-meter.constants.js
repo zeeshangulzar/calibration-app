@@ -8,7 +8,7 @@ export const MONSTER_METER_CONSTANTS = {
   BAUD_RATE: 9600,
   DATA_TIMEOUT: 5000,
   MAX_RETRIES: 3,
-  SWEEP_VALUE: 250,
+  SWEEP_VALUE: 100,
 
   TOLERANCE_RANGE: 1.5,
   
@@ -80,5 +80,19 @@ export const MONSTER_METER_CONSTANTS = {
   MODEL_OPTIONS: {
     'GK-MM-250': 'GK-MM-250',
     'GK-MM-WC-250': 'GK-MM-WC-250',
+  },
+
+  // Fallback coefficients (used when generated coefficients are NaN)
+  FALLBACK_COEFFICIENTS: {
+    hi: {
+      coeffA: 3770.257568359375,
+      coeffB: 287.993896484375,
+      coeffC: -1201.8162841796875,
+    },
+    lo: {
+      coeffA: 3794.758056640625,
+      coeffB: 305.0020446777344,
+      coeffC: -1990.52783203125,
+    },
   },
 };
