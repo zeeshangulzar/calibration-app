@@ -442,6 +442,7 @@ function showMonsterMeterWidget(deviceInfo) {
           Port: ${deviceInfo.port || 'Unknown'}
           <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
         </p>
+        <div id="pdf-button-container" class="mt-2"></div>
       </div>
     </div>
   `;
@@ -1058,18 +1059,19 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors';
-  viewPDFBtn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2"></i>View PDF';
-  
+  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm';
+  viewPDFBtn.innerHTML =
+    '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
+
   // Add click handler to open PDF
   viewPDFBtn.addEventListener('click', () => {
     window.electronAPI.openPDF(filePath);
   });
 
-  // Insert button in the same location as Start Verification button (Calibration Control section)
-  const buttonContainer = document.querySelector('.flex.gap-3');
-  if (buttonContainer) {
-    buttonContainer.appendChild(viewPDFBtn);
+  // Insert button in the Monster Meter widget after port information
+  const pdfContainer = document.getElementById('pdf-button-container');
+  if (pdfContainer) {
+    pdfContainer.appendChild(viewPDFBtn);
   }
 }
 
