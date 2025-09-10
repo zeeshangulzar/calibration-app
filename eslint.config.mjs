@@ -26,15 +26,6 @@ export default defineConfig([
       'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
       'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/no-require-imports': 'off',
-
-      // ✅ Enforce uppercase hex (0xa1 → 0xA1)
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'Literal[value=/^0x[a-f0-9]+$/]',
-          message: 'Use uppercase hex digits (e.g., 0xA1 instead of 0xa1).',
-        },
-      ],
     },
   },
   // Disable Prettier for constants files to preserve hex case

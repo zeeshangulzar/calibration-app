@@ -11,6 +11,9 @@ export const MONSTER_METER_CONSTANTS = {
   SWEEP_VALUE: 250,
 
   TOLERANCE_RANGE: 1.5,
+  
+  // Calibration settings
+  CALIBRATION_TEMPERATURE: 'N/A', // Default calibration temperature
 
   // Commands (from old app)
   // eslint-disable prettier/prettier

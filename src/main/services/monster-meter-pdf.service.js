@@ -5,6 +5,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { BrowserWindow } from 'electron';
 import Handlebars from 'handlebars';
+import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import * as Sentry from '@sentry/electron/main';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -161,6 +162,10 @@ class MonsterMeterPDFService {
       testDate: calDate,
       certificationData: certificationData,
       logoUrl: this.getLogoPath(),
+      // Dynamic values from constants
+      sweepValue: MONSTER_METER_CONSTANTS.SWEEP_VALUE,
+      toleranceRange: MONSTER_METER_CONSTANTS.TOLERANCE_RANGE,
+      calibrationTemperature: MONSTER_METER_CONSTANTS.CALIBRATION_TEMPERATURE,
     };
 
     return this.generateHTMLFromTemplate(templateData);
@@ -182,10 +187,7 @@ class MonsterMeterPDFService {
       const cssContent = fsSync.readFileSync(cssPath, 'utf8');
 
       // Replace the CSS link with inline styles
-      const htmlWithInlineCSS = templateHtml.replace(
-        '<link rel="stylesheet" href="monster-meter-report.css" />',
-        `<style>${cssContent}</style>`
-      );
+      const htmlWithInlineCSS = templateHtml.replace('<link rel="stylesheet" href="monster-meter-report.css" />', `<style>${cssContent}</style>`);
 
       // Compile the template
       const template = Handlebars.compile(htmlWithInlineCSS);
