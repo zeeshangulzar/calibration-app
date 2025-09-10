@@ -100,12 +100,9 @@ export class FlukeManager {
       if (!this.isProcessActive()) return;
 
       const initialResponse = await this.telnetClient.sendCommand(command.check);
-      this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {
         if (!this.isProcessActive()) return;
-
-        this.showLogOnScreen(`Setting ${command.name}...`);
 
         // Send the setting command
         await this.telnetClient.sendCommand(command.action);
@@ -121,7 +118,7 @@ export class FlukeManager {
           this.showLogOnScreen(errorMessage);
           throw new Error(`Fluke calibrator setup failed: ${errorMessage}`);
         } else {
-          this.showLogOnScreen(`✅ ${command.name} successfully set and verified.`);
+          this.showLogOnScreen(`✅ ${command.name} configured`);
         }
       } else {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
@@ -154,7 +151,7 @@ export class FlukeManager {
 
   setZeroPressureToFluke(silent = false) {
     if (!silent) {
-      this.showLogOnScreen('Pressure setting to 0 ...');
+      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} 0`);
   }
@@ -191,15 +188,15 @@ export class FlukeManager {
       Sentry.captureException(error, {
         tags: { service: 'fluke-manager', method: 'ensureZeroPressure' },
       });
-      const errorMessage = error.error || error.message || 'Unknown error';
-      this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
-      throw new Error(`Zero pressure setup failed: ${errorMessage}`);
+      // const errorMessage = error.error || error.message || 'Unknown error';
+      // this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
+      // throw new Error(`Zero pressure setup failed: ${errorMessage}`);
     }
   }
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke for all sensors...`);
+      this.showLogOnScreen(`🔄 Setting Fluke to ${sweepValue} PSI...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }
@@ -241,7 +238,7 @@ export class FlukeManager {
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           if (!silent) {
-            this.showLogOnScreen('Pressure set to 0');
+            this.showLogOnScreen('✅ Fluke reached zero pressure');
           }
           clearInterval(check);
           resolve();
