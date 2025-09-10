@@ -41,7 +41,7 @@ export const KRAKEN_CONSTANTS = {
   DELAY_BETWEEN_COMMANDS: 2000,
 
   // Sweep value
-  SWEEP_VALUE: 300,
+  SWEEP_VALUE: 100,
 
   // delay after pressure is set
   DELAY_AFTER_PRESSURE_SET: 3000,

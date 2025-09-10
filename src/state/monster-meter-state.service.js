@@ -11,6 +11,7 @@ class MonsterMeterStateService extends EventEmitter {
     this.availablePorts = [];
     this.isConnected = false;
     this.deviceData = null;
+    this.oldCoefficients = null;
   }
 
   /**
@@ -53,6 +54,28 @@ class MonsterMeterStateService extends EventEmitter {
     this.emit('portsUpdated', ports);
   }
 
+  /**
+   * Store old coefficients from Monster Meter
+   */
+  setOldCoefficients(coefficients) {
+    this.oldCoefficients = coefficients;
+    this.emit('coefficientsStored', coefficients);
+  }
+
+  /**
+   * Get stored old coefficients
+   */
+  getOldCoefficients() {
+    return this.oldCoefficients;
+  }
+
+  /**
+   * Clear old coefficients
+   */
+  clearOldCoefficients() {
+    this.oldCoefficients = null;
+    this.emit('coefficientsCleared');
+  }
 
   /**
    * Get current state
@@ -63,6 +86,7 @@ class MonsterMeterStateService extends EventEmitter {
       availablePorts: this.availablePorts,
       isConnected: this.isConnected,
       deviceData: this.deviceData,
+      oldCoefficients: this.oldCoefficients,
     };
   }
 
@@ -71,16 +95,17 @@ class MonsterMeterStateService extends EventEmitter {
    */
   cleanup() {
     console.log('[State] Starting cleanup...');
-    
+
     // Clear all state
     this.connectedDevice = null;
     this.availablePorts = [];
     this.isConnected = false;
     this.deviceData = null;
-    
+    this.oldCoefficients = null;
+
     // Remove all event listeners
     this.removeAllListeners();
-    
+
     console.log('[State] Cleanup completed');
   }
 
@@ -93,7 +118,6 @@ class MonsterMeterStateService extends EventEmitter {
     stateInstance = null;
     console.log('[State] Service destroyed');
   }
-
 }
 
 // Singleton instance

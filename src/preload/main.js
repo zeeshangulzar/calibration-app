@@ -208,6 +208,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   monsterMeterCleanup: () => ipcRenderer.invoke('monster-meter-cleanup'),
   monsterMeterCleanupModule: () => ipcRenderer.invoke('monster-meter-cleanup-module'),
 
+  // Monster Meter calibration
+  monsterMeterStartCalibration: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-calibration', testerName, model, serialNumber),
+  monsterMeterStopCalibration: (reason) => ipcRenderer.invoke('monster-meter-stop-calibration', reason),
+  monsterMeterGetCalibrationStatus: () => ipcRenderer.invoke('monster-meter-get-calibration-status'),
+  monsterMeterStartVerification: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-verification', testerName, model, serialNumber),
+  monsterMeterStopVerification: (reason) => ipcRenderer.invoke('monster-meter-stop-verification', reason),
+  monsterMeterGetVerificationStatus: () => ipcRenderer.invoke('monster-meter-get-verification-status'),
+
   // Monster Meter event listeners
   onMonsterMeterPortsUpdated: callback => ipcRenderer.on('monster-meter-ports-updated', (_, ports) => callback(ports)),
   onMonsterMeterConnected: callback => ipcRenderer.on('monster-meter-connected', (_, data) => callback(data)),
@@ -215,6 +223,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMonsterMeterConnectionError: callback => ipcRenderer.on('monster-meter-connection-error', (_, data) => callback(data)),
   onMonsterMeterDataUpdated: callback => ipcRenderer.on('monster-meter-data-updated', (_, data) => callback(data)),
   onMonsterMeterError: callback => ipcRenderer.on('monster-meter-error', (_, data) => callback(data)),
+  onMonsterMeterLog: callback => ipcRenderer.on('monster-meter-log', (_, message) => callback(message)),
+  onMonsterMeterCalibrationStarted: callback => ipcRenderer.on('monster-meter-calibration-started', (_, data) => callback(data)),
+  onMonsterMeterCalibrationStopped: callback => ipcRenderer.on('monster-meter-calibration-stopped', (_, data) => callback(data)),
+  onMonsterMeterCalibrationFailed: callback => ipcRenderer.on('monster-meter-calibration-failed', (_, data) => callback(data)),
+  onMonsterMeterCalibrationCompleted: callback => ipcRenderer.on('monster-meter-calibration-completed', (_, data) => callback(data)),
+  onMonsterMeterCalibrationData: callback => ipcRenderer.on('monster-meter-calibration-data', (_, data) => callback(data)),
+  onMonsterMeterLiveData: callback => ipcRenderer.on('monster-meter-live-data', (_, data) => callback(data)),
+  onMonsterMeterVerificationStarted: callback => ipcRenderer.on('monster-meter-verification-started', (_, data) => callback(data)),
+  onMonsterMeterVerificationStopped: callback => ipcRenderer.on('monster-meter-verification-stopped', (_, data) => callback(data)),
+  onMonsterMeterVerificationFailed: callback => ipcRenderer.on('monster-meter-verification-failed', (_, data) => callback(data)),
+  onMonsterMeterVerificationCompleted: callback => ipcRenderer.on('monster-meter-verification-completed', (_, data) => callback(data)),
+  onMonsterMeterVerificationData: callback => ipcRenderer.on('monster-meter-verification-data', (_, data) => callback(data)),
+  onMonsterMeterPDFGenerated: callback => ipcRenderer.on('monster-meter-pdf-generated', (_, data) => callback(data)),
+
+  // File operations
+  openPDF: filePath => ipcRenderer.invoke('open-pdf', filePath),
 
   // Monster Meter cleanup
   removeAllMonsterMeterListeners: () => {
@@ -224,5 +248,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('monster-meter-connection-error');
     ipcRenderer.removeAllListeners('monster-meter-data-updated');
     ipcRenderer.removeAllListeners('monster-meter-error');
+    ipcRenderer.removeAllListeners('monster-meter-log');
+    ipcRenderer.removeAllListeners('monster-meter-calibration-started');
+    ipcRenderer.removeAllListeners('monster-meter-calibration-stopped');
+    ipcRenderer.removeAllListeners('monster-meter-calibration-failed');
+    ipcRenderer.removeAllListeners('monster-meter-calibration-completed');
+    ipcRenderer.removeAllListeners('monster-meter-calibration-data');
+    ipcRenderer.removeAllListeners('monster-meter-live-data');
+    ipcRenderer.removeAllListeners('monster-meter-verification-started');
+    ipcRenderer.removeAllListeners('monster-meter-verification-stopped');
+    ipcRenderer.removeAllListeners('monster-meter-verification-failed');
+    ipcRenderer.removeAllListeners('monster-meter-verification-completed');
+    ipcRenderer.removeAllListeners('monster-meter-verification-data');
   },
 });
