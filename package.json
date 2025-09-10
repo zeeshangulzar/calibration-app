@@ -1,7 +1,7 @@
 {
   "name": "sm-calibration",
   "productName": "SmartMonster Calibration",
-  "version": "1.0.09",
+  "version": "1.0.0",
   "description": "Smartmonster Calibration App for Sensors and Meters",
   "main": "src/main/main.js",
   "type": "module",

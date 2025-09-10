@@ -141,11 +141,6 @@ const handlers = {
 
   // Calibration handlers
   async startCalibration(event, testerName, model, serialNumber) {
-    console.log('🔍 Debug - IPC startCalibration received parameters:');
-    console.log('🔍 Debug - testerName:', testerName);
-    console.log('🔍 Debug - model:', model);
-    console.log('🔍 Debug - serialNumber:', serialNumber);
-    
     if (!monsterMeterController) {
       return { success: false, error: 'Monster Meter not initialized' };
     }
@@ -154,17 +149,17 @@ const handlers = {
       const monsterMeterState = monsterMeterController.getStateService();
       const monsterMeterCommunication = monsterMeterController.getCommunicationService();
       const mainWindow = getMainWindow();
-      
+
       monsterMeterCalibrationService = new MonsterMeterCalibrationService(
         monsterMeterState,
         monsterMeterCommunication,
         (event, data) => mainWindow.webContents.send(event, data),
-        (message) => mainWindow.webContents.send('monster-meter-log', message)
+        message => mainWindow.webContents.send('monster-meter-log', message)
       );
-      
+
       // Set the calibration service reference in the controller
       monsterMeterController.setCalibrationService(monsterMeterCalibrationService);
-      
+
       await monsterMeterCalibrationService.initialize();
     }
 
@@ -196,7 +191,7 @@ const handlers = {
     console.log('🔍 Debug - testerName:', testerName);
     console.log('🔍 Debug - model:', model);
     console.log('🔍 Debug - serialNumber:', serialNumber);
-    
+
     if (!monsterMeterController) {
       return { success: false, error: 'Monster Meter not initialized' };
     }
@@ -205,14 +200,14 @@ const handlers = {
       const monsterMeterState = monsterMeterController.getStateService();
       const monsterMeterCommunication = monsterMeterController.getCommunicationService();
       const mainWindow = getMainWindow();
-      
+
       monsterMeterVerificationService = new MonsterMeterVerificationService(
         monsterMeterState,
         monsterMeterCommunication,
         (event, data) => mainWindow.webContents.send(event, data),
-        (message) => mainWindow.webContents.send('monster-meter-log', message)
+        message => mainWindow.webContents.send('monster-meter-log', message)
       );
-      
+
       await monsterMeterVerificationService.initialize();
     }
 
@@ -244,7 +239,7 @@ const handlers = {
 
   async openPDF(event, filePath) {
     const { shell } = await import('electron');
-    
+
     try {
       // Check if file exists
       const fs = await import('fs');
