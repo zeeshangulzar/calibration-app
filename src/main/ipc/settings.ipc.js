@@ -131,8 +131,14 @@ export function registerSettingsIpcHandlers() {
   });
 
   // Navigation handlers
-  ipcMain.on('settings-go-back', () => {
+  ipcMain.on('settings-go-back', async () => {
     const mainWindow = getMainWindow();
+
+    // Cleanup settings controller and deactivate telnet manager before navigation
+    if (settingsController) {
+      await settingsController.cleanup();
+    }
+
     if (mainWindow) {
       // Navigate back to home screen (main layout)
       mainWindow.loadFile(path.join('src', 'renderer', 'layout', 'index.html'));

@@ -23,6 +23,11 @@ class FlukeFactoryService {
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
     if (this.instance) {
+      // Update the process active function if the instance already exists
+      if (this.instance.updateProcessActiveFunction) {
+        console.log('🔧 Updating process active function on existing Fluke instance');
+        this.instance.updateProcessActiveFunction(isProcessActiveFn);
+      }
       return this.instance;
     }
 
@@ -84,6 +89,14 @@ class FlukeFactoryService {
       this.instance = new FlukeMockService();
       return this.instance;
     }
+  }
+
+  /**
+   * Reset the singleton instance (for cleanup)
+   */
+  resetInstance() {
+    this.instance = null;
+    console.log('🔧 Fluke Factory instance reset');
   }
 }
 

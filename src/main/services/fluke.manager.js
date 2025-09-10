@@ -1,4 +1,4 @@
-import { TelnetClientService } from './telnet-client.service.js';
+import { getTelnetClient } from './telnet-client.service.js';
 import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
@@ -12,7 +12,16 @@ export class FlukeManager {
   constructor(showLogOnScreen, isProcessActiveFn) {
     this.showLogOnScreen = showLogOnScreen;
     this.isProcessActive = isProcessActiveFn; // Function to check if calibration/verification is active
-    this.telnetClient = new TelnetClientService();
+    this.telnetClient = getTelnetClient();
+  }
+
+  /**
+   * Update the process active function (used when reusing Fluke service instances)
+   * @param {Function} isProcessActiveFn - New process active function
+   */
+  updateProcessActiveFunction(isProcessActiveFn) {
+    this.isProcessActive = isProcessActiveFn;
+    console.log('FlukeManager: Process active function updated, current status:', this.isProcessActive());
   }
 
   async connect() {
