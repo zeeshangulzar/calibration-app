@@ -199,12 +199,12 @@ class KrakenCalibrationController {
       Sentry.captureException(error);
       this.sendToRenderer('show-notification', {
         type: 'error',
-        message: `Calibration failed: ${error.message}`,
+        message: `Calibration failed: ${error.error}`,
       });
       this.uiManager.enableBackButton();
       this.uiManager.enableCalibrationButton();
       this.uiManager.hideStopCalibrationButton();
-      return { success: false, error: error.message };
+      return { success: false, error: error.error };
     }
   }
 

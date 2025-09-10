@@ -47,10 +47,12 @@ export class FlukeManager {
       this.showLogOnScreen(log);
 
       // Show user-friendly message
-      if (errorMessage.includes('ETIMEDOUT')) {
+      if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('connection timeout')) {
         this.showLogOnScreen('⚠️ Connection timeout - Please check if Fluke device is powered on and network connection is available.');
       } else if (errorMessage.includes('ECONNREFUSED')) {
         this.showLogOnScreen('⚠️ Connection refused - Please check if Fluke device is accessible on the network.');
+      } else if (errorMessage.includes('not responding')) {
+        this.showLogOnScreen('⚠️ Fluke device is not responding - Please verify IP address and port settings.');
       } else {
         this.showLogOnScreen(`⚠️ Connection failed: ${errorMessage}`);
       }

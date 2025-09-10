@@ -98,6 +98,30 @@ class FlukeFactoryService {
     this.instance = null;
     console.log('🔧 Fluke Factory instance reset');
   }
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance() {
+    if (!FlukeFactoryService.instance) {
+      FlukeFactoryService.instance = new FlukeFactoryService();
+    }
+    return FlukeFactoryService.instance;
+  }
+
+  /**
+   * Reset singleton instance when settings change
+   */
+  static resetInstance() {
+    FlukeFactoryService.instance = null;
+    console.log('🔧 Fluke Factory instance reset');
+  }
 }
+
+// Static singleton instance
+FlukeFactoryService.instance = null;
+
+// Export singleton getter function
+export const getFlukeFactory = () => FlukeFactoryService.getInstance();
 
 export { FlukeFactoryService };

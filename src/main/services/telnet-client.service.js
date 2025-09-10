@@ -15,6 +15,7 @@ class TelnetClientService extends EventEmitter {
     this.host = null;
     this.port = null;
     this.responseTimeout = 5000; // 5 seconds
+    this.connectionTimeout = 10000; // 10 seconds for connection attempts
     this.autoReconnect = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 3;
@@ -44,7 +45,7 @@ class TelnetClientService extends EventEmitter {
       });
       console.error('Failed to load Fluke settings:', error);
       this.host = '10.10.69.27';
-      this.port = 3490;
+      this.port = 5025;
     }
   }
 
@@ -65,6 +66,13 @@ class TelnetClientService extends EventEmitter {
   }
 
   /**
+   * Refresh settings from database
+   */
+  refreshSettings() {
+    this.loadSettingsOnly();
+  }
+
+  /**
    * Connect to Fluke device
    * @returns {Promise<Object>} Connection result
    */
@@ -75,6 +83,8 @@ class TelnetClientService extends EventEmitter {
         return;
       }
 
+      console.log(`Connecting to Telnet server at ${this.host}:${this.port}...`);
+
       // Clean up any existing client
       if (this.client) {
         this.client.removeAllListeners();
@@ -83,8 +93,25 @@ class TelnetClientService extends EventEmitter {
 
       this.client = new net.Socket();
 
+      // Set connection timeout (10 seconds)
+      const connectionTimeout = setTimeout(() => {
+        this.isConnected = false;
+
+        if (this.client) {
+          this.client.removeAllListeners();
+          this.client.destroy();
+        }
+
+        const timeoutMessage = `Fluke is not responding - connection timeout after 10 seconds (${this.host}:${this.port})`;
+        console.error(timeoutMessage);
+
+        this.emit('error', { error: 'Connection timeout', host: this.host, port: this.port });
+        reject({ success: false, error: timeoutMessage });
+      }, this.connectionTimeout);
+
       // Connection successful
       this.client.connect(this.port, this.host, () => {
+        clearTimeout(connectionTimeout); // Clear timeout on successful connection
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
@@ -97,9 +124,10 @@ class TelnetClientService extends EventEmitter {
 
       // Error handler
       this.client.on('error', error => {
+        clearTimeout(connectionTimeout); // Clear timeout on error
         this.isConnected = false;
 
-        const errorMessage = `Connection error: ${error.message}`;
+        const errorMessage = `Fluke connection failed: ${error.message} (${this.host}:${this.port})`;
         console.error(errorMessage);
 
         // Emit error event but don't let it crash the app

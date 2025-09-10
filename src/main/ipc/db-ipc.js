@@ -50,6 +50,13 @@ function registerFlukeSettingsHandlers() {
       }
 
       const result = saveFlukeSettings(ip, port);
+
+      if (result.success) {
+        // Refresh TelnetClient settings
+        const { getTelnetClient } = await import('../services/telnet-client.service.js');
+        getTelnetClient().refreshSettings();
+      }
+
       return result;
     } catch (error) {
       Sentry.captureException(error, {
