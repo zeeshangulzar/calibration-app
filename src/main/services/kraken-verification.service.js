@@ -3,6 +3,7 @@ import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { KrakenPDFService } from './kraken-pdf.service.js';
 import { uartService } from './uart-service.js';
+import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 
 import * as Sentry from '@sentry/electron/main';
 
@@ -118,7 +119,8 @@ class KrakenVerificationService {
 
     try {
       // First step: Set Fluke to zero pressure
-      await this.fluke.setZeroPressureToFluke();
+      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
+      await this.fluke.setZeroPressureToFluke(true); // Silent to avoid duplicate log
       await this.fluke.waitForFlukeToReachZeroPressure();
 
       for (let i = 0; i < pressurePoints.length; i++) {
@@ -173,17 +175,14 @@ class KrakenVerificationService {
     try {
       if (this.shouldStopVerification()) return;
 
-      this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
+      // Only log and set pressure if not zero (zero was already set at start)
+      if (targetPressure !== 0) {
+        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
+        await this.fluke.setHighPressureToFluke(targetPressure);
+        if (this.shouldStopVerification()) return;
 
-      // if (targetPressure === 0) {
-      //   await this.fluke.setZeroPressureToFluke();
-      //   await this.fluke.waitForFlukeToReachZeroPressure();
-      // } else {
-      await this.fluke.setHighPressureToFluke(targetPressure);
-      if (this.shouldStopVerification()) return;
-
-      await this.fluke.waitForFlukeToReachTargetPressure(targetPressure);
-      // }
+        await this.fluke.waitForFlukeToReachTargetPressure(targetPressure);
+      }
 
       if (this.shouldStopVerification()) return;
 
@@ -320,7 +319,8 @@ class KrakenVerificationService {
           errorCount++;
           Sentry.captureException(deviceError);
           console.error(`Error processing device ${device.id}:`, deviceError);
-          this.showLogOnScreen(`❌ Failed to process ${device.displayName || device.id}: ${deviceError.message}`);
+          const specificError = ErrorMessageService.createVerificationErrorMessage('device processing', deviceError, device.displayName || device.id);
+          this.showLogOnScreen(`❌ ${specificError}`);
         }
       }
 
@@ -332,7 +332,8 @@ class KrakenVerificationService {
     } catch (error) {
       Sentry.captureException(error);
       console.error('Error processing verification results:', error);
-      this.showLogOnScreen(`❌ Critical error processing certification results: ${error.message}`);
+      const specificError = ErrorMessageService.createVerificationErrorMessage('certification processing', error);
+      this.showLogOnScreen(`❌ Critical error: ${specificError}`);
     }
   }
 

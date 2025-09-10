@@ -363,11 +363,10 @@ window.electronAPI.onDeviceDisconnected(data => {
 });
 
 window.electronAPI.onCalibrationStarted(() => {
-  // Handle calibration start - disable the button
+  // Handle calibration start - hide the button
   const startBtn = document.getElementById('start-calibration-btn');
   if (startBtn) {
-    startBtn.disabled = true;
-    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    startBtn.classList.add('hidden');
   }
 
   // Mark calibration in progress and hide status
@@ -1535,8 +1534,8 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
     certificationDiv.className = 'mt-3 p-3 rounded-md bg-green-50 border border-green-200';
   } else {
     statusDiv.innerHTML = `
-      <div class="text-red-600 font-bold text-base mb-1">❌ CERTIFICATION FAILED</div>
-      <div class="text-sm text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
+      <div class="text-red-600 text-sm font-bold text-base mb-1">❌ CERTIFICATION FAILED</div>
+      <div class="text-xs text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
       <div class="text-xs text-red-600">Criteria: ≤ 1.5 PSI</div>
     `;
     statusDiv.className = 'text-sm font-medium mb-2';

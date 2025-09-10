@@ -14,6 +14,7 @@ import {
 } from '../../config/constants/uart.constants.js';
 
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
+import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 import * as Sentry from '@sentry/electron/main';
 /**
  * UART Service for Kraken device communication
@@ -93,7 +94,10 @@ class UARTService {
 
     // All retries exhausted
     this.handleAllRetriesExhausted(command, deviceName, lastError);
-    throw new Error(`Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`);
+
+    // Create specific error message based on error type
+    const specificError = ErrorMessageService.createUARTErrorMessage(command, lastError, deviceName);
+    throw new Error(`Command failed after ${this.maxRetries} attempts. ${specificError}`);
   }
 
   // Helper methods to extract and simplify logic
@@ -127,7 +131,7 @@ class UARTService {
 
   async handleRetryDelay(deviceId, deviceName, command) {
     console.log(`Waiting ${this.retryDelay}ms before retry...`);
-    this.showLogOnScreen(`⏳ Waiting ${this.retryDelay / 1000}s before retry...`);
+    this.showLogOnScreen(`⏳ Retrying ${deviceName} in ${this.retryDelay / 1000}s...`);
 
     await addDelay(this.retryDelay);
 
@@ -137,8 +141,9 @@ class UARTService {
 
   handleAllRetriesExhausted(command, deviceName) {
     console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
-    this.showLogOnScreen(`❌ ${command} command failed completely on ${deviceName} - all retries exhausted`);
+    this.showLogOnScreen(`❌ ${deviceName} - all retries failed`);
   }
+
   /**
    * Check if device is connected in global state
    * @param {string} deviceId - Device ID to check

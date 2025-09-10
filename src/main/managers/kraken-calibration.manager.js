@@ -2,6 +2,7 @@ import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { UART_service } from '../services/uart-service.js';
+import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 
 import * as Sentry from '@sentry/electron/main';
 
@@ -68,6 +69,11 @@ export class KrakenCalibrationManager {
    * @returns {Promise<void>}
    */
   async sendCommandToAllSensors(commandType, commandFunction, startMessage, endMessage, beforeDeviceLoop = null) {
+    // Check if calibration is still active before starting any command
+    if (this.shouldStopCalibration()) {
+      return;
+    }
+
     this.showLogOnScreen(startMessage);
 
     const devicesToRemove = [];
@@ -76,6 +82,10 @@ export class KrakenCalibrationManager {
     // Execute any pre-processing (like Fluke setup for high commands)
     if (beforeDeviceLoop) {
       await beforeDeviceLoop();
+      // Check again after pre-processing in case calibration was stopped
+      if (this.shouldStopCalibration()) {
+        return;
+      }
     }
 
     for (const device of connectedDevices) {
@@ -120,12 +130,14 @@ export class KrakenCalibrationManager {
           tags: { service: 'kraken-calibration-manager', method: 'executeCommandForDevice' },
           extra: { commandType, deviceId: device.id, deviceName: device.name },
         });
-        console.error(`${commandType} command failed for device ${device.name || device.id}:`, error.message);
-        this.showLogOnScreen(`❌ ${commandType} command failed for ${device.name || device.id}: ${error.message}`);
+        const specificError = ErrorMessageService.createKrakenCalibrationErrorMessage(commandType, error, device.name || device.id);
+        console.error(`${commandType} command failed for device ${device.name || device.id}:`, specificError);
+        this.showLogOnScreen(`❌ ${specificError}`);
 
         // Special handling for critical Fluke failures in high command
         if (commandType === 'High' && (error.message.includes('Fluke is not responding') || error.message.includes('timeout'))) {
-          await this.stopCalibration('Critical Fluke communication failure during high pressure operation', error.message);
+          const flukeError = ErrorMessageService.createFlukeErrorMessage(error);
+          await this.stopCalibration('Critical Fluke communication failure during high pressure operation', flukeError);
           throw new Error('Critical Fluke failure during high pressure operation');
         }
 
@@ -143,25 +155,21 @@ export class KrakenCalibrationManager {
 
     // Remove failed devices
     await this.removeFailedDevicesFromCalibration(devicesToRemove, `${commandType.toLowerCase()} command`);
-    this.showLogOnScreen(endMessage);
+
+    // Only show completion message if calibration is still active
+    if (!this.shouldStopCalibration()) {
+      this.showLogOnScreen(endMessage);
+    } else {
+      this.showLogOnScreen(`⚠️ ${commandType} command execution halted due to calibration stop`);
+    }
   }
 
   async sendZeroCommandToAllSensors() {
-    return this.sendCommandToAllSensors(
-      'Zero',
-      this.writeZeroToSensorWithRetries.bind(this),
-      '🔄 STARTING ZERO COMMAND CALIBRATION-----------------',
-      '✅ ZERO COMMAND CALIBRATION COMPLETED---------------'
-    );
+    return this.sendCommandToAllSensors('Zero', this.writeZeroToSensorWithRetries.bind(this), '🔄 Setting zero pressure calibration...', '✅ Zero pressure calibration completed');
   }
 
   async sendLowCommandToAllSensors() {
-    return this.sendCommandToAllSensors(
-      'Low',
-      this.writeLowToSensorWithRetries.bind(this),
-      '🔄 STARTING LOW COMMAND CALIBRATION-----------------',
-      '✅ LOW COMMAND CALIBRATION COMPLETED--------------'
-    );
+    return this.sendCommandToAllSensors('Low', this.writeLowToSensorWithRetries.bind(this), '🔄 Setting low pressure calibration...', '✅ Low pressure calibration completed');
   }
 
   async sendHighCommandToAllSensors() {
@@ -173,17 +181,11 @@ export class KrakenCalibrationManager {
         Sentry.captureException(error);
         this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);
         await this.stopCalibration('Critical Fluke communication failure during high pressure setup', error.message);
-        throw new Error('Critical Fluke failure during high pressure setup');
+        // throw new Error('Critical Fluke failure during high pressure setup');
       }
     };
 
-    return this.sendCommandToAllSensors(
-      'High',
-      this.writeHighToSensorWithRetries.bind(this),
-      '🔄 STARTING HIGH COMMAND CALIBRATION-----------------',
-      '✅ HIGH COMMAND CALIBRATION COMPLETED--------------',
-      flukeSetup
-    );
+    return this.sendCommandToAllSensors('High', this.writeHighToSensorWithRetries.bind(this), '🔄 Setting high pressure calibration...', '✅ High pressure calibration completed', flukeSetup);
   }
 
   /**
@@ -216,7 +218,6 @@ export class KrakenCalibrationManager {
     const deviceName = device.name || device.id;
 
     try {
-      this.showLogOnScreen(`Starting psi.calibrate.zero command for ${deviceName}...`);
       await UART_service(device, 'psi.calibrate.zero');
       return true;
     } catch (error) {
@@ -226,8 +227,7 @@ export class KrakenCalibrationManager {
       });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during zero command - removing from calibration`);
-        // Remove device from calibration immediately
+        // Remove device from calibration immediately (will log disconnection)
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
       }
@@ -247,7 +247,6 @@ export class KrakenCalibrationManager {
     const deviceName = device.name || device.id;
 
     try {
-      this.showLogOnScreen(`Starting psi.calibrate.lower command for ${deviceName}...`);
       await UART_service(device, 'psi.calibrate.lower', 0);
       return true;
     } catch (error) {
@@ -257,8 +256,7 @@ export class KrakenCalibrationManager {
       });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during low command - removing from calibration`);
-        // Remove device from calibration immediately
+        // Remove device from calibration immediately (will log disconnection)
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
       }
@@ -278,7 +276,6 @@ export class KrakenCalibrationManager {
     const deviceName = device.name || device.id;
 
     try {
-      this.showLogOnScreen(`Starting psi.calibrate.upper command for ${deviceName}...`);
       await UART_service(device, 'psi.calibrate.upper', undefined, this.sweepValue * 1000);
       return true;
     } catch (error) {
@@ -288,8 +285,7 @@ export class KrakenCalibrationManager {
       });
       // Check if this is a device disconnection error
       if (error.message.startsWith('DEVICE_DISCONNECTED:')) {
-        this.showLogOnScreen(`🔌 Device ${deviceName} disconnected during high command - removing from calibration`);
-        // Remove device from calibration immediately
+        // Remove device from calibration immediately (will log disconnection)
         await this.removeDisconnectedDeviceFromCalibration(device.id);
         return false;
       }
@@ -309,7 +305,7 @@ export class KrakenCalibrationManager {
     const deviceName = device ? device.name || device.id : deviceId;
 
     try {
-      this.showLogOnScreen(`🗑️ Removing disconnected device: ${deviceName}`);
+      this.showLogOnScreen(`🔌 ${deviceName} disconnected`);
 
       // Update device widget to show disconnected/failed state before removal
       this.sendToRenderer('device-calibration-status-update', {
@@ -432,13 +428,15 @@ export class KrakenCalibrationManager {
    */
   async stopCalibration(reason, errorDetails = '', resetToNotCalibrated = false) {
     try {
-      console.log(`Stopping calibration: ${reason}`);
+      // Ensure reason is never undefined or empty
+      // const finalReason = reason || 'Calibration stopped';
+      // console.log(`Stopping calibration: ${finalReason}`);
 
       // Update global state
       this.globalState.isCalibrationActive = false;
 
       // Show stop notification in logs
-      this.showLogOnScreen(`🛑 CALIBRATION STOPPED: ${reason}`);
+      this.showLogOnScreen('🛑 CALIBRATION STOPPED');
       if (errorDetails) {
         this.showLogOnScreen(`Error details: ${errorDetails}`);
       }
@@ -464,10 +462,10 @@ export class KrakenCalibrationManager {
       });
 
       // Send appropriate notification to user
-      const isUserRequestedStop = reason === 'Calibration stopped';
+      const isUserRequestedStop = finalReason === 'Calibration stopped';
       this.sendToRenderer('show-notification', {
         type: isUserRequestedStop ? 'info' : 'error',
-        message: isUserRequestedStop ? 'Calibration stopped' : `Calibration failed: ${reason}`,
+        message: isUserRequestedStop ? 'Calibration stopped' : `Calibration failed: ${finalReason}`,
       });
     } catch (error) {
       Sentry.captureException(error, {
