@@ -221,8 +221,6 @@ export class FlukeManager {
       const errorMessage = `❌ Failed to set pressure to ${sweepValue} PSI. Expected: ${targetPressure}, Got: ${verificationPressure}, Difference: ${pressureDifference.toFixed(1)}`;
       this.showLogOnScreen(errorMessage);
       throw new Error(`Fluke high pressure setting failed: ${errorMessage}`);
-    } else {
-      this.showLogOnScreen(`✅ High pressure successfully set to ${sweepValue} PSI and verified (${verificationPressure} PSI).`);
     }
   }
 
