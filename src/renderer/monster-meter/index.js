@@ -9,7 +9,9 @@ const getLocalTimestamp = () => new Date().toLocaleTimeString();
 // State management
 let eventListenersSetup = false;
 let isCalibrationActive = false;
+let isVerificationActive = false;
 let isMonsterMeterConnected = false;
+let isCalibrationCompleted = false; // Track if calibration completed successfully
 
 // Element references
 const elements = {
@@ -36,6 +38,12 @@ const elements = {
   },
   get stopCalibrationBtn() {
     return document.getElementById('stop-calibration-btn');
+  },
+  get startVerificationBtn() {
+    return document.getElementById('start-verification-btn');
+  },
+  get stopVerificationBtn() {
+    return document.getElementById('stop-verification-btn');
   },
   get testerNameSelect() {
     return document.getElementById('tester-name');
@@ -129,17 +137,20 @@ const cleanupMonsterMeterModule = async () => {
 
 // DOM event setup
 document.addEventListener('DOMContentLoaded', () => {
-  const { 
-    backBtn, 
-    portSelect, 
-    refreshPortsButton, 
-    connectPortButton, 
-    errorOkBtn, 
+  const {
+    backBtn,
+    portSelect,
+    refreshPortsButton,
+    connectPortButton,
+    errorOkBtn,
     errorAlert,
     startCalibrationBtn,
     stopCalibrationBtn,
+    startVerificationBtn,
+    stopVerificationBtn,
     testerNameSelect,
-    maxPressureInput
+    modelSelect,
+    serialNumberInput,
   } = elements;
 
   // Event listeners
@@ -155,8 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Calibration event listeners
   startCalibrationBtn?.addEventListener('click', handleStartCalibration);
   stopCalibrationBtn?.addEventListener('click', handleStopCalibration);
+
+  // Verification event listeners
+  startVerificationBtn?.addEventListener('click', handleStartVerification);
+  stopVerificationBtn?.addEventListener('click', handleStopVerification);
   testerNameSelect?.addEventListener('change', updateCalibrationButtons);
-  maxPressureInput?.addEventListener('change', updateCalibrationButtons);
+  modelSelect?.addEventListener('change', updateCalibrationButtons);
+  serialNumberInput?.addEventListener('input', updateCalibrationButtons);
 
   // Tab switching
   document.getElementById('monster-meter-tab-calibration')?.addEventListener('click', () => switchTab('calibration'));
@@ -261,6 +277,7 @@ const ipcHandlers = {
 
   onMonsterMeterCalibrationCompleted: data => {
     isCalibrationActive = false;
+    isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
     addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
@@ -275,6 +292,55 @@ const ipcHandlers = {
   // Live sensor data updates during calibration
   onMonsterMeterLiveData: data => {
     updateLiveSensorData(data);
+  },
+
+  // Verification event handlers
+  onMonsterMeterVerificationStarted: data => {
+    isVerificationActive = true;
+    isCalibrationCompleted = false; // Reset when verification starts
+    updateCalibrationButtons();
+    showVerificationResultsSection();
+    // Don't clear calibration data - keep it visible
+    NotificationHelper.showSuccess('Verification started successfully!');
+  },
+
+  onMonsterMeterVerificationStopped: data => {
+    isVerificationActive = false;
+    updateCalibrationButtons();
+    NotificationHelper.showInfo(`Verification stopped: ${data.reason}`);
+  },
+
+  onMonsterMeterVerificationFailed: data => {
+    isVerificationActive = false;
+    updateCalibrationButtons();
+    NotificationHelper.showError(`Verification failed: ${data.error}`);
+  },
+
+  onMonsterMeterVerificationCompleted: data => {
+    isVerificationActive = false;
+    isCalibrationCompleted = true; // Mark as completed after verification
+    updateCalibrationButtons();
+    enableVerificationTab();
+    hideStartVerificationButton(); // Hide start verification button
+    NotificationHelper.showSuccess('Verification completed successfully!');
+    showVerificationResults(data);
+  },
+
+  onMonsterMeterVerificationData: data => {
+    updateVerificationProgress(data);
+    updateVerificationResultsTable(data.verificationData || []);
+    // Add log message for each verification point
+    if (data.verificationData && data.verificationData.length > 0) {
+      const latestPoint = data.verificationData[data.verificationData.length - 1];
+      const status = latestPoint.inRange ? 'PASS' : 'FAIL';
+      const statusIcon = latestPoint.inRange ? '✅' : '❌';
+      addLogMessage(`${statusIcon} Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+    }
+  },
+
+  onMonsterMeterPDFGenerated: data => {
+    showViewPDFButton(data.filePath, data.filename);
+    addLogMessage(`📄 PDF report generated: ${data.filename}`);
   },
 };
 
@@ -300,9 +366,6 @@ function setupEventListeners() {
       window.electronAPI.connectToMonsterMeterPort(selectedPort);
     }
   });
-
-  elements.startCalibrationBtn?.addEventListener('click', handleStartCalibration);
-  elements.stopCalibrationBtn?.addEventListener('click', handleStopCalibration);
 
   // Tester name, model, and serial number change handlers
   elements.testerNameSelect?.addEventListener('change', updateCalibrationButtons);
@@ -457,14 +520,119 @@ function addLogMessage(message, type = 'info') {
   }
 }
 
+// Verification table management functions
+function showVerificationResults(data) {
+  // Show verification results section
+  const resultsSection = document.getElementById('monster-meter-calibration-results');
+  if (resultsSection) {
+    resultsSection.classList.remove('hidden');
+  }
+
+  // Switch to verification tab
+  switchTab('verification');
+
+  // Update verification results with data
+  if (data && data.verificationData) {
+    console.log('Verification completed with data:', data.verificationData);
+    console.log('Verification summary:', data.summary);
+    updateVerificationResultsTable(data.verificationData);
+    showVerificationSummary(data.summary);
+  }
+}
+
+function updateVerificationResultsTable(data) {
+  const tbody = document.getElementById('verification-results-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (data && data.length > 0) {
+    data.forEach((point, index) => {
+      const row = document.createElement('tr');
+      const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
+      const statusText = point.inRange ? 'PASS' : 'FAIL';
+      const statusIcon = point.inRange ? '✓' : '✗';
+
+      row.innerHTML = `
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">${index + 1}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.referencePressure.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageHi.toFixed(7)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureHi.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageLo.toFixed(7)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureLo.toFixed(1)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${statusClass}">
+          <span class="inline-flex items-center">
+            <span class="mr-1">${statusIcon}</span>
+            ${statusText}
+          </span>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+}
+
+function updateVerificationProgress(data) {
+  const progressText = document.getElementById('verification-progress-text');
+  if (progressText && data) {
+    const completed = data.completed || 0;
+    const total = data.total || 0;
+    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+  }
+}
+
+function showVerificationSummary(summary) {
+  const summaryDiv = document.getElementById('verification-summary');
+  if (!summaryDiv || !summary) return;
+
+  const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
+  const statusIcon = summary.status === 'PASSED' ? '✓' : '✗';
+  const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+
+  summaryDiv.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
+      <div class="flex items-center ${statusClass} font-semibold">
+        <span class="mr-2 text-xl">${statusIcon}</span>
+        ${summary.status}
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4 text-sm">
+      <div class="flex justify-between">
+        <span class="text-gray-600">Total Points:</span>
+        <span class="font-semibold text-gray-900">${summary.totalPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Passed:</span>
+        <span class="font-semibold text-green-600">${summary.passedPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Failed:</span>
+        <span class="font-semibold text-red-600">${summary.failedPoints}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Pass Rate:</span>
+        <span class="font-semibold text-gray-900">${summary.passRate}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-600">Tolerance Range:</span>
+        <span class="font-semibold text-gray-900">±${summary.toleranceRange} PSI</span>
+      </div>
+    </div>
+  `;
+
+  summaryDiv.className = `mt-4 p-4 rounded-lg border ${bgClass}`;
+  summaryDiv.classList.remove('hidden');
+}
+
 // Calibration handlers
 async function handleStartCalibration() {
   const { testerNameSelect, modelSelect, serialNumberInput } = elements;
-  
+
   const testerName = testerNameSelect?.value;
   const model = modelSelect?.value;
   const serialNumber = serialNumberInput?.value;
-  
+
   // Debug logging
   console.log('🔍 Debug - handleStartCalibration values:');
   console.log('🔍 Debug - testerName:', testerName);
@@ -472,7 +640,7 @@ async function handleStartCalibration() {
   console.log('🔍 Debug - serialNumber:', serialNumber);
   console.log('🔍 Debug - serialNumberInput element:', serialNumberInput);
   console.log('🔍 Debug - serialNumberInput.value:', serialNumberInput?.value);
-  
+
   if (!testerName) {
     NotificationHelper.showError('Please select a tester name before starting calibration.');
     return;
@@ -487,7 +655,7 @@ async function handleStartCalibration() {
     NotificationHelper.showError('Please enter a serial number before starting calibration.');
     return;
   }
-  
+
   try {
     console.log('🔍 Debug - Calling monsterMeterStartCalibration with:', { testerName, model, serialNumber: serialNumber.trim() });
     const result = await window.electronAPI.monsterMeterStartCalibration(testerName, model, serialNumber.trim());
@@ -511,28 +679,34 @@ async function handleStopCalibration() {
 }
 
 function updateCalibrationButtons() {
-  const { startCalibrationBtn, stopCalibrationBtn, testerNameSelect, modelSelect, serialNumberInput } = elements;
-  
+  const { startCalibrationBtn, stopCalibrationBtn, startVerificationBtn, stopVerificationBtn, testerNameSelect, modelSelect, serialNumberInput } = elements;
+
   const hasTesterName = testerNameSelect?.value && testerNameSelect.value !== '';
   const hasModel = modelSelect?.value && modelSelect.value !== '';
   const hasSerialNumber = serialNumberInput?.value && serialNumberInput.value.trim() !== '';
-  const canStart = isMonsterMeterConnected && hasTesterName && hasModel && hasSerialNumber && !isCalibrationActive;
-  
+  const canStart = isMonsterMeterConnected && hasTesterName && hasModel && hasSerialNumber;
+
+  // Calibration buttons
   if (startCalibrationBtn) {
-    startCalibrationBtn.disabled = !canStart;
-    if (isCalibrationActive) {
-      startCalibrationBtn.classList.add('hidden');
-    } else {
-      startCalibrationBtn.classList.remove('hidden');
-    }
+    const canStartCalibration = canStart && !isCalibrationActive && !isVerificationActive;
+    const shouldHideCalibrationBtn = isCalibrationActive || isVerificationActive || isCalibrationCompleted;
+    startCalibrationBtn.disabled = !canStartCalibration;
+    startCalibrationBtn.classList.toggle('hidden', shouldHideCalibrationBtn);
   }
-  
+
   if (stopCalibrationBtn) {
-    if (isCalibrationActive) {
-      stopCalibrationBtn.classList.remove('hidden');
-    } else {
-      stopCalibrationBtn.classList.add('hidden');
-    }
+    stopCalibrationBtn.classList.toggle('hidden', !isCalibrationActive);
+  }
+
+  // Verification buttons - only show after calibration completes
+  if (startVerificationBtn) {
+    const canStartVerification = canStart && isCalibrationCompleted && !isCalibrationActive && !isVerificationActive;
+    startVerificationBtn.disabled = !canStartVerification;
+    startVerificationBtn.classList.toggle('hidden', !isCalibrationCompleted || isCalibrationActive || isVerificationActive);
+  }
+
+  if (stopVerificationBtn) {
+    stopVerificationBtn.classList.toggle('hidden', !isVerificationActive);
   }
 }
 
@@ -546,6 +720,16 @@ function showCalibrationResultsSection() {
   if (resultsSection) {
     resultsSection.classList.remove('hidden');
     initializeCalibrationResultsTable();
+  }
+}
+
+function showVerificationResultsSection() {
+  const resultsSection = document.getElementById('monster-meter-calibration-results');
+  if (resultsSection) {
+    resultsSection.classList.remove('hidden');
+    initializeVerificationResultsTable();
+    // Switch to verification tab to show verification results
+    switchTab('verification');
   }
 }
 
@@ -577,20 +761,53 @@ function initializeCalibrationResultsTable() {
   }
 }
 
+function initializeVerificationResultsTable() {
+  const verificationPanel = document.getElementById('monster-meter-panel-verification');
+  if (verificationPanel) {
+    verificationPanel.innerHTML = `
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
+        <div class="overflow-x-auto border border-gray-300 rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
+              <!-- Verification data will be populated here -->
+            </tbody>
+          </table>
+        </div>
+        <div id="verification-progress-text" class="mt-2 text-sm text-neutral-500">Waiting for verification data...</div>
+        <div id="verification-summary" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+          <!-- Verification summary will be populated here -->
+        </div>
+      </div>
+    `;
+  }
+}
+
 function updateCalibrationResultsTable(data) {
   const tbody = document.getElementById('calibration-results-tbody');
   const progressText = document.getElementById('calibration-progress-text');
-  
+
   if (!tbody || !data.pressureArr || !data.voltagesHiArray) return;
-  
+
   // Clear existing rows
   tbody.innerHTML = '';
-  
+
   // Add rows for each data point (matching old app format)
   for (let i = 0; i < data.pressureArr.length; i++) {
     const row = document.createElement('tr');
     const isComplete = i < data.voltagesHiArray.length;
-    
+
     row.className = 'border-b';
     row.innerHTML = `
       <td class="py-2 pr-6">Point ${i + 1}</td>
@@ -600,10 +817,10 @@ function updateCalibrationResultsTable(data) {
       <td class="py-2 pr-6">${isComplete ? data.voltagesLoArray[i].toFixed(7) : '-'}</td>
       <td class="py-2 pr-6">${isComplete ? data.pressureLoArray[i].toFixed(1) : '-'}</td>
     `;
-    
+
     tbody.appendChild(row);
   }
-  
+
   // Update progress text
   if (progressText) {
     const completed = data.voltagesHiArray.length;
@@ -631,7 +848,7 @@ function showCalibrationResults(data) {
             </tr>
           </thead>
           <tbody>`;
-    
+
     // Add all completed rows
     for (let i = 0; i < data.pressureArr.length; i++) {
       tableHTML += `
@@ -644,16 +861,16 @@ function showCalibrationResults(data) {
           <td class="py-2 pr-6">${data.pressureLoArray[i].toFixed(1)}</td>
         </tr>`;
     }
-    
+
     tableHTML += `
           </tbody>
         </table>
       </div>
       ${showCoefficients(data.coefficients)}`;
-    
+
     calibrationPanel.innerHTML = tableHTML;
   }
-  
+
   // Enable verification tab
   enableVerificationTab();
 }
@@ -747,6 +964,9 @@ function clearCalibrationData() {
 
   // Switch back to calibration tab
   switchTab('calibration');
+
+  // Reset calibration completed flag
+  isCalibrationCompleted = false;
 }
 
 function enableVerificationTab() {
@@ -762,21 +982,21 @@ function switchTab(tabName) {
   const verificationTab = document.getElementById('monster-meter-tab-verification');
   const calibrationPanel = document.getElementById('monster-meter-panel-calibration');
   const verificationPanel = document.getElementById('monster-meter-panel-verification');
-  
+
   // Reset all tabs
   [calibrationTab, verificationTab].forEach(tab => {
     if (tab) {
       tab.className = 'tab-button bg-neutral-300 text-neutral-500 px-4 py-2 rounded';
     }
   });
-  
+
   // Hide all panels
   [calibrationPanel, verificationPanel].forEach(panel => {
     if (panel) {
       panel.style.display = 'none';
     }
   });
-  
+
   // Activate selected tab and panel
   if (tabName === 'calibration') {
     if (calibrationTab) calibrationTab.className = 'tab-button bg-neutral-900 text-white px-4 py-2 rounded';
@@ -786,6 +1006,70 @@ function switchTab(tabName) {
       verificationTab.className = 'tab-button bg-neutral-900 text-white px-4 py-2 rounded';
       if (verificationPanel) verificationPanel.style.display = 'block';
     }
+  }
+}
+
+async function handleStartVerification() {
+  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
+  const testerName = testerNameSelect?.value;
+  const model = modelSelect?.value;
+  const serialNumber = serialNumberInput?.value?.trim();
+
+  if (!testerName || !model || !serialNumber) {
+    NotificationHelper.showCustomAlertModal('Please fill in all required fields before starting verification.');
+    return;
+  }
+
+  try {
+    const result = await window.electronAPI.monsterMeterStartVerification(testerName, model, serialNumber);
+    if (!result.success) {
+      NotificationHelper.showError(`Failed to start verification: ${result.error}`);
+    }
+  } catch (error) {
+    NotificationHelper.showError(`Error starting verification: ${error.message}`);
+  }
+}
+
+async function handleStopVerification() {
+  try {
+    const result = await window.electronAPI.monsterMeterStopVerification('Stopped by user');
+    if (!result.success) {
+      NotificationHelper.showError(`Failed to stop verification: ${result.error}`);
+    }
+  } catch (error) {
+    NotificationHelper.showError(`Error stopping verification: ${error.message}`);
+  }
+}
+
+function hideStartVerificationButton() {
+  const startVerificationBtn = document.getElementById('start-verification-btn');
+  if (startVerificationBtn) {
+    startVerificationBtn.classList.add('hidden');
+  }
+}
+
+function showViewPDFButton(filePath, filename) {
+  // Remove existing view PDF button if any
+  const existingBtn = document.getElementById('view-pdf-btn');
+  if (existingBtn) {
+    existingBtn.remove();
+  }
+
+  // Create view PDF button
+  const viewPDFBtn = document.createElement('button');
+  viewPDFBtn.id = 'view-pdf-btn';
+  viewPDFBtn.className = 'rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors';
+  viewPDFBtn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2"></i>View PDF';
+  
+  // Add click handler to open PDF
+  viewPDFBtn.addEventListener('click', () => {
+    window.electronAPI.openPDF(filePath);
+  });
+
+  // Insert button in the same location as Start Verification button (Calibration Control section)
+  const buttonContainer = document.querySelector('.flex.gap-3');
+  if (buttonContainer) {
+    buttonContainer.appendChild(viewPDFBtn);
   }
 }
 

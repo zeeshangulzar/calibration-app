@@ -83,14 +83,19 @@ class MonsterMeterCalibrationService {
       { fn: this.runCalibrationSweep, name: 'Calibration sweep' },
     ];
 
-    for (const step of steps) {
-      if (this.isCalibrationStopped) return;
-      await step.fn.call(this);
-    }
+    try {
+      for (const step of steps) {
+        if (this.isCalibrationStopped) return;
+        await step.fn.call(this);
+      }
 
-    await this.setFlukeToZero();
-    await this.waitForFluke();
-    this.showLogOnScreen('✅ Calibration sweep completed');
+      await this.setFlukeToZero();
+      await this.waitForFluke();
+      this.showLogOnScreen('✅ Calibration sweep completed');
+    } catch (error) {
+      this.showLogOnScreen(`❌ Calibration process failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async runCalibrationSweep() {
@@ -115,6 +120,7 @@ class MonsterMeterCalibrationService {
 
     this.showLogOnScreen('📸 Capturing Monster Meter readings...');
     const data = await this.monsterMeterCommunication.readData();
+
     if (this.isCalibrationStopped) return;
 
     if (!data) throw new Error('Failed to get data from Monster Meter');
@@ -186,13 +192,23 @@ class MonsterMeterCalibrationService {
 
   async checkZeroPressure() {
     this.showLogOnScreen('🔍 Checking zero pressure...');
-    await this.fluke.setZeroPressureToFluke();
-    await this.fluke.waitForFlukeToReachZeroPressure();
-    this.showLogOnScreen('✅ Zero pressure confirmed');
+    try {
+      await this.fluke.setZeroPressureToFluke();
+      await this.fluke.waitForFlukeToReachZeroPressure();
+      this.showLogOnScreen('✅ Zero pressure confirmed');
+    } catch (error) {
+      this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async waitForFluke() {
-    await this.executeWithLogging('Waiting for Fluke', () => this.fluke.waitForFlukeToReachZeroPressure());
+    try {
+      await this.executeWithLogging('Waiting for Fluke', () => this.fluke.waitForFlukeToReachZeroPressure());
+    } catch (error) {
+      this.showLogOnScreen(`❌ Wait for Fluke failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async zeroMonsterMeter() {
@@ -213,8 +229,13 @@ class MonsterMeterCalibrationService {
 
   async executeWithLogging(action, fn) {
     this.showLogOnScreen(`🔧 ${action}...`);
-    await fn();
-    this.showLogOnScreen(`✅ ${action} completed`);
+    try {
+      await fn();
+      this.showLogOnScreen(`✅ ${action} completed`);
+    } catch (error) {
+      this.showLogOnScreen(`❌ ${action} failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   sendLiveSensorData(data, referencePressure) {
