@@ -1,0 +1,15 @@
+# Ignore Handlebars template files
+**/*.hbs
+
+# Ignore build artifacts
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# Ignore minified files
+src/assets/js/font-awesome.min.js
+src/assets/js/tailwind.min.js
+# Ignore constants files to preserve hex case formatting
+src/config/constants/**/*.js

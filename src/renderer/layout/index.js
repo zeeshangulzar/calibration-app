@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Setup app version display
-  
+
   // Check and display migration status
   checkMigrationStatus();
 
@@ -23,14 +23,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+  // Add click handler for Monster Meter card
+  const monsterMeterCard = document.getElementById('monster-meter-card');
+  if (monsterMeterCard) {
+    monsterMeterCard.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.loadMonsterMeter) {
+        window.electronAPI.loadMonsterMeter();
+      }
+    });
+  }
 
   // Add click handler for Settings button
-  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
+    settingsBtn.addEventListener('click', () => {
       if (window.electronAPI && window.electronAPI.loadSettings) {
         window.electronAPI.loadSettings();
       }
+    });
+  }
+
+  // Add click handler for Developer Settings button
+  const developerSettingsBtn = document.getElementById('developerSettingsBtn');
+  if (developerSettingsBtn) {
+    developerSettingsBtn.addEventListener('click', () => {
+      window.location.href = '../developer-settings/index.html';
     });
   }
 });
@@ -47,18 +64,18 @@ async function checkMigrationStatus() {
   try {
     if (window.electronAPI && window.electronAPI.getMigrationStatus) {
       const result = await window.electronAPI.getMigrationStatus();
-      
+
       // Only show migration status in development mode
       if (!result.success || !result.isDevelopment) {
         return;
       }
-      
+
       if (result.status) {
         const { currentVersion, appliedCount, pendingCount, totalMigrations } = result.status;
-        
+
         const migrationBanner = document.getElementById('migration-status');
         const migrationText = document.getElementById('migration-status-text');
-        
+
         if (pendingCount > 0) {
           // Show pending migrations
           migrationText.textContent = `Database update available: ${pendingCount} new migration(s) pending`;

@@ -2,6 +2,8 @@ import { TelnetClientService } from './telnet-client.service.js';
 import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
+import * as Sentry from '@sentry/electron/main';
+
 /**
  * Fluke Manager
  * Manages all interactions with the Fluke calibration device via Telnet.
@@ -28,6 +30,9 @@ export class FlukeManager {
       this.showLogOnScreen(response.message);
       return response;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'connect' },
+      });
       const errorMessage = error.error || error.message || 'Unknown connection error';
       log = `❌ Failed to connect to Fluke: ${errorMessage}`;
       this.showLogOnScreen(log);
@@ -79,19 +84,25 @@ export class FlukeManager {
 
     for (const command of commands) {
       if (!this.isProcessActive()) return;
-      await addDelay(1000);
 
+      await addDelay(1000);
       this.showLogOnScreen(`Checking ${command.name}...`);
+
+      if (!this.isProcessActive()) return;
 
       const initialResponse = await this.telnetClient.sendCommand(command.check);
       this.showLogOnScreen(`Response for ${command.name}: ${initialResponse}`);
 
       if (!command.validate(initialResponse)) {
+        if (!this.isProcessActive()) return;
+
         this.showLogOnScreen(`Setting ${command.name}...`);
 
         // Send the setting command
         await this.telnetClient.sendCommand(command.action);
         await addDelay(1000);
+
+        if (!this.isProcessActive()) return;
 
         // Verify the setting was applied correctly
         const verificationResponse = await this.telnetClient.sendCommand(command.check);
@@ -113,6 +124,7 @@ export class FlukeManager {
 
   async checkZeroPressure() {
     try {
+      this.showLogOnScreen('Checking zero pressure...');
       const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetPressureCommand);
       const pressure = parseFloat(response).toFixed(1);
 
@@ -124,6 +136,7 @@ export class FlukeManager {
         return false; // Pressure needs to be set to zero
       }
     } catch (error) {
+      Sentry.captureException(error);
       const errorMessage = error.error || error.message || 'Unknown error';
       this.showLogOnScreen(`❌ Failed to check pressure: ${errorMessage}`);
       throw new Error(`Pressure check failed: ${errorMessage}`);
@@ -166,6 +179,9 @@ export class FlukeManager {
         await this.waitForFlukeToReachZeroPressure();
       }
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ensureZeroPressure' },
+      });
       const errorMessage = error.error || error.message || 'Unknown error';
       this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
       throw new Error(`Zero pressure setup failed: ${errorMessage}`);
@@ -174,7 +190,7 @@ export class FlukeManager {
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting max pressure (${sweepValue}) to fluke for all sensors...`);
+      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke for all sensors...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }
@@ -205,8 +221,14 @@ export class FlukeManager {
   }
 
   async waitForFlukeToReachZeroPressure(silent = false) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       let check = setInterval(async () => {
+        if (!this.isProcessActive()) {
+          clearInterval(check);
+          reject(new Error('Process stopped'));
+          return;
+        }
+
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           if (!silent) {
@@ -220,8 +242,14 @@ export class FlukeManager {
   }
 
   async waitForFlukeToReachTargetPressure(targetPressure) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       let check = setInterval(async () => {
+        if (!this.isProcessActive()) {
+          clearInterval(check);
+          reject(new Error('Process stopped'));
+          return;
+        }
+
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           this.showLogOnScreen(`Pressure set to ${targetPressure}`);
@@ -238,6 +266,9 @@ export class FlukeManager {
 
       return response && response.length > 0;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'isFlukeResponsive' },
+      });
       console.warn('Fluke responsiveness check failed:', error.message);
       return false;
     }

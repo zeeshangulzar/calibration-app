@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Monster Meter Calibration Certificate</title>
+    <link rel="stylesheet" href="monster-meter-report.css" />
+  </head>
+  <body>
+    <div class="top-header">
+      <div class="logo-and-address">
+        <img src="{{logoUrl}}" alt="Company Logo" />
+        <div class="company-details">
+          <div>1234 Industrial Blvd</div>
+          <div>City, State 12345</div>
+          <div>Phone: (555) 123-4567</div>
+          <div>Email: info@hosemonster.com</div>
+        </div>
+      </div>
+      <div class="report-box">
+        <div>Report #</div>
+        <div class="report-number">{{reportId}}</div>
+      </div>
+    </div>
+
+    <div class="header">
+      <h1>Product Calibration Certificate and Test Data Sheet</h1>
+    </div>
+
+    <div class="info-boxes">
+      <div class="info-box">
+        <div>
+          <span>{{productDescription}}</span>
+          <label>Product Description</label>
+        </div>
+        <div>
+          <span>{{modelNumber}}</span>
+          <label>Model Number</label>
+        </div>
+         <div class="serial-location-row">
+           <div class="serial-item">
+             <span>{{serialNumber}}</span>
+             <label>Serial Number</label>
+           </div>
+           <div class="location-item">
+             <span>Hosemonster USA</span>
+             <label>Test Location</label>
+           </div>
+         </div>
+         <div class="date-row">
+           <div class="date-item">
+             <span>{{calDate}}</span>
+             <label>Cal Date</label>
+           </div>
+           <div class="date-item color-red">
+             <span>{{calDueDate}}</span>
+             <label>Cal Due Date</label>
+           </div>
+         </div>
+         <div class="validity-text">
+           This certificate is valid only for one year.
+         </div>
+      </div>
+      <div class="info-box" style="display: flex; align-items: center">
+        <p>
+          This document certifies that the device listed under Product Description has been verified<br />
+          traceable through the recognized national measurement institutes (NIST) in compliance<br />
+          with ANSI/NCSL Z540.1 and ISO/IEC17025:2005.
+        </p>
+      </div>
+    </div>
+
+    <table class="summary-table">
+      <tr>
+        <th>Reference Standard</th>
+        <th>Monster Meter Accuracy</th>
+        <th>Condition</th>
+      </tr>
+      <tr>
+        <td>
+          Automated Pressure Calibrator: 2271A<br />
+          Serial #: {{serialNumber}}
+        </td>
+        <td>
+          0 to {{sweepValue}} psi operating pressure range<br />
+          +/- {{toleranceRange}} PSI Read of Tested Pressure
+        </td>
+        <td>Calibration Temp: {{calibrationTemperature}}</td>
+      </tr>
+    </table>
+
+    <h3 style="color: #000">Calibration Data</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Applied Ref Pressure</th>
+          <th>Target PSI</th>
+          <th>Upper Limit</th>
+          <th>Lower Limit</th>
+          <th>SensorHi Vol</th>
+          <th>SensorHi PSI</th>
+          <th>SensorLo Vol</th>
+          <th>SensorLo PSI</th>
+          <th>Pass/Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each certificationData}}
+        <tr>
+          <td>{{target}}</td>
+          <td>{{target}}</td>
+          <td>{{upper}}</td>
+          <td>{{lower}}</td>
+          <td>{{voltageHi}}</td>
+          <td>{{pressureHi}}</td>
+          <td>{{voltageLo}}</td>
+          <td>{{pressureLo}}</td>
+          <td style="color: {{resultColor}}">{{result}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+     <div class="footer">
+       <div class="footer-row">
+         <div class="footer-item">
+           <p><strong>Inspected By:</strong> {{testerName}}</p>
+         </div>
+         <div class="footer-item">
+           <p><strong>Tested At:</strong> {{testDate}}</p>
+         </div>
+       </div>
+     </div>
+  </body>
+</html>

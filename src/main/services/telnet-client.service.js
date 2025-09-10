@@ -1,6 +1,7 @@
 import net from 'net';
 import EventEmitter from 'events';
 import { getFlukeSettings } from '../db/index.js';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Enhanced Telnet Client for Fluke communication
@@ -18,7 +19,7 @@ class TelnetClientService extends EventEmitter {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 3;
 
-    this._loadSettings();
+    this.loadSettings();
 
     // Add error listener to prevent unhandled errors from crashing the app
     this.on('error', error => {
@@ -29,14 +30,16 @@ class TelnetClientService extends EventEmitter {
 
   /**
    * Load settings from database
-   * @private
    */
-  _loadSettings() {
+  loadSettings() {
     try {
       const settings = getFlukeSettings();
       this.host = settings.fluke_ip;
       this.port = parseInt(settings.fluke_port);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'telnet-client', method: 'loadFlukeSettings' }
+      });
       console.error('Failed to load Fluke settings:', error);
       this.host = '10.10.69.27';
       this.port = 3490;
@@ -101,7 +104,7 @@ class TelnetClientService extends EventEmitter {
         this.emit('error', { error: error.message, host: this.host, port: this.port });
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-          this._attemptReconnect();
+          this.attemptReconnect();
         }
 
         reject({ success: false, error: errorMessage });
@@ -115,7 +118,7 @@ class TelnetClientService extends EventEmitter {
         this.emit('disconnected');
 
         if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-          this._attemptReconnect();
+          this.attemptReconnect();
         }
       });
 
@@ -136,9 +139,8 @@ class TelnetClientService extends EventEmitter {
 
   /**
    * Attempt to reconnect
-   * @private
    */
-  _attemptReconnect() {
+  attemptReconnect() {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff
 
@@ -169,7 +171,7 @@ class TelnetClientService extends EventEmitter {
       // Set up response timeout
       const responseTimer = setTimeout(() => {
         this.client.removeListener('data', responseHandler);
-        reject({ success: false, error: 'Response timeout' });
+        reject({ success: false, error: 'Fluke is Busy: Response timed out' });
       }, timeout);
 
       // Response handler
@@ -192,6 +194,10 @@ class TelnetClientService extends EventEmitter {
         this.client.write(command + '\n');
         this.emit('commandSent', { command });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'telnet-client', method: 'sendCommand' },
+          extra: { command }
+        });
         clearTimeout(responseTimer);
         this.client.removeListener('data', responseHandler);
         reject({ success: false, error: `Failed to send command: ${error.message}` });
@@ -216,6 +222,10 @@ class TelnetClientService extends EventEmitter {
         this.emit('commandSent', { command });
         resolve({ success: true, message: 'Command sent' });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { service: 'telnet-client', method: 'sendRawCommand' },
+          extra: { command }
+        });
         reject({ success: false, error: `Failed to send command: ${error.message}` });
       }
     });
@@ -239,6 +249,9 @@ class TelnetClientService extends EventEmitter {
         device: response,
       };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'telnet-client', method: 'testConnection' }
+      });
       return {
         success: false,
         error: error.error || error.message || 'Connection test failed',

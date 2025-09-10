@@ -1,0 +1,250 @@
+<!doctype html>
+<html class="" lang="en">
+  <head>
+    <link rel="stylesheet" href="../styles/index_styles.css" />
+    <link rel="stylesheet" href="../../assets/stylesheets/inter-font.css" />
+    <script type="module" src="./index.js"></script>
+    <script src="../../assets/js/tailwind.min.js"></script>
+    <script>
+      window.FontAwesomeConfig = { autoReplaceSvg: 'nest' };
+    </script>
+    <script src="../../assets/js/font-awesome.min.js"></script>
+    <style>
+      .fade-in {
+        transition: opacity 0.3s ease;
+      }
+
+      .fade-in.hidden {
+        display: none;
+        opacity: 0;
+      }
+
+      .fade-in.fade-in {
+        display: block;
+        opacity: 1;
+      }
+    </style>
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+    <title>Monster Meter Calibration</title>
+  </head>
+
+  <body class="h-full text-base-content">
+    <div id="app-container" class="min-h-screen bg-neutral-50">
+      <header id="header" class="border-b bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xl">Monster Meter Calibration System</div>
+          </div>
+        </div>
+      </header>
+
+      <main id="main" class="container mx-auto p-4">
+        <!-- Back Button -->
+        <div class="mb-4">
+          <button
+            id="back-button-monster-meter-calibration"
+            class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <i class="fa-solid fa-arrow-left mr-2"></i> Back
+          </button>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:gap-x-8 mb-8 md:justify-between">
+          <!-- Select Serial Port -->
+          <div class="bg-white rounded-lg border border-neutral-200 p-6 w-full md:w-[500px]">
+            <label for="portSelect" class="block font-semibold mb-1"> Select Serial Port: </label>
+            <div class="flex gap-2">
+              <select id="portSelect" class="flex-1 mb-4 border border-neutral-300 rounded-lg px-3 py-2">
+                <option value="">Select Port</option>
+              </select>
+              <button id="refresh-ports-button" class="mb-4 px-3 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-100" title="Refresh Ports">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+            </div>
+
+            <div class="flex justify-end mt-4">
+              <button id="connect-monster-meter-port-button" class="px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition duration-200 opacity-50 cursor-not-allowed" disabled>
+                <i class="fa-solid fa-upload mr-2"></i> Connect
+              </button>
+            </div>
+          </div>
+
+          <!-- Available Sensors -->
+          <div id="monster-meter-selection" class="bg-white rounded-lg border border-neutral-200 p-6 w-full md:w-[500px] hidden">
+            <h2 class="mb-4 text-xl">Available Sensors</h2>
+            <div class="grid grid-cols-1 gap-4"></div>
+          </div>
+        </div>
+
+        <section id="monster-meter-calibration-control" class="mb-8">
+          <h2 class="text-xl">Calibration Settings</h2>
+          <div class="flex items-center justify-between mb-4">
+            <!-- Dropdowns Row -->
+            <div class="flex gap-10 py-6">
+              <!-- Tester Name Dropdown -->
+              <div>
+                <label for="tester-name" class="block text-sm font-medium text-neutral-700 mb-1"> Select Tester Name <span class="text-red-500">*</span> </label>
+                <select id="tester-name" class="border border-neutral-300 rounded-md px-10 py-2 text-sm">
+                  <option value="">Select Tester Name</option>
+                </select>
+              </div>
+
+              <!-- Model Dropdown -->
+              <div>
+                <label for="model-select" class="block text-sm font-medium text-neutral-700 mb-1"> Select Model <span class="text-red-500">*</span> </label>
+                <select id="model-select" class="border border-neutral-300 rounded-md px-10 py-2 text-sm">
+                  <option value="">Select Model</option>
+                </select>
+              </div>
+
+              <!-- Serial Number Input -->
+              <div>
+                <label for="serial-number" class="block text-sm font-medium text-neutral-700 mb-1"> Serial Number <span class="text-red-500">*</span> </label>
+                <input type="text" id="serial-number" class="border border-neutral-300 rounded-md px-3 py-2 text-sm w-40" placeholder="Enter serial number" />
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl">Calibration Control</h2>
+            <div class="flex gap-3">
+              <button id="start-calibration-btn" class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fa-solid fa-play mr-2"></i>Start Calibration
+              </button>
+              <button id="stop-calibration-btn" class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-2 text-white transition-colors font-bold text-[17px] w-[130px] hidden">
+                <i class="fa-solid fa-stop mr-2"></i>STOP
+              </button>
+              <button
+                id="start-verification-btn"
+                class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden"
+                disabled
+              >
+                <i class="fa-solid fa-check mr-2"></i>Start Verification
+              </button>
+              <button id="stop-verification-btn" class="rounded-md bg-orange-600 hover:bg-orange-700 px-4 py-2 text-white transition-colors font-bold text-[17px] w-[130px] hidden">
+                <i class="fa-solid fa-stop mr-2"></i>STOP
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <section id="monster-meter-pressure-readings" class="rounded-lg border bg-white p-6">
+            <h2 class="mb-4 text-lg">Pressure Readings</h2>
+            <div class="space-y-4">
+              <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                <span>Reference Pressure</span>
+                <span id="monster-meter-reference-pressure-value">N/A</span>
+              </div>
+              <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                <span>SensorHi Voltage (V)</span>
+                <span id="live-monster-meter-sensorhi-voltage-value">N/A</span>
+              </div>
+              <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                <span>SensorHi Pressure (PSI)</span>
+                <span id="live-monster-meter-sensorhi-pressure-value">N/A</span>
+              </div>
+              <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                <span>SensorLo Voltage (V)</span>
+                <span id="live-monster-meter-sensorlo-voltage-value">N/A</span>
+              </div>
+              <div class="flex justify-between rounded-md bg-neutral-50 p-3">
+                <span>SensorLo Pressure (PSI)</span>
+                <span id="live-monster-meter-sensorlo-pressure-value">N/A</span>
+              </div>
+            </div>
+          </section>
+
+          <section id="monster-meter-calibration-log" class="rounded-lg border bg-white p-6">
+            <h2 class="mb-4 text-lg">Calibration Logs</h2>
+            <div id="monster-meter-calibration-log-content" class="h-[450px] overflow-y-auto rounded-md bg-neutral-900 p-4 text-sm text-white">
+              <div id="monster-meter-log-messages" class="space-y-2">
+                <!-- Log messages will be appended here -->
+              </div>
+            </div>
+          </section>
+
+          <section id="monster-meter-calibration-results" class="mt-6 rounded-lg border bg-white p-6 w-full col-span-full hidden">
+            <!-- Tabs -->
+            <div class="mb-4 flex space-x-2">
+              <button id="monster-meter-tab-calibration" class="tab-button bg-neutral-900 text-white px-4 py-2 rounded">Calibration Results</button>
+              <button id="monster-meter-tab-verification" class="tab-button bg-neutral-300 text-neutral-500 px-4 py-2 rounded cursor-not-allowed" disabled>Verification Results</button>
+            </div>
+
+            <!-- Tab Panels -->
+            <div id="monster-meter-panel-calibration" class="tab-panel">
+              <!-- Calibration Results Table -->
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">Calibration Results</h3>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border border-neutral-300">
+                    <thead class="bg-neutral-100">
+                      <tr>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Point</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">Reference Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorHi Pressure (PSI)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Voltage (V)</th>
+                        <th class="border border-neutral-300 px-4 py-2 text-left">SensorLo Pressure (PSI)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="calibration-results-tbody">
+                      <!-- Calibration data will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+                <div id="calibration-progress-text" class="mt-2 text-sm text-neutral-600">Waiting for calibration data...</div>
+              </div>
+            </div>
+            <div id="monster-meter-panel-verification" class="tab-panel">
+              <!-- Verification Results Table -->
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
+                <div class="overflow-x-auto border border-gray-300 rounded-lg">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
+                      <!-- Verification data will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+                <div id="verification-progress-text" class="mt-3 text-sm text-gray-600 font-medium">Waiting for verification data...</div>
+                <div id="verification-summary" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+                  <!-- Verification summary will be populated here -->
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="custom-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
+        <button id="custom-alert-ok" class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700">OK</button>
+      </div>
+    </div>
+
+    <!-- Error Alert Modal -->
+    <div id="error-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <div class="mb-4">
+          <i class="fa-solid fa-exclamation-triangle text-red-500 text-4xl mb-2"></i>
+          <p id="error-message" class="text-neutral-700"></p>
+        </div>
+        <button id="error-ok-btn" class="mt-2 px-8 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">OK</button>
+      </div>
+    </div>
+  </body>
+</html>

@@ -15,17 +15,10 @@ export default defineConfig([
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     languageOptions: {
-      // browser + node if you have scripts/tools
       globals: { ...globals.browser, ...globals.node },
     },
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.recommended,
-      // turn off rules that conflict with Prettier
-      eslintConfigPrettier,
-    ],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended, eslintConfigPrettier],
     plugins: {
-      // run Prettier as an ESLint rule
       prettier,
     },
     rules: {
@@ -33,6 +26,13 @@ export default defineConfig([
       'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
       'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  // Disable Prettier for constants files to preserve hex case
+  {
+    files: ['**/constants/**/*.js'],
+    rules: {
+      'prettier/prettier': 'off',
     },
   },
 ]);

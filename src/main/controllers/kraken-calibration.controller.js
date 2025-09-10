@@ -3,13 +3,14 @@ import { getKrakenScanner } from '../services/kraken-scanner.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-import { FlukeManager } from '../services/fluke.manager.js';
+import { FlukeFactoryService } from '../services/fluke-factory.service.js';
 
 // Import the new managers
 import { KrakenDeviceSetupManager } from '../managers/kraken-device-setup.manager.js';
 import { KrakenConnectivityManager } from '../managers/kraken-connectivity.manager.js';
 import { KrakenCalibrationManager } from '../managers/kraken-calibration.manager.js';
 import { KrakenUIManager } from '../managers/kraken-ui.manager.js';
+import { KrakenVerificationService } from '../services/kraken-verification.service.js';
 
 import * as Sentry from '@sentry/electron/main';
 
@@ -52,8 +53,9 @@ class KrakenCalibrationController {
     // Initialize UI Manager first (needed by other managers)
     this.uiManager = new KrakenUIManager(this.mainWindow, this.globalState, this.sendToRenderer.bind(this));
 
-    // Initialize Fluke Manager (now that UIManager exists)
-    this.flukeManager = new FlukeManager(
+    // Initialize Fluke Manager using factory with fresh settings from DB
+    this.flukeFactory = new FlukeFactoryService();
+    this.flukeManager = this.flukeFactory.getFlukeService(
       log => this.uiManager.showLogOnScreen(log),
       () => this.globalState.isCalibrationActive
     );
@@ -64,6 +66,7 @@ class KrakenCalibrationController {
 
     this.calibrationManager = new KrakenCalibrationManager(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
 
+    this.verificationService = new KrakenVerificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
     // Set up cross-references for managers that need each other
     this.calibrationManager.sweepValue = KRAKEN_CONSTANTS.SWEEP_VALUE;
     this.calibrationManager.updateDeviceWidgetsForCalibration = this.uiManager.updateDeviceWidgetsForCalibration.bind(this.uiManager);
@@ -180,10 +183,16 @@ class KrakenCalibrationController {
       await this.setupCalibrationUI();
       await this.prepareFlukeAndDevices();
       await this.executeCalibration();
-      await this.completeCalibration();
 
-      // Return success response
-      return { success: true };
+      // Only complete calibration if it wasn't stopped
+      if (this.globalState.isCalibrationActive) {
+        await this.completeCalibration();
+        // Return success response
+        return { success: true };
+      } else {
+        // Calibration was stopped, return early without completing
+        return { success: false, error: 'Calibration was stopped by user' };
+      }
     } catch (error) {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
@@ -245,12 +254,6 @@ class KrakenCalibrationController {
         this.globalState.isCalibrationActive = false;
         this.uiManager.showLogOnScreen('❌ Calibration stopped due to Fluke connection failure.');
 
-        // Send notification to user
-        this.sendToRenderer('show-notification', {
-          type: 'error',
-          message: 'Connection to Fluke was not successful. Please check if the device is powered on and accessible on the network.',
-        });
-
         // Reset UI state to allow retry
         this.uiManager.enableBackButton();
         this.uiManager.enableCalibrationButton();
@@ -267,13 +270,7 @@ class KrakenCalibrationController {
     } catch (error) {
       // Handle any other errors during Fluke preparation
       this.globalState.isCalibrationActive = false;
-      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.message}`);
-
-      // Send notification to user
-      this.sendToRenderer('show-notification', {
-        type: 'error',
-        message: `Calibration stopped: ${error.message}`,
-      });
+      this.uiManager.showLogOnScreen(`❌ Calibration stopped: ${error.error}`);
 
       // Reset UI state to allow retry
       this.uiManager.enableBackButton();
@@ -291,7 +288,6 @@ class KrakenCalibrationController {
 
     // Check if calibration was stopped due to failures
     if (!this.globalState.isCalibrationActive) {
-      this.uiManager.showLogOnScreen('⚠️ Calibration was stopped due to failures. Skipping post-calibration steps.');
       return;
     }
   }
@@ -320,8 +316,80 @@ class KrakenCalibrationController {
     this.sendToRenderer('show-kraken-verification-button');
 
     // Log completion messages
-    this.uiManager.showLogOnScreen('✅ CALIBRATION COMPLETED SUCCESSFULLY');
     this.uiManager.showLogOnScreen('📋 Devices are ready for verification process');
+  }
+
+  /**
+   * Start the verification process
+   */
+  async startVerification() {
+    this.globalState.isVerificationActive = true;
+    this.sendToRenderer('hide-kraken-verification-button');
+    this.sendToRenderer('show-kraken-stop-verification-button');
+    this.sendToRenderer('disable-kraken-back-button');
+
+    // Set the tester name in the verification service for PDF generation
+    if (this.testerName) {
+      this.verificationService.setTesterName(this.testerName);
+    }
+
+    let verificationSuccessful = false;
+
+    try {
+      await this.verificationService.startVerification();
+      verificationSuccessful = true;
+    } catch (error) {
+      Sentry.captureException(error);
+      this.uiManager.showLogOnScreen(`❌ Error during verification: ${error.message}`);
+      verificationSuccessful = false;
+    } finally {
+      // Always reset state when verification completes or fails
+      this.globalState.isVerificationActive = false;
+      this.sendToRenderer('hide-kraken-stop-verification-button');
+      this.sendToRenderer('enable-kraken-back-button');
+
+      // Only show verification button again if there was an error
+      if (!verificationSuccessful) {
+        this.sendToRenderer('show-kraken-verification-button');
+      } else {
+        // Show success toast notification
+        this.sendToRenderer('show-notification', {
+          type: 'success',
+          message: 'Verification completed successfully',
+        });
+        await addDelay(4000); // Short delay before showing results button
+
+        this.sendToRenderer('show-notification', {
+          type: 'success',
+          message: `Kraken PDFs are saved successfully to your desktop`,
+        });
+      }
+    }
+  }
+
+  /**
+   * Stop the verification process
+   */
+  async stopVerification() {
+    console.log('Stop verification called, isVerificationActive:', this.globalState.isVerificationActive);
+
+    // Always update UI state when stop is called, regardless of flag state
+    this.globalState.isVerificationActive = false;
+
+    try {
+      await this.verificationService.stopVerification();
+    } catch (error) {
+      console.error('Error stopping verification service:', error);
+      // Continue with UI update even if service fails
+    }
+
+    // Always update UI state
+    this.sendToRenderer('show-kraken-verification-button');
+    this.sendToRenderer('hide-kraken-stop-verification-button');
+    this.sendToRenderer('enable-kraken-back-button');
+    this.uiManager.showLogOnScreen('⏹️ Verification process stopped by user.');
+
+    console.log('Verification stopped and UI updated');
   }
 
   /**
@@ -389,6 +457,7 @@ class KrakenCalibrationController {
 
       console.log('Calibration controller cleanup completed');
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error during calibration controller cleanup:', error);
       // Continue cleanup even if Fluke disconnection fails
       await this.globalState.cleanup();

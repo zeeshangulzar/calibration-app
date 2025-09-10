@@ -9,6 +9,8 @@ export const KRAKEN_CONSTANTS = {
   // Device information characteristics
   DISPLAY_NAME_CHARACTERISTIC_UUID: 'c91a9bbe24700ce481ed818844bdca4e',
   FIRMWARE_REVISION_CHARACTERISTIC_UUID: '2a26',
+  MODEL_NUMBER_CHARACTERISTIC_UUID: '2a24',
+  SERIAL_NUMBER_CHARACTERISTIC_UUID: '2a25',
 
   // Connection and discovery timeouts (in milliseconds)
   CONNECTION_TIMEOUT: 30000, // 30 seconds
@@ -39,7 +41,10 @@ export const KRAKEN_CONSTANTS = {
   DELAY_BETWEEN_COMMANDS: 2000,
 
   // Sweep value
-  SWEEP_VALUE: 300,
+  SWEEP_VALUE: 100,
+
+  // delay after pressure is set
+  DELAY_AFTER_PRESSURE_SET: 3000,
 
   // Device connection states
   CONNECTION_STATES: {
@@ -55,4 +60,7 @@ export const KRAKEN_CONSTANTS = {
 
   // Calibration settings
   TESTER_NAMES: { Gabriel: 'Gabriel' },
+
+  // Discrepancy tolerance
+  DISCREPANCY_TOLERANCE: 1.5,
 };
