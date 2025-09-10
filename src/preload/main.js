@@ -27,7 +27,9 @@ try {
 contextBridge.exposeInMainWorld('electronAPI', {
   //======== Core Application APIs ========
   loadHomeScreen: () => ipcRenderer.send('load-home-screen'),
-  onShowAppVersion: callback => ipcRenderer.on('show-app-version', (_, version) => callback(version)),
+  onShowAppVersion: callback =>
+    ipcRenderer.on('show-app-version', (event, version) => callback(version)),
+  getMigrationStatus: () => ipcRenderer.invoke('get-migration-status'),
 
   //======== Kraken List APIs ========
   loadKrakenList: () => {
@@ -116,6 +118,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateCalibrationButtonState: callback => ipcRenderer.on('update-calibration-button-state', (_, data) => callback(data)),
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', () => callback()),
   onKrakenNameUpdated: callback => ipcRenderer.on('kraken-name-updated', (_, data) => callback(data)),
+
+  //======== Assembly Sensor APIs ========
+  assemblySensors: () => ipcRenderer.invoke('assembly-sensors'),
+  getAssembledSensors: (args) =>
+    ipcRenderer.invoke('get-assembled-sensors', args),
+  saveAssembledSensor: (data) =>
+    ipcRenderer.send('save-assembled-sensor', data),
+  onAssembledSaved: (callback) =>
+    ipcRenderer.on('assembled-saved', (_event, action) => {
+      callback(action);
+    }),
+  deleteAssembledSensor: (id) =>
+    ipcRenderer.send('delete-assembled-sensor', id),
+  checkDuplicateQR: (data) => ipcRenderer.invoke('check-duplicate-qr', data),
 
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
