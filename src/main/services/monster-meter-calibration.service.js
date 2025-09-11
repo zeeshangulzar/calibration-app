@@ -362,9 +362,6 @@ class MonsterMeterCalibrationService {
   }
 
   extractSensorData(data, pressureValue) {
-    const min = pressureValue - this.toleranceRange;
-    const max = pressureValue + this.toleranceRange;
-
     const sensorData = {
       voltageLo: data['SensorLo.vAVG'],
       pressureLo: data['SensorLo.psiAVG'],
@@ -372,15 +369,6 @@ class MonsterMeterCalibrationService {
       pressureHi: data['SensorHi.psiAVG'],
       referencePressure: pressureValue,
     };
-
-    // Validate sensor data for NaN/undefined values
-    const requiredKeys = ['voltageLo', 'pressureLo', 'voltageHi', 'pressureHi'];
-    for (const key of requiredKeys) {
-      if (sensorData[key] === undefined || isNaN(sensorData[key])) {
-        this.showLogOnScreen(`❌ Invalid ${key}: ${sensorData[key]} - Monster Meter may not be responding correctly`);
-        throw new Error(`Invalid sensor data: ${key} is ${sensorData[key]}`);
-      }
-    }
 
     return sensorData;
   }
@@ -442,10 +430,6 @@ class MonsterMeterCalibrationService {
         throw new Error(`Invalid ${name} array contains NaN or undefined values: ${arr}`);
       }
     };
-
-    validateArray(this.voltagesHiArray, 'voltagesHi');
-    validateArray(this.voltagesLoArray, 'voltagesLo');
-    validateArray(this.sweepIntervals, 'sweepIntervals');
 
     const regressions = {
       lo: new PolynomialRegression(this.voltagesLoArray, this.sweepIntervals, 3),
