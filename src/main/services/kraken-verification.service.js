@@ -2,7 +2,7 @@ import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { KrakenPDFService } from './kraken-pdf.service.js';
-import { uartService } from './uart-service.js';
+import { updateKrakenName } from './uart-service.js';
 import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 
 import * as Sentry from '@sentry/electron/main';
@@ -446,25 +446,21 @@ class KrakenVerificationService {
 
       this.showLogOnScreen(`📝 Updating kraken name to: ${newName}`);
 
-      // Execute BLE name update command
-      const result = await uartService.executeCommand(device, 'ble.set.name', 0, 0, newName);
+      // Send name update command (one-way, no response expected)
+      updateKrakenName(device, newName);
+      this.showLogOnScreen(`✅ Successfully updated kraken name to: ${newName}`);
 
-      if (result.success) {
-        // Update device display name in global state
-        device.displayName = newName;
-        this.globalState.connectedDevices.set(device.id, device);
+      // Update device display name in global state
+      device.displayName = newName;
+      this.globalState.connectedDevices.set(device.id, device);
 
-        // Send update to renderer
-        this.sendToRenderer('kraken-name-updated', {
-          deviceId: device.id,
-          newName: newName,
-        });
+      // Send update to renderer
+      this.sendToRenderer('kraken-name-updated', {
+        deviceId: device.id,
+        newName: newName,
+      });
 
-        this.showLogOnScreen(`✅ Successfully updated kraken name to: ${newName}`);
-        return { success: true, newName: newName };
-      } else {
-        throw new Error('UART command failed');
-      }
+      return { success: true, newName: newName };
     } catch (error) {
       Sentry.captureException(error);
       this.showLogOnScreen(`❌ Failed to update kraken name: ${error.message}`);

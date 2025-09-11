@@ -197,14 +197,18 @@ class KrakenCalibrationController {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
       Sentry.captureException(error);
+
+      // Extract meaningful error message
+      const errorMessage = error.error || error.message || 'Please try again after some time.';
+
       this.sendToRenderer('show-notification', {
         type: 'error',
-        message: `Calibration failed: ${error.error}`,
+        message: `Calibration failed: ${errorMessage}`,
       });
       this.uiManager.enableBackButton();
       this.uiManager.enableCalibrationButton();
       this.uiManager.hideStopCalibrationButton();
-      return { success: false, error: error.error };
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -335,32 +339,36 @@ class KrakenCalibrationController {
     try {
       await this.verificationService.startVerification();
       verificationSuccessful = true;
+      console.log('KrakenCalibrationController: Verification service completed successfully');
     } catch (error) {
       Sentry.captureException(error);
       this.uiManager.showLogOnScreen(`❌ Error during verification: ${error.message}`);
       verificationSuccessful = false;
-    } finally {
-      // Always reset state when verification completes or fails
-      this.globalState.isVerificationActive = false;
-      this.sendToRenderer('hide-kraken-stop-verification-button');
-      this.sendToRenderer('enable-kraken-back-button');
+      console.log('KrakenCalibrationController: Verification service failed:', error.message);
+    }
 
-      // Only show verification button again if there was an error
-      if (!verificationSuccessful) {
-        this.sendToRenderer('show-kraken-verification-button');
-      } else {
-        // Show success toast notification
-        this.sendToRenderer('show-notification', {
-          type: 'success',
-          message: 'Verification completed successfully',
-        });
-        await addDelay(4000); // Short delay before showing results button
+    // Always reset state when verification completes or fails
+    // Note: This is moved outside of finally block to ensure name updates complete first
+    console.log('KrakenCalibrationController: Setting verification as inactive after all processing is complete');
+    this.globalState.isVerificationActive = false;
+    this.sendToRenderer('hide-kraken-stop-verification-button');
+    this.sendToRenderer('enable-kraken-back-button');
 
-        this.sendToRenderer('show-notification', {
-          type: 'success',
-          message: `Kraken PDFs are saved successfully to your desktop`,
-        });
-      }
+    // Only show verification button again if there was an error
+    if (!verificationSuccessful) {
+      this.sendToRenderer('show-kraken-verification-button');
+    } else {
+      // Show success toast notification
+      this.sendToRenderer('show-notification', {
+        type: 'success',
+        message: 'Verification completed successfully',
+      });
+      await addDelay(4000); // Short delay before showing results button
+
+      this.sendToRenderer('show-notification', {
+        type: 'success',
+        message: `Kraken PDFs are saved successfully to your desktop`,
+      });
     }
   }
 
