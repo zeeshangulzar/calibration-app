@@ -179,25 +179,6 @@ class MonsterMeterVerificationService {
     }
   }
 
-  async completeVerification() {
-    try {
-      this.showLogOnScreen('✅ Verification completed successfully');
-
-      // Set verification as complete (not active, not stopped)
-      this.updateVerificationFlags(false, false);
-
-      // Set Fluke to zero in background silently
-      try {
-        await this.setFlukeToZeroSilent();
-      } catch (error) {
-        console.log('Background Fluke zero setting failed:', error.message);
-      }
-    } catch (error) {
-      this.handleError('completeVerification', error);
-      throw error;
-    }
-  }
-
   async connectToFluke() {
     // Check if Fluke is already connected (e.g., from previous calibration)
     if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
@@ -236,6 +217,9 @@ class MonsterMeterVerificationService {
       const pressureValue = this.sweepIntervals[i];
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
+      this.showLogOnScreen('Waiting for 2 seconds');
+      await this.delay(2000);
+      this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
       await this.delay(1000);
     }
@@ -353,15 +337,28 @@ class MonsterMeterVerificationService {
 
   async completeVerification() {
     try {
+      this.showLogOnScreen('✅ Verification sweep completed successfully');
+
+      // Set verification as complete (not active, not stopped)
       this.updateVerificationFlags(false, false);
 
       // Generate verification summary
       const summary = this.generateVerificationSummary();
 
       // Generate PDF report
+      this.showLogOnScreen('📄 Generating PDF report...');
       await this.generatePDFReport(summary);
 
+      // Send final results to UI
       this.sendFinalResults();
+
+      // Set Fluke to zero in background silently
+      try {
+        await this.setFlukeToZeroSilent();
+      } catch (error) {
+        console.log('Background Fluke zero setting failed:', error.message);
+      }
+
       this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);

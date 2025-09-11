@@ -24,7 +24,7 @@ export const MONSTER_METER_CONSTANTS = {
     GET_DATA: 0xA4,
     ZERO_HIGH: 0xA5,
     ZERO_LOW: 0xA6,
-    VERIFY_ME: 0xA7,
+    VERIFY_ME: 0xA8,
   },
   // eslint-enable prettier/prettier
 

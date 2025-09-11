@@ -63,4 +63,7 @@ export const KRAKEN_CONSTANTS = {
 
   // Discrepancy tolerance
   DISCREPANCY_TOLERANCE: 1.5,
+
+  // Calibration temperature
+  CALIBRATION_TEMPERATURE: 'N/A', // Default calibration temperature
 };

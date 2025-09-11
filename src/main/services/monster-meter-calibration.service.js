@@ -270,9 +270,9 @@ class MonsterMeterCalibrationService {
       this.sendToRenderer('monster-meter-live-data', {
         referencePressure,
         voltageHi: data['SensorHi.vAVG'],
-        pressureHi: data['SensorHi.pAVG'],
+        pressureHi: data['SensorHi.psiAVG'],
         voltageLo: data['SensorLo.vAVG'],
-        pressureLo: data['SensorLo.pAVG'],
+        pressureLo: data['SensorLo.psiAVG'],
       });
     } catch (error) {
       this.handleError(error, 'sendLiveSensorData');
@@ -373,6 +373,15 @@ class MonsterMeterCalibrationService {
       referencePressure: pressureValue,
     };
 
+    // Validate sensor data for NaN/undefined values
+    const requiredKeys = ['voltageLo', 'pressureLo', 'voltageHi', 'pressureHi'];
+    for (const key of requiredKeys) {
+      if (sensorData[key] === undefined || isNaN(sensorData[key])) {
+        this.showLogOnScreen(`❌ Invalid ${key}: ${sensorData[key]} - Monster Meter may not be responding correctly`);
+        throw new Error(`Invalid sensor data: ${key} is ${sensorData[key]}`);
+      }
+    }
+
     return sensorData;
   }
 
@@ -421,6 +430,23 @@ class MonsterMeterCalibrationService {
       throw new Error('Insufficient data points for coefficient generation');
     }
 
+    // Log input data for debugging
+    console.log('🔍 Debug - Coefficient generation input:');
+    console.log('Hi voltages:', this.voltagesHiArray);
+    console.log('Lo voltages:', this.voltagesLoArray);
+    console.log('Sweep intervals:', this.sweepIntervals);
+
+    // Validate input arrays
+    const validateArray = (arr, name) => {
+      if (arr.some(val => isNaN(val) || val === undefined)) {
+        throw new Error(`Invalid ${name} array contains NaN or undefined values: ${arr}`);
+      }
+    };
+
+    validateArray(this.voltagesHiArray, 'voltagesHi');
+    validateArray(this.voltagesLoArray, 'voltagesLo');
+    validateArray(this.sweepIntervals, 'sweepIntervals');
+
     const regressions = {
       lo: new PolynomialRegression(this.voltagesLoArray, this.sweepIntervals, 3),
       hi: new PolynomialRegression(this.voltagesHiArray, this.sweepIntervals, 3),
@@ -430,6 +456,10 @@ class MonsterMeterCalibrationService {
       hi: { coeffA: regressions.hi.coefficients[1], coeffB: regressions.hi.coefficients[2], coeffC: regressions.hi.coefficients[3] },
       lo: { coeffA: regressions.lo.coefficients[1], coeffB: regressions.lo.coefficients[2], coeffC: regressions.lo.coefficients[3] },
     };
+
+    console.log('🔍 Debug - Generated coefficients:');
+    console.log('Hi coefficients:', this.currentCoefficients.hi);
+    console.log('Lo coefficients:', this.currentCoefficients.lo);
 
     // Check for NaN coefficients and use fallback values if needed
     const fallbackCoefficients = MONSTER_METER_CONSTANTS.FALLBACK_COEFFICIENTS;
@@ -441,6 +471,7 @@ class MonsterMeterCalibrationService {
 
     // Check lo coefficients
     if (isNaN(this.currentCoefficients.lo.coeffA) || isNaN(this.currentCoefficients.lo.coeffB) || isNaN(this.currentCoefficients.lo.coeffC)) {
+      this.showLogOnScreen('⚠️ Generated Lo coefficients contain NaN - using fallback values');
       this.currentCoefficients.lo = fallbackCoefficients.lo;
     }
   }
