@@ -218,6 +218,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   monsterMeterConnectPort: portPath => ipcRenderer.invoke('monster-meter-connect-port', portPath),
   monsterMeterDisconnect: () => ipcRenderer.invoke('monster-meter-disconnect'),
   monsterMeterGetStatus: () => ipcRenderer.invoke('monster-meter-get-status'),
+
+  //======== GVI Flow Meter APIs ========
+  loadGVI: () => ipcRenderer.send('load-gvi'),
+  gviGoBack: () => ipcRenderer.send('gvi-go-back'),
+  gviStartCalibration: (config) => ipcRenderer.invoke('gvi-start-calibration', config),
+  gviStopCalibration: () => ipcRenderer.invoke('gvi-stop-calibration'),
+  gviGetStatus: () => ipcRenderer.invoke('gvi-get-status'),
+  gviUpdateStep: (stepData) => ipcRenderer.invoke('gvi-update-step', stepData),
+  gviGetAvailableModels: () => ipcRenderer.invoke('gvi-get-available-models'),
+  gviGetCalibrationSteps: (model) => ipcRenderer.invoke('gvi-get-calibration-steps', model),
+
+  // GVI event listeners
+  onGVIInitialized: callback => ipcRenderer.on('gvi-initialized', () => callback()),
+  onGVICalibrationStarted: callback => ipcRenderer.on('gvi-calibration-started', (_, data) => callback(data)),
+  onGVICalibrationStopped: callback => ipcRenderer.on('gvi-calibration-stopped', () => callback()),
+  onGVIStepUpdated: callback => ipcRenderer.on('gvi-step-updated', (_, data) => callback(data)),
+  onGVICalibrationCompleted: callback => ipcRenderer.on('gvi-calibration-completed', (_, data) => callback(data)),
+  onGVILogMessage: callback => ipcRenderer.on('gvi-log-message', (_, data) => callback(data)),
   monsterMeterReadData: () => ipcRenderer.invoke('monster-meter-read-data'),
   monsterMeterTestCommunication: () => ipcRenderer.invoke('monster-meter-test-communication'),
   monsterMeterGetUsbDevices: () => ipcRenderer.invoke('monster-meter-get-usb-devices'),
