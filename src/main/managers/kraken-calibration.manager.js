@@ -429,7 +429,7 @@ export class KrakenCalibrationManager {
   async stopCalibration(reason, errorDetails = '', resetToNotCalibrated = false) {
     try {
       // Ensure reason is never undefined or empty
-      // const finalReason = reason || 'Calibration stopped';
+      const finalReason = reason || 'Calibration stopped';
       // console.log(`Stopping calibration: ${finalReason}`);
 
       // Update global state

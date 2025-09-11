@@ -160,7 +160,6 @@ class MonsterMeterVerificationService {
       await this.connectToFluke();
 
       // Step 2: Set Fluke to zero pressure first
-      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
       await this.setFlukeToZero();
 
       // Step 3: Send VERIFY_ME command to Monster Meter
