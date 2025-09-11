@@ -45,7 +45,12 @@ function showError(message) {
   const errorMessage = document.getElementById('error-message');
 
   if (errorAlert && errorMessage) {
-    errorMessage.textContent = message;
+    // Ensure we never show undefined, null, or empty messages
+    const displayMessage = message && typeof message === 'string' && message.trim() 
+      ? message.trim() 
+      : 'An unexpected error occurred. Please try again.';
+    
+    errorMessage.textContent = displayMessage;
     errorAlert.classList.remove('hidden');
   }
 }

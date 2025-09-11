@@ -13,11 +13,15 @@ export class ErrorMessageService {
    * @returns {string} Specific error message
    */
   static createUARTErrorMessage(command, error, deviceName) {
+    // Provide fallback values for missing parameters
+    const safeCommand = command || 'Unknown command';
+    const safeDeviceName = deviceName || 'Unknown device';
+    
     if (!error) {
-      return `${command} command failed on ${deviceName} with no error details`;
+      return `${safeCommand} failed on ${safeDeviceName} - no error details available`;
     }
 
-    const errorMessage = error.message || '';
+    const errorMessage = error.message || error.error || '';
 
     // Categorize errors and provide specific messages
     if (errorMessage.includes('timeout') || errorMessage.includes('Command timeout')) {
@@ -50,11 +54,11 @@ export class ErrorMessageService {
 
     // If we have a message but don't recognize the pattern, use it directly
     if (errorMessage.trim()) {
-      return `${command} command failed on ${deviceName}: ${errorMessage}`;
+      return `${safeCommand} command failed on ${safeDeviceName}: ${errorMessage}`;
     }
 
     // Only as absolute last resort
-    return `${command} command failed on ${deviceName} - device communication error`;
+    return `${safeCommand} command failed on ${safeDeviceName} - device communication error`;
   }
 
   /**
@@ -65,53 +69,57 @@ export class ErrorMessageService {
    * @returns {string} Specific error message
    */
   static createKrakenCalibrationErrorMessage(commandType, error, deviceName) {
+    // Provide fallback values for missing parameters
+    const safeCommandType = commandType || 'Calibration';
+    const safeDeviceName = deviceName || 'Unknown device';
+    
     if (!error) {
-      return `${commandType} command failed on ${deviceName} - no error details available`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - no error details available`;
     }
 
-    const errorMessage = error.message || '';
+    const errorMessage = error.message || error.error || '';
 
     // Device disconnection
     if (errorMessage.includes('DEVICE_DISCONNECTED') || errorMessage.includes('disconnected')) {
-      return `${commandType} command failed - ${deviceName} was disconnected`;
+      return `${safeCommandType} command failed - ${safeDeviceName} was disconnected`;
     }
 
     // Communication timeouts
     if (errorMessage.includes('timeout') || errorMessage.includes('not responding')) {
-      return `${commandType} command failed on ${deviceName} - device communication timeout`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - device communication timeout`;
     }
 
     // UART/BLE specific errors
     if (errorMessage.includes('UART characteristics not found')) {
-      return `${commandType} command failed on ${deviceName} - device communication interface unavailable`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - device communication interface unavailable`;
     }
 
     if (errorMessage.includes('Subscription failed') || errorMessage.includes('Write failed')) {
-      return `${commandType} command failed on ${deviceName} - unable to communicate with device`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - unable to communicate with device`;
     }
 
     // Invalid responses
     if (errorMessage.includes('Unexpected server ID') || errorMessage.includes('Unexpected command ID')) {
-      return `${commandType} command failed on ${deviceName} - device returned invalid response`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - device returned invalid response`;
     }
 
     // Command not supported
     if (errorMessage.includes('Unknown command')) {
-      return `${commandType} command is not supported by ${deviceName}`;
+      return `${safeCommandType} command is not supported by ${safeDeviceName}`;
     }
 
     // Fluke-related errors
     if (errorMessage.includes('Fluke')) {
-      return `${commandType} command failed on ${deviceName} - Fluke calibrator error: ${errorMessage}`;
+      return `${safeCommandType} command failed on ${safeDeviceName} - Fluke calibrator error: ${errorMessage}`;
     }
 
     // If we have a specific message, use it with context
     if (errorMessage.trim()) {
-      return `${commandType} command failed on ${deviceName}: ${errorMessage}`;
+      return `${safeCommandType} command failed on ${safeDeviceName}: ${errorMessage}`;
     }
 
     // Last resort with meaningful context
-    return `${commandType} command failed on ${deviceName} - device communication error`;
+    return `${safeCommandType} command failed on ${safeDeviceName} - device communication error`;
   }
 
   /**

@@ -550,18 +550,19 @@ function updateVerificationResultsTable(data) {
   if (data && data.length > 0) {
     data.forEach((point, index) => {
       const row = document.createElement('tr');
+      row.classList.add('border-b');
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
       const statusIcon = point.inRange ? '✓' : '✗';
 
       row.innerHTML = `
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">${index + 1}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.referencePressure.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageHi.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureHi.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageLo.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureLo.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${statusClass}">
+        <td class="py-2 pr-6">${index + 1}</td>
+        <td class="py-2 pr-6">${point.referencePressure.toFixed(1)}</td>
+        <td class="py-2 pr-6">${point.voltageHi.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureHi.toFixed(1)}</td>
+        <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureLo.toFixed(1)}</td>
+        <td class="py-2 pr-6 font-semibold ${statusClass}">
           <span class="inline-flex items-center">
             <span class="mr-1">${statusIcon}</span>
             ${statusText}
@@ -767,18 +768,17 @@ function initializeVerificationResultsTable() {
   if (verificationPanel) {
     verificationPanel.innerHTML = `
       <div class="mb-4">
-        <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
-        <div class="overflow-x-auto border border-gray-300 rounded-lg">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="border-b">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="pb-2 pr-6 text-left">Point</th>
+                <th class="pb-2 pr-6 text-left">Reference Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">SensorHi Voltage (V)</th>
+                <th class="pb-2 pr-6 text-left">SensorHi Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">SensorLo Voltage (V)</th>
+                <th class="pb-2 pr-6 text-left">SensorLo Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">Status</th>
               </tr>
             </thead>
             <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
