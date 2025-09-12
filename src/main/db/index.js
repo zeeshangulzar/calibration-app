@@ -13,7 +13,7 @@ let isInitialized = false;
 /**
  * Initialize database with proper PRAGMAs and migrations
  */
-export function initializeDatabase() {
+export async function initializeDatabase() {
   if (isInitialized) {
     return db;
   }
@@ -285,56 +285,6 @@ export function saveDeveloperSettings(settings) {
     });
     console.error('Failed to save developer settings:', error);
     return { success: false, error: error.message };
-  }
-}
-
-/**
- * Get GVI gauge calibration steps by model
- */
-export function getGVIGaugeSteps(model) {
-  const db = getDatabase();
-  try {
-    const steps = db.prepare(`
-      SELECT gpm, psi_min, psi_max, step_order 
-      FROM gvi_gauges 
-      WHERE model = ? 
-      ORDER BY step_order
-    `).all(model);
-    
-    return steps.map(step => ({
-      gpm: step.gpm,
-      psiMin: step.psi_min,
-      psiMax: step.psi_max,
-      status: 'pending'
-    }));
-  } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'getGVIGaugeSteps' },
-    });
-    console.error('Failed to get GVI gauge steps:', error);
-    return [];
-  }
-}
-
-/**
- * Get all available GVI gauge models
- */
-export function getGVIGaugeModels() {
-  const db = getDatabase();
-  try {
-    const models = db.prepare(`
-      SELECT DISTINCT model 
-      FROM gvi_gauges 
-      ORDER BY model
-    `).all();
-    
-    return models.map(row => row.model);
-  } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'getGVIGaugeModels' },
-    });
-    console.error('Failed to get GVI gauge models:', error);
-    return [];
   }
 }
 

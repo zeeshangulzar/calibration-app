@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { createMainWindow } from './windows/main.js';
 import { registerIpcHandlers, cleanupIpcResources } from './ipc/index.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
+import { runAllSeeds } from './db/seeds/index.js';
 
 // Initialize Sentry for crash tracking (must be done early)
 import * as Sentry from '@sentry/electron/main';
@@ -82,8 +83,20 @@ app.whenReady().then(async () => {
   try {
     // Initialize database
     console.log('App ready, initializing database...');
-    initializeDatabase();
+    const db = await initializeDatabase();
     console.log('Database initialized successfully');
+
+    // Run database seeds
+    try {
+      const seedResult = await runAllSeeds(db);
+      if (!seedResult.success) {
+        console.warn('Database seeding failed:', seedResult.error);
+        throw seedResult.error;
+      }
+    } catch (seedError) {
+      console.warn('Failed to run database seeds:', seedError.message);
+      throw seedError;
+    }
   } catch (error) {
     Sentry.captureException(error);
     console.error('Failed to initialize database:', error);
