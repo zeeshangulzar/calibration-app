@@ -3,13 +3,20 @@ import * as Sentry from '@sentry/node';
 
 /**
  * Assembly Sensor Database Controller
- * 
+ *
  * Manages all database operations related to assembled sensors
  * using a class-based architecture for better organization and maintainability
  */
 export class AssemblySensorDb {
   constructor() {
-    this.db = getDatabase();
+    this.db = null;
+  }
+
+  getDb() {
+    if (!this.db) {
+      this.db = getDatabase();
+    }
+    return this.db;
   }
 
   /**
@@ -17,7 +24,7 @@ export class AssemblySensorDb {
    */
   async saveAssembledSensor({ bodyQR, capQR }) {
     try {
-      const stmt = this.db.prepare(`
+      const stmt = this.getDb().prepare(`
         INSERT INTO device_assembly (plastic_body_qr, cap_qr)
         VALUES (?, ?)
       `);
@@ -35,7 +42,7 @@ export class AssemblySensorDb {
   async getAllAssembledSensors(page = 1, size = 10) {
     try {
       const offset = (page - 1) * size;
-      const rows = this.db
+      const rows = this.getDb()
         .prepare(
           `SELECT id, plastic_body_qr AS bodyQR, cap_qr AS capQR, created_at, updated_at
           FROM device_assembly 
@@ -44,9 +51,7 @@ export class AssemblySensorDb {
         )
         .all(size, offset);
 
-      const totalCount = this.db
-        .prepare("SELECT COUNT(*) AS count FROM device_assembly")
-        .get().count;
+      const totalCount = this.getDb().prepare('SELECT COUNT(*) AS count FROM device_assembly').get().count;
 
       return { rows, totalCount };
     } catch (error) {
@@ -60,9 +65,9 @@ export class AssemblySensorDb {
    */
   async deleteAssembledSensor(id) {
     try {
-      const stmt = this.db.prepare('DELETE FROM device_assembly WHERE id = ?');
+      const stmt = this.getDb().prepare('DELETE FROM device_assembly WHERE id = ?');
       const result = stmt.run(id);
-      
+
       if (result.changes > 0) {
         return { success: true };
       } else {
@@ -79,7 +84,7 @@ export class AssemblySensorDb {
    */
   async getDuplicateAssembly({ bodyQR, capQR }) {
     try {
-      const stmt = this.db.prepare(`
+      const stmt = this.getDb().prepare(`
         SELECT 
           CASE 
             WHEN plastic_body_qr = ? AND cap_qr = ? THEN 'both'
@@ -91,7 +96,7 @@ export class AssemblySensorDb {
         WHERE plastic_body_qr = ? OR cap_qr = ?
         LIMIT 1
       `);
-      
+
       const result = stmt.get(bodyQR, capQR, bodyQR, capQR, bodyQR, capQR);
       return result ? result.duplicate_type : 'none';
     } catch (error) {

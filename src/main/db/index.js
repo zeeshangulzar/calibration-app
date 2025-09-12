@@ -64,7 +64,7 @@ export async function initializeDatabase() {
  */
 export function getDatabase() {
   if (!isInitialized) {
-    return initializeDatabase();
+    throw new Error('Database not initialized. Call initializeDatabase() first.');
   }
   return db;
 }

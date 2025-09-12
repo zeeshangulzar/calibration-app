@@ -8,7 +8,14 @@ import { sentryLogger } from '../loggers/sentry.logger.js';
  */
 export class GVIGaugeDb {
   constructor() {
-    this.db = getDatabase();
+    this.db = null;
+  }
+
+  getDb() {
+    if (!this.db) {
+      this.db = getDatabase();
+    }
+    return this.db;
   }
 
   /**
@@ -16,7 +23,7 @@ export class GVIGaugeDb {
    */
   getGaugeSteps(model) {
     try {
-      const gauge = this.db.prepare('SELECT ranges FROM gvi_gauges WHERE model = ?').get(model);
+      const gauge = this.getDb().prepare('SELECT ranges FROM gvi_gauges WHERE model = ?').get(model);
 
       if (!gauge || !gauge.ranges) {
         return [];
@@ -47,7 +54,8 @@ export class GVIGaugeDb {
    */
   getGaugeModels() {
     try {
-      const models = this.db.prepare('SELECT DISTINCT model FROM gvi_gauges ORDER BY model').all();
+      const models = this.getDb().prepare('SELECT DISTINCT model FROM gvi_gauges ORDER BY model').all();
+      console.log('GVI Gauge Models found:', models);
       return models.map(row => row.model);
     } catch (error) {
       sentryLogger.handleError(error, {
@@ -64,7 +72,7 @@ export class GVIGaugeDb {
    * Get database instance (for advanced operations)
    */
   getDatabase() {
-    return this.db;
+    return this.getDb();
   }
 }
 

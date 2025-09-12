@@ -27,8 +27,7 @@ try {
 contextBridge.exposeInMainWorld('electronAPI', {
   //======== Core Application APIs ========
   loadHomeScreen: () => ipcRenderer.send('load-home-screen'),
-  onShowAppVersion: callback =>
-    ipcRenderer.on('show-app-version', (event, version) => callback(version)),
+  onShowAppVersion: callback => ipcRenderer.on('show-app-version', (event, version) => callback(version)),
   getMigrationStatus: () => ipcRenderer.invoke('get-migration-status'),
 
   //======== Kraken List APIs ========
@@ -121,17 +120,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   //======== Assembly Sensor APIs ========
   assemblySensors: () => ipcRenderer.invoke('assembly-sensors'),
-  getAssembledSensors: (args) =>
-    ipcRenderer.invoke('get-assembled-sensors', args),
-  saveAssembledSensor: (data) =>
-    ipcRenderer.send('save-assembled-sensor', data),
-  onAssembledSaved: (callback) =>
+  getAssembledSensors: args => ipcRenderer.invoke('get-assembled-sensors', args),
+  saveAssembledSensor: data => ipcRenderer.send('save-assembled-sensor', data),
+  onAssembledSaved: callback =>
     ipcRenderer.on('assembled-saved', (_event, action) => {
       callback(action);
     }),
-  deleteAssembledSensor: (id) =>
-    ipcRenderer.send('delete-assembled-sensor', id),
-  checkDuplicateQR: (data) => ipcRenderer.invoke('check-duplicate-qr', data),
+  deleteAssembledSensor: id => ipcRenderer.send('delete-assembled-sensor', id),
+  checkDuplicateQR: data => ipcRenderer.invoke('check-duplicate-qr', data),
 
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
@@ -222,12 +218,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   //======== GVI Flow Meter APIs ========
   loadGVI: () => ipcRenderer.send('load-gvi'),
   gviGoBack: () => ipcRenderer.send('gvi-go-back'),
-  gviStartCalibration: (config) => ipcRenderer.invoke('gvi-start-calibration', config),
+  gviStartCalibration: config => ipcRenderer.invoke('gvi-start-calibration', config),
   gviStopCalibration: () => ipcRenderer.invoke('gvi-stop-calibration'),
   gviGetStatus: () => ipcRenderer.invoke('gvi-get-status'),
-  gviUpdateStep: (stepData) => ipcRenderer.invoke('gvi-update-step', stepData),
+  gviUpdateStep: stepData => ipcRenderer.invoke('gvi-update-step', stepData),
   gviGetAvailableModels: () => ipcRenderer.invoke('gvi-get-available-models'),
-  gviGetCalibrationSteps: (model) => ipcRenderer.invoke('gvi-get-calibration-steps', model),
+  gviGetCalibrationSteps: model => ipcRenderer.invoke('gvi-get-calibration-steps', model),
+  gviRunFlukePrereqs: () => ipcRenderer.invoke('gvi-run-fluke-prereqs'),
+  gviSetPressure: psi => ipcRenderer.invoke('gvi-set-pressure', psi),
+  gviGeneratePDF: calibrationData => ipcRenderer.invoke('gvi-generate-pdf', calibrationData),
+  gviOpenPDF: pdfPath => ipcRenderer.invoke('gvi-open-pdf', pdfPath),
+  gviRefreshFlukeService: () => ipcRenderer.invoke('gvi-refresh-fluke-service'),
 
   // GVI event listeners
   onGVIInitialized: callback => ipcRenderer.on('gvi-initialized', () => callback()),
@@ -244,10 +245,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Monster Meter calibration
   monsterMeterStartCalibration: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-calibration', testerName, model, serialNumber),
-  monsterMeterStopCalibration: (reason) => ipcRenderer.invoke('monster-meter-stop-calibration', reason),
+  monsterMeterStopCalibration: reason => ipcRenderer.invoke('monster-meter-stop-calibration', reason),
   monsterMeterGetCalibrationStatus: () => ipcRenderer.invoke('monster-meter-get-calibration-status'),
   monsterMeterStartVerification: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-verification', testerName, model, serialNumber),
-  monsterMeterStopVerification: (reason) => ipcRenderer.invoke('monster-meter-stop-verification', reason),
+  monsterMeterStopVerification: reason => ipcRenderer.invoke('monster-meter-stop-verification', reason),
   monsterMeterGetVerificationStatus: () => ipcRenderer.invoke('monster-meter-get-verification-status'),
 
   // Monster Meter event listeners
