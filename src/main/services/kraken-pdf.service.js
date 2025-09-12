@@ -166,8 +166,8 @@ class KrakenPDFService {
 
       // Sweep value from constants
       sweepValue: KRAKEN_CONSTANTS.SWEEP_VALUE,
-      tolerance: 1.5,
-      calibratedTemp: 73,
+      tolerance: KRAKEN_CONSTANTS.DISCREPANCY_TOLERANCE,
+      calibratedTemp: KRAKEN_CONSTANTS.CALIBRATION_TEMPERATURE,
 
       // Footer info
       testerName: testerName,

@@ -209,8 +209,9 @@ td {
 
 .footer {
   margin-top: 40px;
-  display: flex;
+  display: block;
   justify-content: flex-end; /* Align to the right */
+  width: 300px;
 }
 
 .footer-box {

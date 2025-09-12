@@ -7,6 +7,7 @@ import { getLocalTimestamp } from '../../main/utils/general.utils.js';
 const connectedDevices = new Map();
 let allDevicesReady = false;
 let isCalibrationInProgress = false;
+let isVerificationInProgress = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Back button functionality
@@ -60,6 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
     stopVerificationBtn.addEventListener('click', async () => {
       try {
         await window.electronAPI.krakenCalibrationStopVerification();
+        // Mark verification stopped and show status
+        isVerificationInProgress = false;
+        const statusEl = document.getElementById('connection-status');
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.textContent = 'Verification stopped';
+        }
       } catch (error) {
         NotificationHelper.showError(`Error stopping verification: ${error.message}`);
       }
@@ -119,13 +127,19 @@ document.addEventListener('DOMContentLoaded', () => {
 window.electronAPI.onShowPageLoader(() => {
   document.getElementById('page-loader')?.classList.remove('hidden');
   // disable refresh button
-  document.getElementById('refreshBtn').disabled = true;
+  let refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+  }
 });
 
 window.electronAPI.onHidePageLoader(() => {
   document.getElementById('page-loader')?.classList.add('hidden');
   // enable refresh button
-  document.getElementById('refreshBtn').disabled = false;
+  let refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.disabled = false;
+  }
 });
 
 // Stop verification button events
@@ -329,15 +343,16 @@ window.electronAPI.onUpdateCalibrationButtonState(data => {
   // Update status message
   const statusEl = document.getElementById('connection-status');
   if (statusEl) {
-    // Do not override status while calibration is in progress
-    if (!isCalibrationInProgress) {
-      if (deviceCount === 0) {
-        statusEl.textContent = 'No devices connected';
-      } else if (enabled) {
-        statusEl.textContent = 'All devices ready for calibration';
-      } else {
-        statusEl.textContent = 'Some devices are disconnected or not ready';
-      }
+    // Hide status during calibration or verification
+    if (isCalibrationInProgress || isVerificationInProgress) {
+      statusEl.style.display = 'none';
+    }
+    if (deviceCount === 0) {
+      statusEl.textContent = 'No devices connected';
+    } else if (enabled) {
+      statusEl.textContent = 'All devices ready for calibration';
+    } else {
+      statusEl.textContent = 'Some devices are disconnected or not ready';
     }
   }
 });
@@ -348,18 +363,17 @@ window.electronAPI.onDeviceDisconnected(data => {
 });
 
 window.electronAPI.onCalibrationStarted(() => {
-  // Handle calibration start - disable the button
+  // Handle calibration start - hide the button
   const startBtn = document.getElementById('start-calibration-btn');
   if (startBtn) {
-    startBtn.disabled = true;
-    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    startBtn.classList.add('hidden');
   }
 
-  // Mark calibration in progress and update status
+  // Mark calibration in progress and hide status
   isCalibrationInProgress = true;
   const statusEl = document.getElementById('connection-status');
   if (statusEl) {
-    statusEl.textContent = 'Calibration in progress...';
+    statusEl.style.display = 'none';
   }
 
   // NotificationHelper.showInfo('Calibration started successfully!');
@@ -452,6 +466,7 @@ window.electronAPI.onShowKrakenVerificationButton(() => {
   isCalibrationInProgress = false;
   const statusEl = document.getElementById('connection-status');
   if (statusEl) {
+    statusEl.style.display = 'block';
     statusEl.textContent = 'Devices are ready for verification';
   }
 });
@@ -483,8 +498,31 @@ window.electronAPI.onDeviceCalibrationStatusUpdate(data => {
   updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasError);
 });
 
+// Verification status update event listener
+window.electronAPI.onDeviceVerificationStatusUpdate?.(data => {
+  const { deviceId, isVerifying, hasError, message } = data;
+  updateDeviceVerificationStatus(deviceId, isVerifying, message, hasError);
+});
+
+window.electronAPI.onKrakenVerificationStarted(() => {
+  // Mark verification in progress and hide status
+  isVerificationInProgress = true;
+  const statusEl = document.getElementById('connection-status');
+  if (statusEl) {
+    statusEl.style.display = 'none';
+  }
+});
+
 window.electronAPI.onKrakenVerificationSweepCompleted(data => {
   console.log('Verification sweep data received:', data);
+  // Mark verification completed and show status
+  isVerificationInProgress = false;
+  const statusEl = document.getElementById('connection-status');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Verification completed';
+  }
+
   displayVerificationResults(data);
 
   // Update all device widgets to show verification completed status
@@ -679,7 +717,7 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
   if (isCalibrating) {
     // Show calibration in progress
     widget.classList.add('calibrating');
-    widget.classList.remove('calibrated', 'not-calibrated');
+    widget.classList.remove('calibrated', 'not-calibrated', 'verifying');
 
     // Disable disconnect button during calibration
     if (disconnectBtn) {
@@ -790,6 +828,121 @@ function updateDeviceCalibrationStatus(deviceId, isCalibrating, message, hasErro
         // Update widget styling for not calibrated
         widget.className = 'rounded-md border border-gray-300 bg-white p-4 shadow-sm transition-all duration-200 not-calibrated';
       }
+    }
+  }
+}
+
+// Update device verification status
+function updateDeviceVerificationStatus(deviceId, isVerifying, message, hasError = false) {
+  const widget = document.getElementById(`device-widget-${deviceId}`);
+  const statusMessage = document.getElementById(`device-status-message-${deviceId}`);
+  const disconnectBtn = widget?.querySelector('button[onclick*="disconnectDevice"]');
+  const calibrationIndicator = document.getElementById(`device-calibration-indicator-${deviceId}`);
+
+  if (!widget) return;
+
+  // Update calibration indicator (reuse the same indicator for verification)
+  if (!calibrationIndicator) {
+    const indicator = document.createElement('div');
+    indicator.id = `device-calibration-indicator-${deviceId}`;
+    indicator.className = 'calibration-status-indicator hidden';
+
+    // Insert after device info section
+    const deviceInfo = widget.querySelector('.text-xs.text-neutral-500.mb-2');
+    if (deviceInfo) {
+      deviceInfo.insertAdjacentElement('afterend', indicator);
+    }
+  }
+
+  const indicator = document.getElementById(`device-calibration-indicator-${deviceId}`);
+
+  if (isVerifying) {
+    // Show verification in progress
+    widget.classList.add('verifying');
+    widget.classList.remove('calibrated', 'not-calibrated', 'calibrating');
+
+    // Disable disconnect button during verification
+    if (disconnectBtn) {
+      disconnectBtn.disabled = true;
+      disconnectBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      disconnectBtn.title = 'Cannot remove device during verification';
+    }
+
+    // Update status message
+    if (statusMessage) {
+      statusMessage.textContent = message || 'Verification in progress...';
+    }
+
+    // Show verification indicator
+    if (indicator) {
+      indicator.className = 'calibration-status-indicator bg-blue-100 border border-blue-300 rounded-md p-2 mt-2 flex items-center';
+      indicator.innerHTML = `
+        <div class="flex items-center w-full">
+          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+          <span class="text-blue-700 text-xs font-medium">Verifying...</span>
+        </div>
+      `;
+    }
+
+    // Update widget styling for verification
+    widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200 verifying';
+  } else {
+    // Verification completed or not started
+    widget.classList.remove('verifying');
+
+    // Re-enable disconnect button
+    if (disconnectBtn) {
+      disconnectBtn.disabled = false;
+      disconnectBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      disconnectBtn.title = 'Disconnect and remove this kraken';
+    }
+
+    if (hasError) {
+      // Show error state
+      widget.classList.add('verification-error');
+      widget.classList.remove('calibrated', 'not-calibrated');
+
+      // Update status message for error
+      if (statusMessage) {
+        statusMessage.textContent = message || 'Verification failed';
+      }
+
+      // Show error indicator
+      if (indicator) {
+        indicator.className = 'calibration-status-indicator bg-red-100 border border-red-300 rounded-md p-2 mt-2 flex items-center';
+        indicator.innerHTML = `
+          <div class="flex items-center w-full">
+            <i class="fa-solid fa-exclamation-triangle text-red-600 mr-2"></i>
+            <span class="text-red-700 text-xs font-medium">Verification Failed</span>
+          </div>
+        `;
+      }
+
+      // Update widget styling for error
+      widget.className = 'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200 verification-error';
+    } else {
+      // Verification completed successfully
+      widget.classList.add('verified');
+      widget.classList.remove('not-calibrated', 'verification-error');
+
+      // Update status message
+      if (statusMessage) {
+        statusMessage.textContent = message || 'Verification completed';
+      }
+
+      // Show verified indicator
+      if (indicator) {
+        indicator.className = 'calibration-status-indicator bg-green-100 border border-green-300 rounded-md p-2 mt-2 flex items-center';
+        indicator.innerHTML = `
+          <div class="flex items-center w-full">
+            <i class="fa-solid fa-check-circle text-green-600 mr-2"></i>
+            <span class="text-green-700 text-xs font-medium">Verification Completed</span>
+          </div>
+        `;
+      }
+
+      // Update widget styling for verified
+      widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200 verified';
     }
   }
 }
@@ -1332,7 +1485,7 @@ function updateKrakenPressure(data) {
 }
 
 // View device PDF function - used in onclick attributes
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 async function viewDevicePDF(deviceId) {
   console.log('=== PDF VIEW BUTTON CLICKED ===');
   console.log('Device ID:', deviceId);
@@ -1381,8 +1534,8 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
     certificationDiv.className = 'mt-3 p-3 rounded-md bg-green-50 border border-green-200';
   } else {
     statusDiv.innerHTML = `
-      <div class="text-red-600 font-bold text-base mb-1">❌ CERTIFICATION FAILED</div>
-      <div class="text-sm text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
+      <div class="text-red-600 text-xs font-bold mb-1">❌ CERTIFICATION FAILED</div>
+      <div class="text-xs text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
       <div class="text-xs text-red-600">Criteria: ≤ 1.5 PSI</div>
     `;
     statusDiv.className = 'text-sm font-medium mb-2';

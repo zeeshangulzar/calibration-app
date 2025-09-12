@@ -14,6 +14,7 @@ import {
 } from '../../config/constants/uart.constants.js';
 
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
+import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 import * as Sentry from '@sentry/electron/main';
 /**
  * UART Service for Kraken device communication
@@ -28,12 +29,13 @@ class UARTService {
   }
 
   /**
-   * Check if calibration process is still active
-   * @returns {boolean} true if calibration should continue
+   * Check if calibration or verification process is still active
+   * @returns {boolean} true if calibration or verification should continue
    */
   isProcessActive() {
     const state = getKrakenCalibrationState();
-    return state.isCalibrationActive;
+
+    return state.isCalibrationActive || state.isVerificationActive;
   }
 
   async executeCommand(device, command, minPressure = 0, maxPressure = 0, newName = '') {
@@ -93,7 +95,71 @@ class UARTService {
 
     // All retries exhausted
     this.handleAllRetriesExhausted(command, deviceName, lastError);
-    throw new Error(`Command failed after ${this.maxRetries} attempts. Last error: ${lastError.message}`);
+
+    // Create specific error message based on error type
+    const specificError = ErrorMessageService.createUARTErrorMessage(command, lastError, deviceName);
+    throw new Error(`Command failed after ${this.maxRetries} attempts. ${specificError}`);
+  }
+
+  /**
+   * Update device BLE name - dedicated method for name updates
+   * @param {Object} device - Device object with characteristics
+   * @param {string} newName - New name to set for the device
+   * @returns {Promise<Object>} Result object with success status
+   */
+  async updateDeviceName(device, newName) {
+    const deviceName = device.name || device.displayName || device.id;
+
+    try {
+      console.log(`[UART] Updating device ${device.id} name to: "${newName}"`);
+
+      // Validate inputs
+      if (!newName || typeof newName !== 'string') {
+        throw new Error('Invalid name provided - must be a non-empty string');
+      }
+
+      console.log(`[UART] Starting name update for device ${device.id} to: "${newName}"`);
+      console.log(`[UART] Device characteristics available:`, !!device.characteristics);
+
+      // Use regular executeCommand - old app also waits for response (handles it in default case)
+      const result = await this.executeCommand(device, 'mem.localname.set', 0, 0, newName);
+
+      console.log(`[UART] Name update result:`, result);
+
+      if (result && result.success) {
+        console.log(`[UART] Successfully sent name update command for device ${device.id} to: "${newName}"`);
+        return {
+          success: true,
+          newName: newName,
+          deviceId: device.id,
+          oldName: deviceName,
+        };
+      } else if (!result) {
+        // Command returned undefined (calibration stopped)
+        console.log(`[UART] Name update cancelled for device ${device.id} - process stopped`);
+        return {
+          success: false,
+          error: 'Process was stopped',
+          deviceId: device.id,
+        };
+      } else {
+        // Command failed with specific error
+        const errorMsg = result.error || 'BLE name update command failed';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error(`[UART] Failed to update name for device ${device.id}:`, error.message);
+      Sentry.captureException(error, {
+        tags: { service: 'uart-service', method: 'updateDeviceName' },
+        extra: { deviceId: device.id, newName, deviceName },
+      });
+
+      return {
+        success: false,
+        error: error.message,
+        deviceId: device.id,
+      };
+    }
   }
 
   // Helper methods to extract and simplify logic
@@ -127,7 +193,7 @@ class UARTService {
 
   async handleRetryDelay(deviceId, deviceName, command) {
     console.log(`Waiting ${this.retryDelay}ms before retry...`);
-    this.showLogOnScreen(`⏳ Waiting ${this.retryDelay / 1000}s before retry...`);
+    this.showLogOnScreen(`⏳ Retrying ${deviceName} in ${this.retryDelay / 1000}s...`);
 
     await addDelay(this.retryDelay);
 
@@ -137,8 +203,9 @@ class UARTService {
 
   handleAllRetriesExhausted(command, deviceName) {
     console.error(`Command ${command} failed after ${this.maxRetries} attempts`);
-    this.showLogOnScreen(`❌ ${command} command failed completely on ${deviceName} - all retries exhausted`);
+    this.showLogOnScreen(`❌ ${deviceName} - all retries failed`);
   }
+
   /**
    * Check if device is connected in global state
    * @param {string} deviceId - Device ID to check
@@ -207,7 +274,7 @@ class UARTService {
         return { measuredPressure_PSIG: maxPressure };
       case 'psi.calibrate.lower':
         return { measuredPressure_PSIG: minPressure };
-      case 'ble.set.name':
+      case 'mem.localname.set':
         return { newName: newName };
       default:
         return {};
@@ -228,7 +295,7 @@ class UARTService {
         return this.createCalibUpperPressureWriteCommand(data);
       case 'psi.calibrate.lower':
         return this.createCalibLowerPressureWriteCommand(data);
-      case 'ble.set.name':
+      case 'mem.localname.set':
         return this.createSetBleNameCommand(data);
       default:
         throw new Error(`Unknown command: ${command}`);
@@ -307,7 +374,7 @@ class UARTService {
       case 'psi.calibrate.lower':
         return this.readLowerCalibPressureResponse(data);
       default:
-        return { rawData: data };
+        return { success: true, rawData: data };
     }
   }
   // Zero Offset
@@ -479,6 +546,8 @@ class UARTService {
     const retData = new Array(PROPIUSCOMMS_STANDARD_PACKET_LEN).fill(0);
     const newName = data.newName || '';
 
+    console.log(`[UART] Creating BLE name command for: "${newName}"`);
+
     // --- COMMAND ID ---
     retData[index] = (CID_SET_LOCAL_BLE_NAME >> 8) & 0xff; // Command ID high byte
     index += 1;
@@ -492,6 +561,8 @@ class UARTService {
     // --- DATA (Name as UTF-8 bytes) ---
     const nameBytes = Buffer.from(newName, 'utf8');
     const maxNameLength = PROPIUSCOMMS_STANDARD_PACKET_LEN - 4; // Reserve space for command, length, and server ID
+
+    console.log(`[UART] Name bytes length: ${nameBytes.length}, max allowed: ${maxNameLength}`);
 
     for (let i = 0; i < Math.min(nameBytes.length, maxNameLength); i++) {
       retData[index + i] = nameBytes[i];
@@ -510,4 +581,9 @@ export const uartService = new UARTService();
 // Keep backward compatibility - create a wrapper that maintains proper context
 export const UART_service = (device, command, minPressure, maxPressure) => {
   return uartService.executeCommand(device, command, minPressure, maxPressure);
+};
+
+// Dedicated method export for name updates
+export const updateKrakenName = (device, newName) => {
+  return uartService.updateDeviceName(device, newName);
 };

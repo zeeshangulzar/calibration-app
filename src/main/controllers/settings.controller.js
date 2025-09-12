@@ -19,27 +19,38 @@ class SettingsController {
    * Setup event listeners for telnet client
    */
   setupEventListeners() {
-    this.telnetClient.on('connected', data => {
+    // Clear any existing UI listeners first to prevent duplicates
+    this.telnetClient.clearUIListeners();
+
+    // Store bound handlers for proper cleanup
+    this.connectedHandler = data => {
       this.sendToRenderer('fluke-connected', data);
-    });
+    };
 
-    this.telnetClient.on('disconnected', () => {
+    this.disconnectedHandler = () => {
       this.sendToRenderer('fluke-disconnected');
-    });
+    };
 
-    this.telnetClient.on('error', data => {
+    this.errorHandler = data => {
       this.sendToRenderer('fluke-error', data);
-    });
+    };
 
-    this.telnetClient.on('commandSent', data => {
+    this.commandSentHandler = data => {
       this.addToHistory('command', data.command);
       this.sendToRenderer('fluke-command-sent', data);
-    });
+    };
 
-    this.telnetClient.on('response', data => {
+    this.responseHandler = data => {
       this.addToHistory('response', data.response, data.command);
       this.sendToRenderer('fluke-response', data);
-    });
+    };
+
+    // Add event listeners
+    this.telnetClient.on('connected', this.connectedHandler);
+    this.telnetClient.on('disconnected', this.disconnectedHandler);
+    this.telnetClient.on('error', this.errorHandler);
+    this.telnetClient.on('commandSent', this.commandSentHandler);
+    this.telnetClient.on('response', this.responseHandler);
   }
 
   /**
@@ -223,7 +234,10 @@ class SettingsController {
    * Cleanup controller resources
    */
   async cleanup() {
-    await this.telnetClient.cleanup();
+    // Clear UI event listeners and disconnect
+    this.telnetClient.clearUIListeners();
+    await this.telnetClient.disconnect();
+    console.log('SettingsController: Cleanup completed');
   }
 
   /**

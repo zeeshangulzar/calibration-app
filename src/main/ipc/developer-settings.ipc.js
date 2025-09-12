@@ -44,6 +44,13 @@ export function registerDeveloperSettingsIpcHandlers() {
   ipcMain.handle('developer-settings-save', async (event, settings) => {
     try {
       const result = saveDeveloperSettings(settings);
+
+      if (result.success) {
+        // Reset Fluke factory to pick up new mock setting
+        const { FlukeFactoryService } = await import('../services/fluke-factory.service.js');
+        FlukeFactoryService.resetInstance();
+      }
+
       return result;
     } catch (error) {
       console.error('Error saving developer settings:', error);
