@@ -1,0 +1,179 @@
+/* GVI Flow Meter Report Styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  color: #333;
+  background-color: #fff;
+}
+
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 20px;
+}
+
+.logo-and-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.logo-and-address img {
+  height: 80px;
+  width: auto;
+}
+
+.company-details {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.company-details div {
+  margin-bottom: 2px;
+}
+
+.report-box {
+  text-align: right;
+  border: 2px solid #000;
+  padding: 10px;
+  min-width: 120px;
+}
+
+.report-box div:first-child {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.report-number {
+  font-size: 16px;
+  font-weight: bold;
+  color: #000;
+}
+
+.header {
+  text-align: center;
+  margin: 30px 0;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  margin: 0;
+}
+
+.info-boxes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.info-box {
+  border: 1px solid #ccc;
+  padding: 10px;
+  background-color: #f9f9f9;
+}
+
+.info-label {
+  font-weight: bold;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #000;
+}
+
+.result-PASS {
+  color: green;
+  font-weight: bold;
+}
+
+.result-FAIL {
+  color: red;
+  font-weight: bold;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+  border: 1px solid #000;
+}
+
+.summary-table th,
+.summary-table td {
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.summary-table th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+  border: 1px solid #000;
+}
+
+table th,
+table td {
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+table th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.footer {
+  margin-top: 40px;
+  border-top: 1px solid #ccc;
+  padding-top: 20px;
+}
+
+.footer-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.footer-item p {
+  margin: 5px 0;
+  font-size: 12px;
+}
+
+/* Print styles */
+@media print {
+  body {
+    margin: 0;
+    padding: 10px;
+  }
+
+  .top-header {
+    page-break-inside: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+  }
+}
