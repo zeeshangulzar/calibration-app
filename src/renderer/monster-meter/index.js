@@ -89,7 +89,7 @@ const updateConnectButton = () => {
 
 // Main event handlers
 const handleConnectPort = async () => {
-  const { portSelect, connectPortButton } = elements;
+  const { portSelect, connectPortButton, refreshPortsButton } = elements;
   const selectedPort = portSelect?.value;
 
   if (!selectedPort) {
@@ -98,22 +98,42 @@ const handleConnectPort = async () => {
   }
 
   try {
+    // Disable connect button, refresh button, and port dropdown during connection
     setButtonState(connectPortButton, true, 'Connecting...');
+    setButtonState(refreshPortsButton, true);
+    if (portSelect) {
+      portSelect.disabled = true;
+      portSelect.classList.add('opacity-50', 'cursor-not-allowed');
+    }
     addLogMessage(`Attempting to connect to ${selectedPort}...`);
 
     const result = await window.electronAPI.monsterMeterConnectPort(selectedPort);
 
     if (result.success) {
       addLogMessage(`Successfully connected to ${selectedPort}`);
+      // Keep port dropdown disabled after successful connection
+      // Don't re-enable it in the finally block
     } else {
       addLogMessage(`Failed to connect: ${result.error}`, 'error');
       NotificationHelper.showError(`Connection failed: ${result.error}`);
+      // Re-enable port dropdown only if connection failed
+      if (portSelect) {
+        portSelect.disabled = false;
+        portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
     }
   } catch (error) {
     addLogMessage(`Connection error: ${error.message}`, 'error');
     NotificationHelper.showError(`Connection error: ${error.message}`);
+    // Re-enable port dropdown only if connection failed
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   } finally {
-    setButtonState(connectPortButton, false);
+    // Re-enable buttons after connection attempt (but not port dropdown if successful)
+    setButtonState(connectPortButton, true);
+    setButtonState(refreshPortsButton, true);
     if (connectPortButton) {
       connectPortButton.innerHTML = '<i class="fa-solid fa-upload mr-2"></i> Connect';
     }
@@ -124,6 +144,20 @@ const cleanupMonsterMeterModule = async () => {
   try {
     console.log('Cleaning up Monster Meter module...');
     cleanupEventListeners();
+
+    // Re-enable port dropdown when cleaning up
+    const { portSelect, connectPortButton, refreshPortsButton } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    if (refreshPortsButton) {
+      refreshPortsButton.disabled = false;
+      refreshPortsButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    if (connectPortButton) {
+      connectPortButton.disabled = false;
+    }
 
     if (window.electronAPI.monsterMeterCleanupModule) {
       await window.electronAPI.monsterMeterCleanupModule();
@@ -189,8 +223,6 @@ const ipcHandlers = {
     const { portSelect } = elements;
     if (!portSelect) return;
 
-    portSelect.innerHTML = '<option value="">Refreshing ports...</option>';
-
     setTimeout(() => {
       portSelect.innerHTML = '<option value="">Select Port</option>';
       ports.forEach(port => {
@@ -200,9 +232,6 @@ const ipcHandlers = {
         portSelect.appendChild(option);
       });
 
-      if (ports.length > 0) {
-        addLogMessage(`Port list updated: ${ports.length} port(s) available`);
-      }
       updateConnectButton();
     }, MONSTER_METER_CONSTANTS.UI_UPDATE_DELAY);
   },
@@ -226,6 +255,23 @@ const ipcHandlers = {
     NotificationHelper.showInfo('Monster Meter disconnected');
     updateCalibrationButtons();
 
+    // Re-enable port dropdown when disconnected
+    const { portSelect, connectPortButton, refreshPortsButton } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    if (connectPortButton) {
+      connectPortButton.disabled = false;
+      connectPortButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    if (refreshPortsButton) {
+      refreshPortsButton.disabled = false;
+      refreshPortsButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
     const statusEl = document.getElementById('portStatus');
     if (statusEl) {
       statusEl.textContent = 'Closed';
@@ -238,6 +284,13 @@ const ipcHandlers = {
     addLogMessage(`Connection error: ${data.error}`, 'error');
     NotificationHelper.showError(`Failed to connect to ${data.port}: ${data.error}`);
     updateCalibrationButtons();
+
+    // Re-enable port dropdown on connection error
+    const { portSelect } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   },
 
   onMonsterMeterError: data => {
@@ -437,9 +490,15 @@ function showMonsterMeterWidget(deviceInfo) {
     <div class="flex items-center gap-3">
       <div>
         <h3>Monster Meter</h3>
-        <p class="text-sm text-neutral-600">Name: <span id="nameText">${deviceName}</span></p>
-        <p id="portText" class="text-sm text-neutral-600">
-          Port: ${deviceInfo.port || 'Unknown'}
+        <div class="flex items-center gap-2">
+          <p class="text-sm text-neutral-600 font-bold">Name:</p>
+          <p class="text-sm text-neutral-600"><span id="nameText">${deviceName}</span></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <p class="text-sm text-neutral-600 font-bold">Port:</p>
+          <p class="text-sm text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+        </div>
+        <p>
           <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
         </p>
         <div id="pdf-button-container" class="mt-2"></div>

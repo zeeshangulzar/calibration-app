@@ -149,7 +149,7 @@ class MonsterMeterCalibrationService {
     this.updateCalibrationFlags(true, false);
     this.clearSweepData();
 
-    this.logCalibrationInfo();
+    // this.logCalibrationInfo();
   }
 
   updateCalibrationFlags(active, stopped) {
@@ -261,6 +261,14 @@ class MonsterMeterCalibrationService {
       this.showLogOnScreen(`✅ ${action} completed`);
     } catch (error) {
       this.showLogOnScreen(`❌ ${action} failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  async executeWithoutLogging(fn) {
+    try {
+      await fn();
+    } catch (error) {
       throw error;
     }
   }

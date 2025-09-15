@@ -59,7 +59,7 @@ export const KRAKEN_CONSTANTS = {
   MAX_PRESSURE: 300,
 
   // Calibration settings
-  TESTER_NAMES: { Gabriel: 'Gabriel' },
+  TESTER_NAMES: { Gabriel: 'Gabriel Nunez' },
 
   // Discrepancy tolerance
   DISCREPANCY_TOLERANCE: 1.5,
