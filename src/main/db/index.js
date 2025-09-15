@@ -105,13 +105,13 @@ export function getFlukeSettings() {
   const db = getDatabase();
   try {
     const settings = db.prepare('SELECT fluke_ip, fluke_port, mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
-    return settings || { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
+    return settings || { fluke_ip: '10.10.69.27', fluke_port: '5025', mock_fluke_enabled: 0 };
   } catch (error) {
     Sentry.captureException(error, {
       tags: { service: 'database', method: 'getFlukeSettings' },
     });
     console.error('Failed to get fluke settings:', error);
-    return { fluke_ip: '10.10.69.27', fluke_port: '3490', mock_fluke_enabled: 0 };
+    return { fluke_ip: '10.10.69.27', fluke_port: '5025', mock_fluke_enabled: 0 };
   }
 }
 

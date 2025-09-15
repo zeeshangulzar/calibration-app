@@ -15,11 +15,13 @@ class TelnetClientService extends EventEmitter {
     this.host = null;
     this.port = null;
     this.responseTimeout = 5000; // 5 seconds
+    this.connectionTimeout = 10000; // 10 seconds for connection attempts
     this.autoReconnect = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 3;
 
-    this.loadSettings();
+    // Load settings but don't auto-connect
+    this.loadSettingsOnly();
 
     // Add error listener to prevent unhandled errors from crashing the app
     this.on('error', error => {
@@ -29,20 +31,21 @@ class TelnetClientService extends EventEmitter {
   }
 
   /**
-   * Load settings from database
+   * Load settings from database without auto-connecting
    */
-  loadSettings() {
+  loadSettingsOnly() {
     try {
       const settings = getFlukeSettings();
       this.host = settings.fluke_ip;
       this.port = parseInt(settings.fluke_port);
+      console.log(`Telnet settings loaded: ${this.host}:${this.port}`);
     } catch (error) {
       Sentry.captureException(error, {
-        tags: { service: 'telnet-client', method: 'loadFlukeSettings' }
+        tags: { service: 'telnet-client', method: 'loadFlukeSettings' },
       });
       console.error('Failed to load Fluke settings:', error);
       this.host = '10.10.69.27';
-      this.port = 3490;
+      this.port = 5025;
     }
   }
 
@@ -54,12 +57,19 @@ class TelnetClientService extends EventEmitter {
   updateSettings(host, port) {
     this.host = host;
     this.port = parseInt(port);
+    console.log(`Telnet settings updated: ${this.host}:${this.port}`);
 
-    // Reconnect if currently connected
+    // Disconnect if currently connected - let the caller decide when to reconnect
     if (this.isConnected) {
       this.disconnect();
-      setTimeout(() => this.connect(), 1000);
     }
+  }
+
+  /**
+   * Refresh settings from database
+   */
+  refreshSettings() {
+    this.loadSettingsOnly();
   }
 
   /**
@@ -73,6 +83,8 @@ class TelnetClientService extends EventEmitter {
         return;
       }
 
+      console.log(`Connecting to Telnet server at ${this.host}:${this.port}...`);
+
       // Clean up any existing client
       if (this.client) {
         this.client.removeAllListeners();
@@ -81,8 +93,25 @@ class TelnetClientService extends EventEmitter {
 
       this.client = new net.Socket();
 
+      // Set connection timeout (10 seconds)
+      const connectionTimeout = setTimeout(() => {
+        this.isConnected = false;
+
+        if (this.client) {
+          this.client.removeAllListeners();
+          this.client.destroy();
+        }
+
+        const timeoutMessage = `Fluke is not responding - connection timeout after 10 seconds (${this.host}:${this.port})`;
+        console.error(timeoutMessage);
+
+        this.emit('error', { error: 'Connection timeout', host: this.host, port: this.port });
+        reject({ success: false, error: timeoutMessage });
+      }, this.connectionTimeout);
+
       // Connection successful
       this.client.connect(this.port, this.host, () => {
+        clearTimeout(connectionTimeout); // Clear timeout on successful connection
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
@@ -95,9 +124,10 @@ class TelnetClientService extends EventEmitter {
 
       // Error handler
       this.client.on('error', error => {
+        clearTimeout(connectionTimeout); // Clear timeout on error
         this.isConnected = false;
 
-        const errorMessage = `Connection error: ${error.message}`;
+        const errorMessage = `Fluke connection failed: ${error.message} (${this.host}:${this.port})`;
         console.error(errorMessage);
 
         // Emit error event but don't let it crash the app
@@ -166,7 +196,9 @@ class TelnetClientService extends EventEmitter {
         return;
       }
 
-      console.log(`Sending command: ${command}`);
+      console.log(
+        `TelnetClient: Sending command "${command}" (listeners: connected=${this.listenerCount('connected')}, commandSent=${this.listenerCount('commandSent')}, response=${this.listenerCount('response')})`
+      );
 
       // Set up response timeout
       const responseTimer = setTimeout(() => {
@@ -196,7 +228,7 @@ class TelnetClientService extends EventEmitter {
       } catch (error) {
         Sentry.captureException(error, {
           tags: { service: 'telnet-client', method: 'sendCommand' },
-          extra: { command }
+          extra: { command },
         });
         clearTimeout(responseTimer);
         this.client.removeListener('data', responseHandler);
@@ -224,7 +256,7 @@ class TelnetClientService extends EventEmitter {
       } catch (error) {
         Sentry.captureException(error, {
           tags: { service: 'telnet-client', method: 'sendRawCommand' },
-          extra: { command }
+          extra: { command },
         });
         reject({ success: false, error: `Failed to send command: ${error.message}` });
       }
@@ -250,7 +282,7 @@ class TelnetClientService extends EventEmitter {
       };
     } catch (error) {
       Sentry.captureException(error, {
-        tags: { service: 'telnet-client', method: 'testConnection' }
+        tags: { service: 'telnet-client', method: 'testConnection' },
       });
       return {
         success: false,
@@ -311,6 +343,18 @@ class TelnetClientService extends EventEmitter {
         resolve({ success: true, message: 'Force disconnected' });
       }, 2000);
     });
+  }
+
+  /**
+   * Clear UI event listeners (for when controllers change)
+   */
+  clearUIListeners() {
+    this.removeAllListeners('connected');
+    this.removeAllListeners('disconnected');
+    this.removeAllListeners('error');
+    this.removeAllListeners('commandSent');
+    this.removeAllListeners('response');
+    console.log('TelnetClient: UI event listeners cleared');
   }
 
   /**

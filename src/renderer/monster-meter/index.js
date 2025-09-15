@@ -442,6 +442,7 @@ function showMonsterMeterWidget(deviceInfo) {
           Port: ${deviceInfo.port || 'Unknown'}
           <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
         </p>
+        <div id="pdf-button-container" class="mt-2"></div>
       </div>
     </div>
   `;
@@ -549,18 +550,19 @@ function updateVerificationResultsTable(data) {
   if (data && data.length > 0) {
     data.forEach((point, index) => {
       const row = document.createElement('tr');
+      row.classList.add('border-b');
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
       const statusIcon = point.inRange ? '✓' : '✗';
 
       row.innerHTML = `
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">${index + 1}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.referencePressure.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageHi.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureHi.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageLo.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureLo.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${statusClass}">
+        <td class="py-2 pr-6">${index + 1}</td>
+        <td class="py-2 pr-6">${point.referencePressure.toFixed(1)}</td>
+        <td class="py-2 pr-6">${point.voltageHi.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureHi.toFixed(1)}</td>
+        <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureLo.toFixed(1)}</td>
+        <td class="py-2 pr-6 font-semibold ${statusClass}">
           <span class="inline-flex items-center">
             <span class="mr-1">${statusIcon}</span>
             ${statusText}
@@ -766,18 +768,17 @@ function initializeVerificationResultsTable() {
   if (verificationPanel) {
     verificationPanel.innerHTML = `
       <div class="mb-4">
-        <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
-        <div class="overflow-x-auto border border-gray-300 rounded-lg">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="border-b">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="pb-2 pr-6 text-left">Point</th>
+                <th class="pb-2 pr-6 text-left">Reference Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">SensorHi Voltage (V)</th>
+                <th class="pb-2 pr-6 text-left">SensorHi Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">SensorLo Voltage (V)</th>
+                <th class="pb-2 pr-6 text-left">SensorLo Pressure (PSI)</th>
+                <th class="pb-2 pr-6 text-left">Status</th>
               </tr>
             </thead>
             <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
@@ -1058,18 +1059,19 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors';
-  viewPDFBtn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2"></i>View PDF';
-  
+  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm';
+  viewPDFBtn.innerHTML =
+    '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
+
   // Add click handler to open PDF
   viewPDFBtn.addEventListener('click', () => {
     window.electronAPI.openPDF(filePath);
   });
 
-  // Insert button in the same location as Start Verification button (Calibration Control section)
-  const buttonContainer = document.querySelector('.flex.gap-3');
-  if (buttonContainer) {
-    buttonContainer.appendChild(viewPDFBtn);
+  // Insert button in the Monster Meter widget after port information
+  const pdfContainer = document.getElementById('pdf-button-container');
+  if (pdfContainer) {
+    pdfContainer.appendChild(viewPDFBtn);
   }
 }
 
