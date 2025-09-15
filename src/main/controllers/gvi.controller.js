@@ -3,6 +3,7 @@ import { getGVIGaugeSteps, getGVIGaugeModels } from '../db/gvi-gauge.db.js';
 import { sentryLogger } from '../loggers/sentry.logger.js';
 import { GVIPDFService } from '../services/gvi-pdf.service.js';
 import { FlukeFactoryService } from '../services/fluke-factory.service.js';
+import { getGVICalibrationState } from '../../state/gvi-calibration-state.service.js';
 import { shell } from 'electron';
 
 /**
@@ -12,13 +13,15 @@ export class GVIController {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
     this.calibrationService = null;
-    this.isCalibrationActive = false;
-    this.currentConfig = null;
-    this.currentStep = 0;
-    this.steps = [];
     this.pdfService = new GVIPDFService();
     this.flukeFactory = new FlukeFactoryService();
     this.fluke = null;
+
+    // Get state service instance
+    this.state = getGVICalibrationState();
+    this.state.setMainWindow(mainWindow);
+    this.state.setController(this);
+    this.state.setServices(this.pdfService, this.flukeFactory, this.fluke);
   }
 
   async initialize() {
@@ -38,10 +41,14 @@ export class GVIController {
    * This should be called when settings change
    */
   initializeFlukeService() {
-    // Reset factory instance to get fresh settings from database
-    this.flukeFactory = new FlukeFactoryService();
+    try {
+      // Reset factory instance to get fresh settings from database
+      this.flukeFactory = new FlukeFactoryService();
 
-    this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen.bind(this), () => this.isCalibrationActive);
+      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen.bind(this), () => this.state.isCalibrationActive);
+    } catch (error) {
+      this.handleError(error, 'initializeFlukeService');
+    }
   }
 
   /**
@@ -71,16 +78,15 @@ export class GVIController {
   async goBack() {
     return this.handleAsync('goBack', async () => {
       // If calibration is in progress, just reset state (no stop functionality yet)
-      if (this.isCalibrationActive) {
+      if (this.state.isCalibrationActive) {
         this.showLogOnScreen('Resetting calibration state...');
-        this.isCalibrationActive = false;
+        this.state.updateCalibrationStatus(false);
         this.showLogOnScreen('Calibration state reset, returning to main menu');
       }
 
       // Reset calibration state
-      this.currentConfig = null;
-      this.currentStep = 0;
-      this.steps = [];
+      this.state.setCurrentConfig(null);
+      this.state.reset();
 
       // Send back navigation to renderer
       this.sendToRenderer('gvi-go-back');
@@ -123,7 +129,7 @@ export class GVIController {
     return this.handleAsync(
       'startCalibration',
       async () => {
-        if (this.isCalibrationActive) {
+        if (this.state.isCalibrationActive) {
           throw new Error('Calibration already in progress');
         }
 
@@ -134,20 +140,19 @@ export class GVIController {
           throw new Error(`Failed to load calibration steps: ${stepsResult.error}`);
         }
 
-        this.currentConfig = config;
-        this.steps = stepsResult.steps;
-        this.currentStep = 0;
-        this.isCalibrationActive = true;
+        // Set state in state service
+        this.state.setCurrentConfig(config);
+        this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
 
         await this.calibrationService.initialize(config);
 
         this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
-        this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.steps.length}`);
+        this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.state.totalSteps}`);
 
-        const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, this.steps);
+        const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
 
         if (!result.success) {
-          this.isCalibrationActive = false;
+          this.state.updateCalibrationStatus(false);
 
           // Check if it's a Fluke connectivity error
           if (result.error && (result.error.includes('Not connected to Fluke device') || result.error.includes('Fluke connection failed'))) {
@@ -161,12 +166,12 @@ export class GVIController {
         }
 
         this.sendToRenderer('gvi-calibration-started', {
-          config: this.currentConfig,
-          currentStep: this.currentStep,
-          totalSteps: this.steps.length,
+          config: this.state.getCurrentConfig(),
+          currentStep: this.state.currentStepIndex,
+          totalSteps: this.state.totalSteps,
         });
 
-        return { currentStep: this.currentStep, totalSteps: this.steps.length };
+        return { currentStep: this.state.currentStepIndex, totalSteps: this.state.totalSteps };
       },
       { config }
     );
@@ -178,7 +183,7 @@ export class GVIController {
     return this.handleAsync(
       'updateStepData',
       async () => {
-        if (!this.isCalibrationActive) {
+        if (!this.state.isCalibrationActive) {
           throw new Error('No calibration in progress');
         }
 
@@ -188,13 +193,12 @@ export class GVIController {
           throw new Error(result.error);
         }
 
-        // Update controller state
-        this.currentStep = result.currentStep;
+        // Update state service
         if (result.completed) {
-          this.isCalibrationActive = false;
+          this.state.updateCalibrationStatus(false);
         }
 
-        return { currentStep: this.currentStep, completed: result.completed };
+        return { currentStep: this.state.currentStepIndex, completed: result.completed };
       },
       { stepData }
     );
@@ -202,7 +206,7 @@ export class GVIController {
 
   async nextStep() {
     return this.handleAsync('nextStep', async () => {
-      if (!this.isCalibrationActive) {
+      if (!this.state.isCalibrationActive) {
         throw new Error('No calibration in progress');
       }
 
@@ -213,7 +217,7 @@ export class GVIController {
       }
 
       if (result.completed) {
-        this.isCalibrationActive = false;
+        this.state.updateCalibrationStatus(false);
       }
 
       return { completed: result.completed };
@@ -224,7 +228,7 @@ export class GVIController {
     return this.handleAsync(
       'handleFinalResult',
       async () => {
-        if (!this.isCalibrationActive) {
+        if (!this.state.isCalibrationActive) {
           throw new Error('No calibration in progress');
         }
 
@@ -234,7 +238,7 @@ export class GVIController {
           throw new Error(result.error);
         }
 
-        this.isCalibrationActive = false;
+        this.state.updateCalibrationStatus(false);
         return { success: true };
       },
       { passed }
@@ -242,60 +246,89 @@ export class GVIController {
   }
 
   getStatus() {
-    return {
-      success: true,
-      isActive: this.isCalibrationActive,
-      currentStep: this.currentStep,
-      totalSteps: this.steps.length,
-      config: this.currentConfig,
-      steps: this.steps,
-    };
+    try {
+      const state = this.state.getState();
+      return {
+        success: true,
+        isActive: state.isCalibrationActive,
+        currentStep: state.currentStepIndex,
+        totalSteps: state.totalSteps,
+        config: state.currentConfig,
+        steps: state.calibrationSteps,
+      };
+    } catch (error) {
+      this.handleError(error, 'getStatus');
+      return {
+        success: false,
+        error: error.message,
+        isActive: false,
+        currentStep: 0,
+        totalSteps: 0,
+        config: null,
+        steps: [],
+      };
+    }
   }
 
   // Calibration completion is now handled by the calibration service
 
   validateConfig(config) {
-    const required = [
-      ['config', config],
-      ['model', config?.model?.trim()],
-      ['tester', config?.tester?.trim()],
-      ['serialNumber', config?.serialNumber?.trim()],
-    ];
+    try {
+      const required = [
+        ['config', config],
+        ['model', config?.model?.trim()],
+        ['tester', config?.tester?.trim()],
+        ['serialNumber', config?.serialNumber?.trim()],
+      ];
 
-    for (const [field, value] of required) {
-      if (!value) {
-        throw new Error(`${field === 'config' ? 'Configuration' : field} is required`);
+      for (const [field, value] of required) {
+        if (!value) {
+          const error = new Error(`${field === 'config' ? 'Configuration' : field} is required`);
+          this.handleError(error, 'validateConfig', { config, field, value });
+          throw error;
+        }
       }
+    } catch (error) {
+      this.handleError(error, 'validateConfig', { config });
     }
   }
 
   sendToRenderer(event, data = null) {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(event, data);
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(event, data);
+      }
+    } catch (error) {
+      this.handleError(error, 'sendToRenderer', { event, data });
     }
   }
 
   showLogOnScreen(message) {
-    console.log(`[GVI] ${message}`);
-    this.sendToRenderer('gvi-log-message', {
-      message,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      console.log(`[GVI] ${message}`);
+      this.sendToRenderer('gvi-log-message', {
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.handleError(error, 'showLogOnScreen', { message });
+    }
   }
 
   async cleanup() {
     try {
       // Reset calibration state (no stop functionality yet)
-      if (this.isCalibrationActive) {
-        this.isCalibrationActive = false;
+      if (this.state.isCalibrationActive) {
+        this.state.updateCalibrationStatus(false);
       }
       if (this.calibrationService) {
         await this.calibrationService.cleanup();
         this.calibrationService = null;
       }
-      this.currentConfig = null;
-      this.currentStep = 0;
-      this.steps = [];
+
+      // Cleanup state service
+      await this.state.cleanup();
+
       this.fluke = null;
       this.flukeFactory = null;
       console.log('GVI controller cleaned up');

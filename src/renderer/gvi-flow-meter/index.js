@@ -1,11 +1,15 @@
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
-import { gviCalibrationState } from '../../state/gvi-calibration-state.service.js';
 import { GVI_CONSTANTS } from '../../config/constants/gvi.constants.js';
 import { populateSelectOptions } from '../view_helpers/index.js';
 
 // Application state
 let calibrationInProgress = false;
 let eventListenersSetup = false;
+let currentStepData = null;
+let calibrationModel = null;
+let calibrationTester = null;
+let calibrationSerialNumber = null;
+let calibrationSteps = [];
 
 // DOM elements cache
 const elements = {
@@ -21,9 +25,6 @@ const elements = {
   calibrationLogs: null,
   pageLoader: null,
 };
-
-// Calibration data - loaded dynamically from database
-const calibrationSteps = [];
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -141,6 +142,9 @@ function setupCalibrationEventListeners() {
   window.electronAPI.onGVIStepReady?.(data => {
     addLogMessage(`Step ${data.currentStep}/${data.totalSteps}: ${data.step.gpm} GPM`);
     addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI`);
+
+    // Store current step data for pressure setting display
+    currentStepData = data;
 
     // Remove loading animation and show GPM input
     hideCalibrationLoading();
@@ -372,10 +376,11 @@ async function handleStartCalibration() {
  */
 async function startCalibrationProcess(model, tester, serialNumber, steps) {
   try {
-    // Initialize calibration state
-    if (gviCalibrationState) {
-      gviCalibrationState.startCalibration(model, tester, serialNumber, steps);
-    }
+    // Store calibration data locally
+    calibrationModel = model;
+    calibrationTester = tester;
+    calibrationSerialNumber = serialNumber;
+    calibrationSteps = [...steps];
     calibrationInProgress = true;
 
     // Show loading animation on calibration control container
@@ -460,6 +465,32 @@ function showPressureSettingMessage() {
 }
 
 /**
+ * Show pressure setting display while processing next step
+ */
+function showPressureSettingDisplay() {
+  const container = elements.gpmAtGaugeContainer;
+  if (container) {
+    // Get pressure from the next step (current step + 1)
+    const currentStepIndex = currentStepData?.currentStep || 0;
+    const nextStepIndex = currentStepIndex; // The next step is at the current step index
+    const nextStep = calibrationSteps?.[nextStepIndex];
+    const pressure = nextStep?.psi || nextStep?.psiMin || 0;
+
+    console.log(`[Pressure Display] Current step: ${currentStepIndex}, Next step index: ${nextStepIndex}, Pressure: ${pressure}`);
+
+    container.innerHTML = `
+      <div class="text-center">
+        <h4 class="text-lg font-medium text-gray-700 mb-4">Setting Pressure to ${pressure} PSI</h4>
+        <div class="flex justify-center items-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span class="ml-3 text-gray-600">Please wait...</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/**
  * Show GPM input interface
  */
 function showGPMInput(step, currentStep, totalSteps) {
@@ -469,11 +500,13 @@ function showGPMInput(step, currentStep, totalSteps) {
 
   if (container) {
     container.innerHTML = `
+    <div class="flex flex-row">
       <h4>Please note this GPM at Gauge</h4>
-      <div class="flex items-end">
+      <div class="ml-5 flex">
         <h1 class="text-4xl font-bold" id="gpm-at-gauge">${step.gpm}</h1>
-        <span class="text-2xl font-bold ml-2">GPM</span>
+        <span class="text-4xl font-bold ml-2">GPM</span>
       </div>
+    </div>
     `;
   }
 
@@ -522,6 +555,9 @@ async function handleNextStep() {
   try {
     // Show loading animation
     showCalibrationLoading();
+
+    // Show pressure setting display while processing
+    showPressureSettingDisplay();
 
     // Call the next step API
     const result = await window.electronAPI.gviNextStep();
@@ -583,8 +619,8 @@ function showCalibrationCompletion(passed, pdfResult = null) {
     const statusColor = passed ? 'text-green-600' : 'text-red-600';
     const statusText = passed ? 'PASS' : 'FAIL';
 
-    // Get model from form, calibration state, or PDF result
-    const model = elements.modelSelect?.value || gviCalibrationState?.model || pdfResult?.model || 'Unknown';
+    // Get model from form, local state, or PDF result
+    const model = elements.modelSelect?.value || calibrationModel || pdfResult?.model || 'Unknown';
 
     container.innerHTML = `
       <h4>Calibration Complete</h4>
@@ -632,14 +668,14 @@ function showCalibrationCompletion(passed, pdfResult = null) {
  */
 async function generateCalibrationPDF(passed) {
   try {
-    // Get the calibration data from the form and service
+    // Get the calibration data from the form and local state
     const calibrationData = {
-      model: elements.modelSelect?.value || gviCalibrationState?.model || 'Unknown',
-      tester: elements.testerSelect?.value || gviCalibrationState?.tester || 'Unknown',
-      serialNumber: elements.serialNumberInput?.value || gviCalibrationState?.serialNumber || 'Unknown',
+      model: elements.modelSelect?.value || calibrationModel || 'Unknown',
+      tester: elements.testerSelect?.value || calibrationTester || 'Unknown',
+      serialNumber: elements.serialNumberInput?.value || calibrationSerialNumber || 'Unknown',
       passed: passed,
-      steps: gviCalibrationState?.calibrationSteps || [],
-      results: gviCalibrationState?.testResults || [],
+      steps: calibrationSteps || [],
+      results: [], // GVI doesn't track individual step results
     };
 
     addLogMessage('Generating calibration PDF...');
@@ -647,7 +683,7 @@ async function generateCalibrationPDF(passed) {
     const result = await window.electronAPI.gviGeneratePDF(calibrationData);
 
     if (result.success) {
-      addLogMessage(`PDF generated successfully: ${result.filename}`);
+      // addLogMessage(`PDF generated successfully: ${result.filename}`);
       return result; // Return the full result object
     } else {
       throw new Error(result.error);
@@ -675,7 +711,7 @@ function showGaugeResults(passed) {
     container.innerHTML = `
       <h4>Gauge Results</h4>
       <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">${gviCalibrationState?.model || 'Unknown'}</h2>
+        <h2 class="text-2xl font-bold mb-2">${calibrationModel || 'Unknown'}</h2>
         <div class="text-xl">
           Status: <span class="font-bold ${statusColor}">${statusText}</span>
         </div>
@@ -768,9 +804,13 @@ function resetCalibrationUI() {
   }
 
   // Reset calibration state
-  if (gviCalibrationState) {
-    gviCalibrationState.reset();
-  }
+  calibrationModel = null;
+  calibrationTester = null;
+  calibrationSerialNumber = null;
+  calibrationSteps = [];
+
+  // Clear current step data
+  currentStepData = null;
 
   // Update button state to enable it if form is valid
   console.log('resetCalibrationUI - About to call updateStartButtonState');
@@ -803,9 +843,10 @@ function completeCalibration() {
  */
 function stopCalibrationProcess() {
   calibrationInProgress = false;
-  if (gviCalibrationState) {
-    gviCalibrationState.reset();
-  }
+  calibrationModel = null;
+  calibrationTester = null;
+  calibrationSerialNumber = null;
+  calibrationSteps = [];
   hideCalibrationLoading();
   updateStartButtonState();
 
