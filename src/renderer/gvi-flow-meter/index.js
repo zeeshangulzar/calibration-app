@@ -1,5 +1,7 @@
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
 import { gviCalibrationState } from '../../state/gvi-calibration-state.service.js';
+import { GVI_CONSTANTS } from '../../config/constants/gvi.constants.js';
+import { populateSelectOptions } from '../view_helpers/index.js';
 
 // Application state
 let calibrationInProgress = false;
@@ -27,7 +29,9 @@ const calibrationSteps = [];
 document.addEventListener('DOMContentLoaded', async () => {
   initializeElements();
   setupEventListeners();
+  setupCalibrationEventListeners();
   await loadAvailableModels();
+  populateTesterDropdown();
   initializeCalibrationTable();
   updateStartButtonState();
 });
@@ -47,6 +51,13 @@ function initializeElements() {
   elements.calibrationTable = document.getElementById('calibration-table');
   elements.calibrationLogs = document.getElementById('log-messages');
   elements.pageLoader = document.getElementById('page-loader');
+}
+
+/**
+ * Populate tester dropdown from GVI constants
+ */
+function populateTesterDropdown() {
+  populateSelectOptions('tester-select', GVI_CONSTANTS.TESTER_NAMES, 'Select Tester');
 }
 
 /**
@@ -77,6 +88,11 @@ function setupEventListeners() {
 
   // Start calibration button
   elements.startCalibrationBtn?.addEventListener('click', handleStartCalibration);
+
+  // Error alert OK button
+  document.getElementById('error-ok-btn')?.addEventListener('click', () => {
+    document.getElementById('error-alert')?.classList.add('hidden');
+  });
 
   // IPC event listeners
   window.electronAPI.onShowPageLoader?.(() => {
@@ -110,16 +126,62 @@ function setupEventListeners() {
     }
   });
 
-  window.electronAPI.onGVICalibrationCompleted?.(data => {
-    addLogMessage('Calibration completed successfully');
-    NotificationHelper.showSuccess('Calibration completed successfully');
-  });
-
   window.electronAPI.onGVILogMessage?.(data => {
     addLogMessage(data.message);
   });
 
   eventListenersSetup = true;
+}
+
+/**
+ * Setup calibration event listeners for new flow
+ */
+function setupCalibrationEventListeners() {
+  // Listen for step ready events from calibration service
+  window.electronAPI.onGVIStepReady?.(data => {
+    addLogMessage(`Step ${data.currentStep}/${data.totalSteps}: ${data.step.gpm} GPM`);
+    addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI`);
+
+    // Remove loading animation and show GPM input
+    hideCalibrationLoading();
+    showGPMInput(data.step, data.currentStep, data.totalSteps);
+  });
+
+  // Listen for calibration started events
+  window.electronAPI.onGVICalibrationStarted?.(data => {
+    addLogMessage(`Calibration started - ${data.totalSteps} steps`);
+    addLogMessage('Follow the on-screen instructions to complete each step');
+  });
+
+  // Listen for step updated events
+  window.electronAPI.onGVIStepUpdated?.(data => {
+    addLogMessage(`Step ${data.stepIndex + 1} completed: ${data.stepData.status.toUpperCase()}`);
+
+    if (data.completed) {
+      calibrationInProgress = false;
+      addLogMessage('All calibration steps completed');
+    } else {
+      // Continue to next step
+      addLogMessage('Proceeding to next step...');
+    }
+  });
+
+  // Listen for calibration completed events
+  window.electronAPI.onGVICalibrationCompleted?.(data => {
+    addLogMessage('Calibration completed successfully');
+    NotificationHelper.showSuccess('Calibration completed successfully');
+    completeCalibration();
+  });
+
+  // Listen for calibration failed events
+  window.electronAPI.onGVICalibrationFailed?.(data => {
+    addLogMessage(`Calibration failed: ${data.error}`, 'error');
+    NotificationHelper.showError(data.error);
+    stopCalibrationProcess();
+    resetCalibrationUI();
+  });
+
+  // Fluke connection errors are now handled by the standard calibration failed event
 }
 
 /**
@@ -258,10 +320,15 @@ function updateStartButtonState() {
   const isValid = validateForm();
   const btn = elements.startCalibrationBtn;
 
+  console.log('updateStartButtonState - isValid:', isValid, 'calibrationInProgress:', calibrationInProgress, 'btn:', btn);
+
   if (btn) {
     btn.disabled = !isValid || calibrationInProgress;
     btn.classList.toggle('opacity-50', !isValid || calibrationInProgress);
     btn.classList.toggle('cursor-not-allowed', !isValid || calibrationInProgress);
+    console.log('Button state updated - disabled:', btn.disabled);
+  } else {
+    console.log('No button found in updateStartButtonState');
   }
 }
 
@@ -306,7 +373,9 @@ async function handleStartCalibration() {
 async function startCalibrationProcess(model, tester, serialNumber, steps) {
   try {
     // Initialize calibration state
-    gviCalibrationState.startCalibration(model, tester, serialNumber, steps);
+    if (gviCalibrationState) {
+      gviCalibrationState.startCalibration(model, tester, serialNumber, steps);
+    }
     calibrationInProgress = true;
 
     // Show loading animation on calibration control container
@@ -315,18 +384,23 @@ async function startCalibrationProcess(model, tester, serialNumber, steps) {
     addLogMessage(`Starting GVI calibration for model: ${model}`);
     addLogMessage(`Tester: ${tester}, Serial: ${serialNumber}`);
 
-    // Run Fluke prerequisites
-    addLogMessage('Running Fluke prerequisites...');
-    const prereqsResult = await window.electronAPI.gviRunFlukePrereqs();
-    if (!prereqsResult.success) {
-      throw new Error(`Fluke prerequisites failed: ${prereqsResult.error}`);
+    // Start calibration using the service (handles Fluke prerequisites and all steps)
+    const config = {
+      model,
+      tester,
+      serialNumber,
+      steps,
+    };
+
+    const result = await window.electronAPI.gviStartCalibration(config);
+    if (!result.success) {
+      // Don't throw error here - let the calibration failed event handler show the proper modal
+      addLogMessage(`Calibration start failed: ${result.error}`, 'error');
+      return;
     }
 
-    // Show pressure setting message
-    showPressureSettingMessage();
-
-    // Start with first calibration step
-    await processNextCalibrationStep();
+    addLogMessage('Calibration started successfully');
+    addLogMessage('Follow the on-screen instructions to complete each step');
   } catch (error) {
     console.error('Calibration process error:', error);
     addLogMessage(`Calibration error: ${error.message}`, 'error');
@@ -334,36 +408,7 @@ async function startCalibrationProcess(model, tester, serialNumber, steps) {
   }
 }
 
-/**
- * Process the next calibration step
- */
-async function processNextCalibrationStep() {
-  const currentStep = gviCalibrationState.getCurrentStep();
-  if (!currentStep) {
-    // Calibration complete
-    completeCalibration();
-    return;
-  }
-
-  const pressure = gviCalibrationState.getCurrentPressure();
-  addLogMessage(`Step ${gviCalibrationState.currentStepIndex + 1}: Setting pressure to ${pressure} PSI`);
-
-  try {
-    // Set pressure using Fluke
-    const pressureResult = await window.electronAPI.gviSetPressure(pressure);
-    if (!pressureResult.success) {
-      throw new Error(`Failed to set pressure: ${pressureResult.error}`);
-    }
-
-    // Remove loading animation and show GPM input
-    hideCalibrationLoading();
-    showGPMInput(currentStep);
-  } catch (error) {
-    console.error('Error setting pressure:', error);
-    addLogMessage(`Error setting pressure: ${error.message}`, 'error');
-    stopCalibrationProcess();
-  }
-}
+// processNextCalibrationStep removed - now handled by calibration service
 
 /**
  * Show calibration loading animation (same as Kraken remove animation)
@@ -403,7 +448,7 @@ function hideCalibrationLoading() {
 function showPressureSettingMessage() {
   const container = elements.gpmAtGaugeContainer;
   if (container) {
-    const pressure = gviCalibrationState.getCurrentPressure();
+    const pressure = gviCalibrationState?.getCurrentPressure() || 0;
     container.innerHTML = `
       <h4>Setting Pressure to ${pressure} PSI</h4>
       <div class="flex items-end">
@@ -417,14 +462,14 @@ function showPressureSettingMessage() {
 /**
  * Show GPM input interface
  */
-function showGPMInput(step) {
-  console.log('showGPMInput called with step:', step);
+function showGPMInput(step, currentStep, totalSteps) {
+  console.log('showGPMInput called with step:', step, 'currentStep:', currentStep, 'totalSteps:', totalSteps);
   const container = elements.gpmAtGaugeContainer;
   const buttonsContainer = elements.calibrationButtonsContainer;
 
   if (container) {
     container.innerHTML = `
-      <h4>Please note GPM at Gauge</h4>
+      <h4>Please note this GPM at Gauge</h4>
       <div class="flex items-end">
         <h1 class="text-4xl font-bold" id="gpm-at-gauge">${step.gpm}</h1>
         <span class="text-2xl font-bold ml-2">GPM</span>
@@ -434,7 +479,7 @@ function showGPMInput(step) {
 
   if (buttonsContainer) {
     // Check if this is the last step
-    const isLastStep = gviCalibrationState.currentStepIndex === gviCalibrationState.calibrationSteps.length - 1;
+    const isLastStep = currentStep === totalSteps;
 
     if (isLastStep) {
       // Show PASS/FAIL buttons for the last step
@@ -478,13 +523,18 @@ async function handleNextStep() {
     // Show loading animation
     showCalibrationLoading();
 
-    // Move to next step
-    gviCalibrationState.nextStep();
+    // Call the next step API
+    const result = await window.electronAPI.gviNextStep();
+    if (!result.success) {
+      throw new Error(result.error);
+    }
 
-    // Show pressure setting message for next step
-    showPressureSettingMessage();
-    // Process next calibration step
-    await processNextCalibrationStep();
+    if (result.completed) {
+      addLogMessage('All calibration steps completed - waiting for final result');
+      // Don't complete yet - wait for user to provide final PASS/FAIL result
+    } else {
+      addLogMessage('Proceeding to next step...');
+    }
   } catch (error) {
     console.error('Error in next step:', error);
     addLogMessage(`Error in next step: ${error.message}`, 'error');
@@ -493,37 +543,88 @@ async function handleNextStep() {
 }
 
 /**
- * Handle calibration result (PASS/FAIL)
+ * Handle calibration result (PASS/FAIL) - final result for entire calibration
  */
 async function handleCalibrationResult(passed) {
   try {
     showCalibrationLoading();
 
     const result = passed ? 'PASS' : 'FAIL';
-    addLogMessage(`Calibration result: ${result}`);
+    addLogMessage(`Final calibration result: ${result}`);
 
-    // Generate PDF
-    addLogMessage('Generating calibration PDF...');
-    const pdfPath = await generateCalibrationPDF(passed);
-
-    if (pdfPath) {
-      addLogMessage(`PDF generated successfully: ${pdfPath}`);
-
-      // Show gauge results with color coding
-      showGaugeResults(passed);
-
-      // Show PDF view button
-      showPDFViewButton(pdfPath);
-      calibrationInProgress = false;
-    } else {
-      addLogMessage('PDF generation failed', 'error');
-      stopCalibrationProcess();
+    // Send final result to calibration service
+    const result_response = await window.electronAPI.gviHandleFinalResult(passed);
+    if (!result_response.success) {
+      throw new Error(`Failed to handle final result: ${result_response.error}`);
     }
+
+    addLogMessage(`Final result sent to calibration service`);
+
+    // Generate PDF and show View PDF button
+    const pdfResult = await generateCalibrationPDF(passed);
+
+    // Show completion UI with View PDF button
+    showCalibrationCompletion(passed, pdfResult);
   } catch (error) {
-    console.error('Error handling calibration result:', error);
-    addLogMessage(`Error handling calibration result: ${error.message}`, 'error');
+    console.error('Error handling final calibration result:', error);
+    addLogMessage(`Error handling final calibration result: ${error.message}`, 'error');
     stopCalibrationProcess();
   }
+}
+
+/**
+ * Show calibration completion with View PDF button
+ */
+function showCalibrationCompletion(passed, pdfResult = null) {
+  const container = elements.gpmAtGaugeContainer;
+  const buttonsContainer = elements.calibrationButtonsContainer;
+
+  if (container) {
+    const statusColor = passed ? 'text-green-600' : 'text-red-600';
+    const statusText = passed ? 'PASS' : 'FAIL';
+
+    // Get model from form, calibration state, or PDF result
+    const model = elements.modelSelect?.value || gviCalibrationState?.model || pdfResult?.model || 'Unknown';
+
+    container.innerHTML = `
+      <h4>Calibration Complete</h4>
+      <div class="text-center">
+        <h2 class="text-2xl font-bold mb-2">${model}</h2>
+        <div class="text-xl">
+          Status: <span class="font-bold ${statusColor}">${statusText}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  if (buttonsContainer) {
+    buttonsContainer.innerHTML = `
+      <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200">
+        VIEW PDF
+      </button>
+    `;
+
+    // Add event listener for view PDF button
+    const viewPdfBtn = document.getElementById('view-pdf-btn');
+    viewPdfBtn?.addEventListener('click', async () => {
+      try {
+        addLogMessage('Opening PDF...');
+        // Get the PDF path from the PDF result
+        const pdfPath = pdfResult?.pdfPath;
+        if (pdfPath) {
+          await window.electronAPI.gviOpenPDF(pdfPath);
+        } else {
+          addLogMessage('PDF path not found', 'error');
+        }
+      } catch (error) {
+        console.error('Error opening PDF:', error);
+        addLogMessage(`Error opening PDF: ${error.message}`, 'error');
+      }
+    });
+  }
+
+  // Hide loading animation
+  hideCalibrationLoading();
 }
 
 /**
@@ -531,24 +632,29 @@ async function handleCalibrationResult(passed) {
  */
 async function generateCalibrationPDF(passed) {
   try {
-    // This would call the main process to generate PDF
-    // For now, simulate PDF generation
-    const result = await window.electronAPI.gviGeneratePDF({
-      model: gviCalibrationState.model,
-      tester: gviCalibrationState.tester,
-      serialNumber: gviCalibrationState.serialNumber,
+    // Get the calibration data from the form and service
+    const calibrationData = {
+      model: elements.modelSelect?.value || gviCalibrationState?.model || 'Unknown',
+      tester: elements.testerSelect?.value || gviCalibrationState?.tester || 'Unknown',
+      serialNumber: elements.serialNumberInput?.value || gviCalibrationState?.serialNumber || 'Unknown',
       passed: passed,
-      steps: gviCalibrationState.calibrationSteps,
-      results: gviCalibrationState.testResults,
-    });
+      steps: gviCalibrationState?.calibrationSteps || [],
+      results: gviCalibrationState?.testResults || [],
+    };
+
+    addLogMessage('Generating calibration PDF...');
+
+    const result = await window.electronAPI.gviGeneratePDF(calibrationData);
 
     if (result.success) {
-      return result.pdfPath;
+      addLogMessage(`PDF generated successfully: ${result.filename}`);
+      return result; // Return the full result object
     } else {
       throw new Error(result.error);
     }
   } catch (error) {
     console.error('PDF generation error:', error);
+    addLogMessage(`PDF generation failed: ${error.message}`, 'error');
     throw error;
   }
 }
@@ -569,7 +675,7 @@ function showGaugeResults(passed) {
     container.innerHTML = `
       <h4>Gauge Results</h4>
       <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">${gviCalibrationState.model}</h2>
+        <h2 class="text-2xl font-bold mb-2">${gviCalibrationState?.model || 'Unknown'}</h2>
         <div class="text-xl">
           Status: <span class="font-bold ${statusColor}">${statusText}</span>
         </div>
@@ -609,6 +715,69 @@ function showPDFViewButton(pdfPath) {
   }
 }
 
+// Fluke connection error modal removed - now using standard NotificationHelper.showError()
+
+/**
+ * Reset calibration UI to initial state
+ */
+function resetCalibrationUI() {
+  // Reset calibration state
+  calibrationInProgress = false;
+
+  // Hide loading animation
+  hideCalibrationLoading();
+
+  // Reset calibration container background
+  const calibrationContainer = elements.calibrationControlContainer;
+  if (calibrationContainer) {
+    calibrationContainer.style.backgroundColor = '';
+    calibrationContainer.style.borderColor = '';
+  }
+
+  // Reset the GPM input container
+  const container = elements.gpmAtGaugeContainer;
+  if (container) {
+    container.innerHTML = `
+      <h4>Please Note GPM at Gauge</h4>
+      <div class="flex items-end">
+        <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
+        <span class="text-2xl font-bold ml-2">GPM</span>
+      </div>
+    `;
+  }
+
+  // Reset calibration buttons
+  const buttonsContainer = elements.calibrationButtonsContainer;
+  if (buttonsContainer) {
+    buttonsContainer.innerHTML = `
+      <button
+        id="start-calibration-btn"
+        class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled
+      >
+        START CALIBRATION
+      </button>
+    `;
+
+    // Re-add event listener and update reference
+    const startBtn = document.getElementById('start-calibration-btn');
+    startBtn?.addEventListener('click', handleStartCalibration);
+
+    // Update the elements reference to the new button
+    elements.startCalibrationBtn = startBtn;
+  }
+
+  // Reset calibration state
+  if (gviCalibrationState) {
+    gviCalibrationState.reset();
+  }
+
+  // Update button state to enable it if form is valid
+  console.log('resetCalibrationUI - About to call updateStartButtonState');
+  updateStartButtonState();
+  console.log('resetCalibrationUI - updateStartButtonState called');
+}
+
 /**
  * Complete calibration process
  */
@@ -634,7 +803,9 @@ function completeCalibration() {
  */
 function stopCalibrationProcess() {
   calibrationInProgress = false;
-  gviCalibrationState.reset();
+  if (gviCalibrationState) {
+    gviCalibrationState.reset();
+  }
   hideCalibrationLoading();
   updateStartButtonState();
 

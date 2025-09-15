@@ -39,7 +39,7 @@ export class GVIController {
    */
   initializeFlukeService() {
     // Reset factory instance to get fresh settings from database
-    this.flukeFactory.instance = null;
+    this.flukeFactory = new FlukeFactoryService();
 
     this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen.bind(this), () => this.isCalibrationActive);
   }
@@ -68,79 +68,13 @@ export class GVIController {
     return this.handleAsync('getCalibrationSteps', () => ({ steps: getGVIGaugeSteps(model) }), { model });
   }
 
-  async runFlukePrereqs() {
-    return this.handleAsync('runFlukePrereqs', async () => {
-      this.showLogOnScreen('Running Fluke prerequisites...');
-
-      // Use actual Fluke service from factory
-      if (this.fluke && this.fluke.runPreReqs) {
-        await this.fluke.runPreReqs();
-      } else {
-        // Fallback simulation if Fluke service not available
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-
-      this.showLogOnScreen('Fluke prerequisites completed successfully');
-      return { success: true };
-    });
-  }
-
-  async setPressure(psi) {
-    return this.handleAsync(
-      'setPressure',
-      async () => {
-        this.showLogOnScreen(`Setting pressure to ${psi} PSI...`);
-
-        // Use actual Fluke service from factory - set high pressure and wait for it to reach target
-        if (this.fluke && this.fluke.setHighPressureToFluke && this.fluke.waitForFlukeToReachTargetPressure) {
-          await this.fluke.setHighPressureToFluke(psi);
-          await this.fluke.waitForFlukeToReachTargetPressure(psi);
-        } else {
-          // Fallback simulation if Fluke service not available
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-
-        this.showLogOnScreen(`Pressure set to ${psi} PSI successfully`);
-        return { success: true, pressure: psi };
-      },
-      { psi }
-    );
-  }
-
-  async setZeroPressure() {
-    return this.handleAsync('setZeroPressure', async () => {
-      this.showLogOnScreen('Setting Fluke pressure to zero...');
-
-      // Use actual Fluke service from factory - set zero pressure and wait for it to reach zero
-      if (this.fluke && this.fluke.setZeroPressureToFluke && this.fluke.waitForFlukeToReachZeroPressure) {
-        await this.fluke.setZeroPressureToFluke();
-        await this.fluke.waitForFlukeToReachZeroPressure();
-      } else {
-        // Fallback simulation if Fluke service not available
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      this.showLogOnScreen('Fluke pressure set to zero successfully');
-      return { success: true };
-    });
-  }
-
   async goBack() {
     return this.handleAsync('goBack', async () => {
-      // If calibration is in progress, stop it and set Fluke to zero
+      // If calibration is in progress, just reset state (no stop functionality yet)
       if (this.isCalibrationActive) {
-        this.showLogOnScreen('Stopping calibration and setting Fluke to zero...');
+        this.showLogOnScreen('Resetting calibration state...');
         this.isCalibrationActive = false;
-
-        // Set Fluke to zero pressure
-        try {
-          await this.setZeroPressure();
-        } catch (error) {
-          console.error('Error setting zero pressure during back navigation:', error);
-          this.showLogOnScreen('Warning: Could not set Fluke to zero pressure');
-        }
-
-        this.showLogOnScreen('Calibration stopped, returning to main menu');
+        this.showLogOnScreen('Calibration state reset, returning to main menu');
       }
 
       // Reset calibration state
@@ -210,6 +144,22 @@ export class GVIController {
         this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
         this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.steps.length}`);
 
+        const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, this.steps);
+
+        if (!result.success) {
+          this.isCalibrationActive = false;
+
+          // Check if it's a Fluke connectivity error
+          if (result.error && (result.error.includes('Not connected to Fluke device') || result.error.includes('Fluke connection failed'))) {
+            this.sendToRenderer('gvi-calibration-failed', {
+              error: 'Calibration failed: Fluke connection failed - calibration cannot proceed',
+            });
+            return { success: false, error: 'Calibration failed: Fluke connection failed - calibration cannot proceed' };
+          }
+
+          throw new Error(result.error);
+        }
+
         this.sendToRenderer('gvi-calibration-started', {
           config: this.currentConfig,
           currentStep: this.currentStep,
@@ -222,24 +172,7 @@ export class GVIController {
     );
   }
 
-  async stopCalibration() {
-    return this.handleAsync('stopCalibration', async () => {
-      if (!this.isCalibrationActive) {
-        throw new Error('No calibration in progress');
-      }
-
-      this.isCalibrationActive = false;
-
-      if (this.calibrationService) {
-        await this.calibrationService.stop();
-      }
-
-      this.showLogOnScreen('Calibration stopped by user');
-      this.sendToRenderer('gvi-calibration-stopped');
-
-      return {};
-    });
-  }
+  // Stop calibration functionality not implemented yet for GVI module
 
   async updateStep(stepData) {
     return this.handleAsync(
@@ -248,35 +181,63 @@ export class GVIController {
         if (!this.isCalibrationActive) {
           throw new Error('No calibration in progress');
         }
-        if (this.currentStep >= this.steps.length) {
-          throw new Error('All steps completed');
+
+        const result = await this.calibrationService.processStep(stepData);
+
+        if (!result.success) {
+          throw new Error(result.error);
         }
 
-        // Update current step
-        const step = this.steps[this.currentStep];
-        step.status = stepData.result;
-        step.timestamp = stepData.timestamp;
-
-        this.showLogOnScreen(`Step ${this.currentStep + 1} (${step.gpm} GPM): ${stepData.result.toUpperCase()}`);
-
-        this.currentStep++;
-        const completed = this.currentStep >= this.steps.length;
-
-        if (completed) {
+        // Update controller state
+        this.currentStep = result.currentStep;
+        if (result.completed) {
           this.isCalibrationActive = false;
-          await this.completeCalibration();
         }
 
-        this.sendToRenderer('gvi-step-updated', {
-          stepIndex: this.currentStep - 1,
-          stepData: step,
-          currentStep: this.currentStep,
-          completed,
-        });
-
-        return { currentStep: this.currentStep, completed };
+        return { currentStep: this.currentStep, completed: result.completed };
       },
       { stepData }
+    );
+  }
+
+  async nextStep() {
+    return this.handleAsync('nextStep', async () => {
+      if (!this.isCalibrationActive) {
+        throw new Error('No calibration in progress');
+      }
+
+      const result = await this.calibrationService.nextStep();
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      if (result.completed) {
+        this.isCalibrationActive = false;
+      }
+
+      return { completed: result.completed };
+    });
+  }
+
+  async handleFinalResult(passed) {
+    return this.handleAsync(
+      'handleFinalResult',
+      async () => {
+        if (!this.isCalibrationActive) {
+          throw new Error('No calibration in progress');
+        }
+
+        const result = await this.calibrationService.handleFinalResult(passed);
+
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        this.isCalibrationActive = false;
+        return { success: true };
+      },
+      { passed }
     );
   }
 
@@ -291,41 +252,7 @@ export class GVIController {
     };
   }
 
-  async completeCalibration() {
-    try {
-      const results = {
-        config: this.currentConfig,
-        steps: this.steps,
-        completedAt: new Date().toISOString(),
-        summary: this.generateSummary(),
-      };
-
-      if (this.calibrationService) {
-        await this.calibrationService.saveResults(results);
-      }
-
-      this.showLogOnScreen('Calibration completed successfully');
-      this.sendToRenderer('gvi-calibration-completed', results);
-    } catch (error) {
-      this.handleError(error, 'completeCalibration');
-      this.showLogOnScreen(`Error completing calibration: ${error.message}`);
-    }
-  }
-
-  generateSummary() {
-    const passedSteps = this.steps.filter(step => step.status === 'pass').length;
-    const totalSteps = this.steps.length;
-    const failedSteps = totalSteps - passedSteps;
-    const passRate = totalSteps > 0 ? ((passedSteps / totalSteps) * 100).toFixed(1) : 0;
-
-    return {
-      totalSteps,
-      passedSteps,
-      failedSteps,
-      passRate: parseFloat(passRate),
-      overallResult: failedSteps === 0 ? 'PASS' : 'FAIL',
-    };
-  }
+  // Calibration completion is now handled by the calibration service
 
   validateConfig(config) {
     const required = [
@@ -358,8 +285,9 @@ export class GVIController {
 
   async cleanup() {
     try {
+      // Reset calibration state (no stop functionality yet)
       if (this.isCalibrationActive) {
-        await this.stopCalibration();
+        this.isCalibrationActive = false;
       }
       if (this.calibrationService) {
         await this.calibrationService.cleanup();
@@ -368,6 +296,8 @@ export class GVIController {
       this.currentConfig = null;
       this.currentStep = 0;
       this.steps = [];
+      this.fluke = null;
+      this.flukeFactory = null;
       console.log('GVI controller cleaned up');
     } catch (error) {
       this.handleError(error, 'cleanup');

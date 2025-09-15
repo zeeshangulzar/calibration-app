@@ -1,6 +1,6 @@
+import { FlukeFactoryService } from './fluke-factory.service.js';
+import { GVI_CONSTANTS } from '../../config/constants/gvi.constants.js';
 import * as Sentry from '@sentry/electron/main';
-import path from 'path';
-import fs from 'fs';
 
 /**
  * GVI Flow Meter Calibration Service
@@ -12,7 +12,16 @@ export class GVICalibrationService {
     this.showLogOnScreen = showLogOnScreen;
     this.config = null;
     this.isRunning = false;
+    this.isCalibrationActive = false;
     this.startTime = null;
+    this.flukeFactory = new FlukeFactoryService();
+    this.fluke = null;
+    this.currentStep = 0;
+    this.steps = [];
+    this.results = null;
+    this.testerName = '';
+    this.model = '';
+    this.serialNumber = '';
   }
 
   /**
@@ -22,13 +31,20 @@ export class GVICalibrationService {
     try {
       this.config = config;
       this.isRunning = false;
+      this.isCalibrationActive = false;
       this.startTime = null;
-      
+      this.currentStep = 0;
+      this.steps = [];
+      this.results = null;
+
+      // Initialize Fluke service
+      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.isCalibrationActive);
+
       this.showLogOnScreen('GVI Calibration Service initialized');
       this.showLogOnScreen(`Model: ${config.model}`);
       this.showLogOnScreen(`Serial Number: ${config.serialNumber}`);
       this.showLogOnScreen(`Tester: ${config.tester}`);
-      
+
       return { success: true };
     } catch (error) {
       console.error('Failed to initialize GVI calibration service:', error);
@@ -40,61 +56,75 @@ export class GVICalibrationService {
   /**
    * Start the calibration process
    */
-  async start() {
+  async startCalibration(testerName, model, serialNumber, steps) {
     try {
-      if (this.isRunning) {
-        throw new Error('Calibration already running');
-      }
+      this.logDebugInfo('startCalibration', { testerName, model, serialNumber });
 
-      this.isRunning = true;
-      this.startTime = new Date();
-      
-      this.showLogOnScreen('Starting GVI flow meter calibration...');
-      
-      // Simulate calibration initialization
-      await this.simulateCalibrationSetup();
-      
+      this.initializeCalibrationState(testerName, model, serialNumber, steps);
+      this.validateConfiguration();
+
+      this.sendToRenderer('gvi-calibration-started', {
+        totalSteps: this.steps.length,
+        model: this.model,
+        tester: this.tester,
+        serialNumber: this.serialNumber,
+      });
+      await this.runCalibrationProcess();
+      // Don't complete calibration here - it will be completed when all steps are done
       return { success: true };
     } catch (error) {
-      this.isRunning = false;
-      console.error('Failed to start GVI calibration:', error);
-      Sentry.captureException(error);
-      throw error;
+      return this.handleCalibrationError(error);
     }
   }
 
   /**
-   * Stop the calibration process
+   * Core calibration process - follows Monster Meter pattern
    */
-  async stop() {
+  async runCalibrationProcess() {
     try {
-      this.isRunning = false;
-      this.showLogOnScreen('GVI calibration stopped');
-      
-      return { success: true };
+      // Run prerequisites
+      await this.runFlukePreReqs();
+      await this.checkZeroPressure();
+      await this.waitForFluke();
+
+      // Start the first calibration step
+      await this.runCalibrationSteps();
+
+      this.showLogOnScreen('✅ Calibration process started - waiting for user interaction');
     } catch (error) {
-      console.error('Failed to stop GVI calibration:', error);
-      Sentry.captureException(error);
+      this.showLogOnScreen(`❌ Calibration process failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
     }
   }
 
+  // Stop calibration functionality not implemented yet for GVI module
+
   /**
-   * Process a calibration step
+   * Process a calibration step - just move to next step, no data tracking needed
    */
   async processStep(stepData) {
     try {
-      if (!this.isRunning) {
+      if (!this.isCalibrationActive) {
         throw new Error('Calibration not running');
       }
 
-      this.showLogOnScreen(`Processing step: ${stepData.gpm} GPM - ${stepData.result}`);
-      
-      // Here you would implement the actual flow meter communication
-      // For now, we'll simulate the step processing
-      await this.simulateStepProcessing(stepData);
-      
-      return { success: true };
+      this.showLogOnScreen(`Step completed - user noted GPM value manually`);
+
+      // No need to increment currentStep here - it's handled in nextStep()
+      const completed = this.currentStep >= this.steps.length;
+
+      this.sendToRenderer('gvi-step-updated', {
+        stepIndex: this.currentStep - 1,
+        currentStep: this.currentStep,
+        completed,
+      });
+
+      if (completed) {
+        this.isCalibrationActive = false;
+        await this.completeCalibration();
+      }
+
+      return { success: true, currentStep: this.currentStep, completed };
     } catch (error) {
       console.error('Failed to process GVI step:', error);
       Sentry.captureException(error);
@@ -103,144 +133,291 @@ export class GVICalibrationService {
   }
 
   /**
-   * Save calibration results
+   * Complete calibration with final result (PASS/FAIL)
    */
-  async saveResults(results) {
+  async completeCalibrationWithResult(passed) {
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const filename = `GVI_${results.config.model}_${results.config.serialNumber}_${timestamp}.json`;
-      
-      // Create results directory if it doesn't exist
-      const resultsDir = path.join(process.cwd(), 'calibration-results', 'gvi');
-      if (!fs.existsSync(resultsDir)) {
-        fs.mkdirSync(resultsDir, { recursive: true });
+      this.showLogOnScreen(`🎯 Completing calibration - Result: ${passed ? 'PASS' : 'FAIL'}`);
+
+      const results = {
+        config: this.config,
+        model: this.model,
+        tester: this.tester,
+        serialNumber: this.serialNumber,
+        result: passed ? 'PASS' : 'FAIL',
+        completedAt: new Date().toISOString(),
+        steps: this.steps.map(step => ({
+          gpm: step.gpm,
+          psi: step.psi || step.psiMin,
+          // User noted GPM values manually in their diary
+        })),
+      };
+
+      this.results = results;
+
+      // Set Fluke to zero after calibration completion
+      await this.setFlukeToZero();
+      await this.waitForFluke();
+
+      this.showLogOnScreen(`✅ Calibration completed - Result: ${passed ? 'PASS' : 'FAIL'}`);
+      this.sendToRenderer('gvi-calibration-completed', results);
+
+      return { success: true, results };
+    } catch (error) {
+      this.handleError(error, 'completeCalibrationWithResult');
+      throw error;
+    }
+  }
+
+  /**
+   * Complete calibration process (called when all steps are done)
+   */
+  async completeCalibration() {
+    try {
+      this.showLogOnScreen('🎯 All steps completed - waiting for final result');
+      // Don't complete yet - wait for user to provide final PASS/FAIL result
+      return { success: true };
+    } catch (error) {
+      this.handleError(error, 'completeCalibration');
+      throw error;
+    }
+  }
+
+  /**
+   * Handle final calibration result (PASS/FAIL)
+   */
+  async handleFinalResult(passed) {
+    try {
+      if (!this.isCalibrationActive) {
+        throw new Error('Calibration not running');
       }
-      
-      const filePath = path.join(resultsDir, filename);
-      
-      // Prepare results data
-      const resultsData = {
-        ...results,
-        metadata: {
-          version: '1.0.0',
-          application: 'SmartMonster Calibration System',
-          savedAt: new Date().toISOString()
-        }
-      };
-      
-      // Save to file
-      fs.writeFileSync(filePath, JSON.stringify(resultsData, null, 2));
-      
-      this.showLogOnScreen(`Results saved to: ${filename}`);
-      
-      return { 
-        success: true, 
-        filePath: filePath,
-        filename: filename 
-      };
+
+      this.isCalibrationActive = false;
+      await this.completeCalibrationWithResult(passed);
+      return { success: true };
     } catch (error) {
-      console.error('Failed to save GVI results:', error);
-      Sentry.captureException(error);
+      this.handleError(error, 'handleFinalResult');
       throw error;
     }
   }
 
   /**
-   * Generate calibration report
+   * Generate calibration summary
    */
-  async generateReport(results) {
-    try {
-      // Here you would implement PDF report generation similar to other modules
-      // For now, we'll just log the report generation
-      this.showLogOnScreen('Generating calibration report...');
-      
-      const reportData = {
-        title: 'GVI Flow Meter Calibration Report',
-        model: results.config.model,
-        serialNumber: results.config.serialNumber,
-        tester: results.config.tester,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        summary: results.summary,
-        steps: results.steps
-      };
-      
-      this.showLogOnScreen('Calibration report generated successfully');
-      
-      return { success: true, reportData };
-    } catch (error) {
-      console.error('Failed to generate GVI report:', error);
-      Sentry.captureException(error);
-      throw error;
-    }
-  }
+  generateSummary() {
+    const passedSteps = this.steps.filter(step => step.status === 'pass').length;
+    const totalSteps = this.steps.length;
+    const failedSteps = totalSteps - passedSteps;
+    const passRate = totalSteps > 0 ? ((passedSteps / totalSteps) * 100).toFixed(1) : 0;
 
-  /**
-   * Simulate calibration setup (replace with actual hardware communication)
-   */
-  async simulateCalibrationSetup() {
-    this.showLogOnScreen('Initializing flow meter communication...');
-    await this.delay(1000);
-    
-    this.showLogOnScreen('Checking flow meter connection...');
-    await this.delay(500);
-    
-    this.showLogOnScreen('Setting up calibration parameters...');
-    await this.delay(800);
-    
-    this.showLogOnScreen('Flow meter ready for calibration');
-  }
-
-  /**
-   * Simulate step processing (replace with actual hardware communication)
-   */
-  async simulateStepProcessing(stepData) {
-    this.showLogOnScreen(`Setting flow rate to ${stepData.gpm} GPM...`);
-    await this.delay(500);
-    
-    this.showLogOnScreen(`Reading pressure values...`);
-    await this.delay(300);
-    
-    this.showLogOnScreen(`PSI range: ${stepData.psiMin} - ${stepData.psiMax}`);
-    await this.delay(200);
-    
-    this.showLogOnScreen(`Step result: ${stepData.result.toUpperCase()}`);
-  }
-
-  /**
-   * Utility delay function
-   */
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Get service status
-   */
-  getStatus() {
     return {
-      isRunning: this.isRunning,
-      config: this.config,
-      startTime: this.startTime
+      totalSteps,
+      passedSteps,
+      failedSteps,
+      passRate: parseFloat(passRate),
+      overallResult: failedSteps === 0 ? 'PASS' : 'FAIL',
     };
   }
 
-  /**
-   * Cleanup service resources
-   */
-  async cleanup() {
+  // Calibration process steps
+  async runFlukePreReqs() {
+    await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
+  }
+
+  async checkZeroPressure() {
+    this.showLogOnScreen('🔍 Checking zero pressure...');
     try {
-      if (this.isRunning) {
-        await this.stop();
-      }
-      
-      this.config = null;
-      this.startTime = null;
-      
-      this.showLogOnScreen('GVI Calibration Service cleaned up');
+      await this.fluke.setZeroPressureToFluke();
+      await this.fluke.waitForFlukeToReachZeroPressure();
+      this.showLogOnScreen('✅ Zero pressure confirmed');
     } catch (error) {
-      console.error('Error cleaning up GVI calibration service:', error);
-      Sentry.captureException(error);
+      this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
     }
   }
+
+  async waitForFluke() {
+    try {
+      await this.executeWithLogging('Waiting for Fluke', () => this.fluke.waitForFlukeToReachZeroPressure());
+    } catch (error) {
+      this.showLogOnScreen(`❌ Wait for Fluke failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  async runCalibrationSteps() {
+    this.showLogOnScreen('🔧 Starting calibration steps...');
+
+    // Process the first step
+    await this.processNextStep();
+  }
+
+  async processNextStep() {
+    console.log(`GVI Service - processNextStep called, currentStep: ${this.currentStep}, totalSteps: ${this.steps.length}`);
+
+    if (this.currentStep >= this.steps.length) {
+      this.showLogOnScreen('✅ All calibration steps completed');
+      return;
+    }
+
+    const step = this.steps[this.currentStep];
+    console.log(`GVI Service - processing step:`, step);
+    this.showLogOnScreen(`Step ${this.currentStep + 1}/${this.steps.length}: ${step.gpm} GPM`);
+
+    // Set pressure for this step
+    await this.setPressureForStep(step);
+
+    // Send step ready event to renderer
+    this.sendToRenderer('gvi-step-ready', {
+      stepIndex: this.currentStep,
+      step: step,
+      currentStep: this.currentStep + 1,
+      totalSteps: this.steps.length,
+    });
+  }
+
+  async nextStep() {
+    if (!this.isCalibrationActive) {
+      throw new Error('Calibration not running');
+    }
+
+    // Increment to next step
+    this.currentStep++;
+    console.log(`GVI Service - nextStep called, currentStep: ${this.currentStep}, totalSteps: ${this.steps.length}`);
+
+    if (this.currentStep >= this.steps.length) {
+      this.showLogOnScreen('✅ All calibration steps completed');
+      return { success: true, completed: true };
+    }
+
+    await this.processNextStep();
+    return { success: true, completed: false };
+  }
+
+  async setPressureForStep(step) {
+    const pressure = step.psi || step.psiMin || 0;
+    await this.fluke.setHighPressureToFluke(pressure);
+    await this.fluke.waitForFlukeToReachTargetPressure(pressure);
+    this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI for ${step.gpm} GPM`);
+  }
+
+  async setFlukeToZero() {
+    if (this.fluke) {
+      await this.fluke.setZeroPressureToFluke();
+      this.showLogOnScreen('🔧 Fluke set to zero pressure');
+    }
+  }
+
+  // Utility methods
+  initializeCalibrationState(testerName, model, serialNumber, steps) {
+    this.testerName = testerName;
+    this.model = model;
+    this.serialNumber = serialNumber;
+    this.steps = steps || [];
+    this.currentStep = 0;
+    this.isCalibrationActive = true;
+    this.logCalibrationInfo();
+  }
+
+  validateConfiguration() {
+    if (!this.testerName || !this.model || !this.serialNumber) {
+      throw new Error('Missing required calibration parameters');
+    }
+    if (!this.steps || this.steps.length === 0) {
+      throw new Error('No calibration steps defined');
+    }
+  }
+
+  logCalibrationInfo() {
+    const info = [`🔧 Model: ${this.model}`, `🔢 Serial number: ${this.serialNumber}`, `👤 Tester: ${this.testerName}`, `📊 Total steps: ${this.steps.length}`];
+    info.forEach(msg => this.showLogOnScreen(msg));
+  }
+
+  logDebugInfo(method, params) {
+    console.log(`🔍 Debug - ${method} received parameters:`, params);
+  }
+
+  handleCalibrationError(error) {
+    this.isCalibrationActive = false;
+    this.handleError(error, 'startCalibration');
+
+    // Debug: Log the error details
+    console.log('GVI Calibration Service - Error object:', error);
+    console.log('GVI Calibration Service - Error message:', error.message);
+    console.log('GVI Calibration Service - Error error:', error.error);
+    console.log('GVI Calibration Service - Error toString:', error.toString());
+
+    const errorMessage = error.message || error.error || error.toString() || 'Unknown error';
+    console.log('GVI Calibration Service - Final error message:', errorMessage);
+
+    this.sendToRenderer('gvi-calibration-failed', { error: errorMessage });
+    return { success: false, error: errorMessage };
+  }
+
+  async executeWithLogging(action, fn) {
+    this.showLogOnScreen(`🔧 ${action}...`);
+    try {
+      await fn();
+      this.showLogOnScreen(`✅ ${action} completed`);
+    } catch (error) {
+      this.showLogOnScreen(`❌ ${action} failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  addDelay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  isActive = () => this.isCalibrationActive;
+
+  getStatus() {
+    return {
+      isActive: this.isCalibrationActive,
+      testerName: this.testerName,
+      model: this.model,
+      serialNumber: this.serialNumber,
+      currentStep: this.currentStep,
+      totalSteps: this.steps.length,
+      results: this.results,
+    };
+  }
+
+  handleError(error, method) {
+    Sentry.captureException(error, {
+      tags: { component: 'gvi-calibration-service', method },
+    });
+    console.error(`GVICalibrationService.${method}:`, error);
+  }
+
+  async cleanup() {
+    try {
+      this.showLogOnScreen('🧹 Cleaning up GVI calibration service...');
+      // Reset state (no stop functionality yet)
+      if (this.isCalibrationActive) {
+        this.isCalibrationActive = false;
+      }
+      this.reset();
+      this.showLogOnScreen('✅ GVI calibration service cleanup completed');
+    } catch (error) {
+      this.handleError(error, 'cleanup');
+    }
+  }
+
+  reset() {
+    this.isCalibrationActive = false;
+    this.testerName = '';
+    this.model = '';
+    this.serialNumber = '';
+    this.currentStep = 0;
+    this.steps = [];
+    this.results = null;
+    this.fluke = null;
+  }
+
+  destroy = async () => {
+    try {
+      await this.cleanup();
+    } catch (error) {
+      this.handleError(error, 'destroy');
+    }
+  };
 }

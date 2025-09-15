@@ -84,12 +84,7 @@ const handlers = {
     return await gviController.startCalibration(config);
   },
 
-  async stopCalibration(event) {
-    if (!gviController) {
-      return { success: false, error: 'GVI controller not initialized' };
-    }
-    return await gviController.stopCalibration();
-  },
+  // Stop calibration functionality not implemented yet for GVI module
 
   async getStatus(event) {
     if (!gviController) {
@@ -103,6 +98,20 @@ const handlers = {
       return { success: false, error: 'GVI controller not initialized' };
     }
     return await gviController.updateStep(stepData);
+  },
+
+  async nextStep(event) {
+    if (!gviController) {
+      return { success: false, error: 'GVI controller not initialized' };
+    }
+    return await gviController.nextStep();
+  },
+
+  async handleFinalResult(event, passed) {
+    if (!gviController) {
+      return { success: false, error: 'GVI controller not initialized' };
+    }
+    return await gviController.handleFinalResult(passed);
   },
 
   async getAvailableModels(event) {
@@ -123,20 +132,7 @@ const handlers = {
     return await gviController.getCalibrationSteps(model);
   },
 
-  async runFlukePrereqs(event) {
-    console.log('GVI IPC: runFlukePrereqs called, controller exists:', !!gviController);
-    if (!gviController) {
-      return { success: false, error: 'GVI controller not initialized' };
-    }
-    return await gviController.runFlukePrereqs();
-  },
-
-  async setPressure(event, psi) {
-    if (!gviController) {
-      return { success: false, error: 'GVI controller not initialized' };
-    }
-    return await gviController.setPressure(psi);
-  },
+  // Fluke methods moved to calibration service - handled by runCalibrationProcess
 
   async generatePDF(event, calibrationData) {
     if (!gviController) {
@@ -172,15 +168,16 @@ export function registerGVIIpcHandlers() {
 
   // Calibration handlers
   ipcMain.handle('gvi-start-calibration', createHandler('startCalibration'));
-  ipcMain.handle('gvi-stop-calibration', createHandler('stopCalibration'));
+  // Stop calibration not implemented yet for GVI module
   ipcMain.handle('gvi-get-status', createHandler('getStatus'));
   ipcMain.handle('gvi-update-step', createHandler('updateStep'));
+  ipcMain.handle('gvi-next-step', createHandler('nextStep'));
+  ipcMain.handle('gvi-handle-final-result', createHandler('handleFinalResult'));
 
   // Data handlers
   ipcMain.handle('gvi-get-available-models', createHandler('getAvailableModels'));
   ipcMain.handle('gvi-get-calibration-steps', createHandler('getCalibrationSteps'));
-  ipcMain.handle('gvi-run-fluke-prereqs', createHandler('runFlukePrereqs'));
-  ipcMain.handle('gvi-set-pressure', createHandler('setPressure'));
+  // Fluke methods removed - handled by calibration service
   ipcMain.handle('gvi-generate-pdf', createHandler('generatePDF'));
   ipcMain.handle('gvi-open-pdf', createHandler('openPDF'));
   ipcMain.handle('gvi-refresh-fluke-service', createHandler('refreshFlukeService'));

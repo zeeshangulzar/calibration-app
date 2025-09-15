@@ -11,15 +11,12 @@ export const GVI_CONSTANTS = {
   
   // Tester names
   TESTER_NAMES: {
-    'SmartMonster Calibration System': 'SmartMonster Calibration System',
-    'Test Engineer 1': 'Test Engineer 1',
-    'Test Engineer 2': 'Test Engineer 2',
+    'Gabriel': 'Gabriel',
+    'Tester 1': 'Tester 1',
+    'Tester 2': 'Tester 2',
   },
   
   // Report settings
   REPORT_TITLE: 'GVI Flow Meter Calibration Certificate',
-  COMPANY_NAME: 'HoseMonster',
-  
-  // Tolerance settings (if needed for future enhancements)
-  TOLERANCE_RANGE: 1.0, // PSI tolerance range
+  COMPANY_NAME: 'HoseMonster'
 };
