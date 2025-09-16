@@ -360,6 +360,9 @@ function deleteSensor(id) {
   showConfirmationModal(
     'Are you sure you want to delete this sensor?',
     () => {
+      // Scroll to top to ensure user sees the success notification
+      document.documentElement.scrollTop = 0;
+
       if (window.electronAPI && window.electronAPI.deleteAssembledSensor) {
         window.electronAPI.deleteAssembledSensor(id);
       }
