@@ -185,12 +185,9 @@ class MonsterMeterVerificationService {
       return;
     }
 
-    this.showLogOnScreen('🔌 Connecting to Fluke...');
     try {
       const result = await this.fluke.connect();
-      if (result.success) {
-        this.showLogOnScreen('✅ Connected to Fluke successfully');
-      } else {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to connect to Fluke');
       }
     } catch (error) {
@@ -391,7 +388,7 @@ class MonsterMeterVerificationService {
       const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
 
       if (result.success) {
-        this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
+        // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
         // Send PDF path to renderer for view PDF button
         this.sendToRenderer('monster-meter-pdf-generated', {
           filePath: result.filePath,

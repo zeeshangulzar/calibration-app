@@ -431,7 +431,6 @@ const ipcHandlers = {
 
   onMonsterMeterPDFGenerated: data => {
     showViewPDFButton(data.filePath, data.filename);
-    addLogMessage(`📄 PDF report generated: ${data.filename}`);
   },
 };
 
