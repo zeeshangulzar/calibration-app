@@ -78,6 +78,35 @@ const setButtonState = (button, disabled, text, className = '') => {
   if (className) button.className = className;
 };
 
+const updateBackButton = () => {
+  const { backBtn } = elements;
+  if (!backBtn) return;
+
+  // Disable back button when calibration or verification is active
+  const shouldDisable = isCalibrationActive || isVerificationActive;
+  setButtonState(backBtn, shouldDisable);
+
+  // Show/hide status message
+  const statusMessage = document.getElementById('back-button-status-message');
+  const messageText = document.getElementById('back-button-message-text');
+
+  if (statusMessage && messageText) {
+    if (shouldDisable) {
+      let message = '';
+      if (isCalibrationActive) {
+        message = 'Back button is disabled during calibration. It will be re-enabled when calibration completes or if an error occurs.';
+      } else if (isVerificationActive) {
+        message = 'Back button is disabled during verification. It will be re-enabled when verification completes or if an error occurs.';
+      }
+
+      messageText.textContent = message;
+      statusMessage.classList.remove('hidden');
+    } else {
+      statusMessage.classList.add('hidden');
+    }
+  }
+};
+
 const updateConnectButton = () => {
   const { portSelect, connectPortButton } = elements;
   if (portSelect && connectPortButton) {
@@ -215,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial button state
   updateConnectButton();
   updateCalibrationButtons();
+  updateBackButton();
 });
 
 // IPC Event Listeners
@@ -306,6 +336,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationStarted: data => {
     isCalibrationActive = true;
     updateCalibrationButtons();
+    updateBackButton();
     // Clear previous calibration data when starting new calibration
     clearCalibrationData();
     showCalibrationResultsSection();
@@ -316,6 +347,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationStopped: data => {
     isCalibrationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage(`🛑 Calibration stopped: ${data.reason}`);
     NotificationHelper.showInfo(`Calibration stopped: ${data.reason}`);
     // Keep calibration table visible - don't clear data when stopping
@@ -324,6 +356,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationFailed: data => {
     isCalibrationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage(`❌ Calibration failed: ${data.error}`, 'error');
     NotificationHelper.showError(`Calibration failed: ${data.error}`);
   },
@@ -332,6 +365,7 @@ const ipcHandlers = {
     isCalibrationActive = false;
     isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
@@ -352,6 +386,7 @@ const ipcHandlers = {
     isVerificationActive = true;
     isCalibrationCompleted = false; // Reset when verification starts
     updateCalibrationButtons();
+    updateBackButton();
     showVerificationResultsSection();
     // Don't clear calibration data - keep it visible
     NotificationHelper.showSuccess('Verification started successfully!');
@@ -360,12 +395,14 @@ const ipcHandlers = {
   onMonsterMeterVerificationStopped: data => {
     isVerificationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     NotificationHelper.showInfo(`Verification stopped: ${data.reason}`);
   },
 
   onMonsterMeterVerificationFailed: data => {
     isVerificationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     NotificationHelper.showError(`Verification failed: ${data.error}`);
   },
 
@@ -373,6 +410,7 @@ const ipcHandlers = {
     isVerificationActive = false;
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
+    updateBackButton();
     enableVerificationTab();
     hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
@@ -488,7 +526,7 @@ function showMonsterMeterWidget(deviceInfo) {
 
   card.innerHTML = `
     <div class="flex items-center gap-3">
-      <div>
+      <div class="w-full">
         <h3>Monster Meter</h3>
         <div class="flex items-center gap-2">
           <p class="text-sm text-neutral-600 font-bold">Name:</p>
@@ -501,7 +539,7 @@ function showMonsterMeterWidget(deviceInfo) {
         <p>
           <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
         </p>
-        <div id="pdf-button-container" class="mt-2"></div>
+        <div id="pdf-button-container" class="mt-2 inline-flex w-full"></div>
       </div>
     </div>
   `;
@@ -1118,7 +1156,7 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm';
+  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full';
   viewPDFBtn.innerHTML =
     '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
 
