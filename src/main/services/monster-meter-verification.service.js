@@ -56,7 +56,9 @@ class MonsterMeterVerificationService {
       this.initializeVerificationState(testerName, model, serialNumber);
       this.generateSweepIntervals();
 
-      this.sendToRenderer('monster-meter-verification-started');
+      this.sendToRenderer('monster-meter-verification-started', {
+        pressureArr: this.sweepIntervals,
+      });
       await this.runVerificationProcess();
 
       if (this.isVerificationStopped) {
@@ -185,12 +187,9 @@ class MonsterMeterVerificationService {
       return;
     }
 
-    this.showLogOnScreen('🔌 Connecting to Fluke...');
     try {
       const result = await this.fluke.connect();
-      if (result.success) {
-        this.showLogOnScreen('✅ Connected to Fluke successfully');
-      } else {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to connect to Fluke');
       }
     } catch (error) {
@@ -202,7 +201,7 @@ class MonsterMeterVerificationService {
   async sendVerifyMeCommand() {
     try {
       await this.monsterMeterCommunication.sendCommand(MONSTER_METER_CONSTANTS.COMMANDS.VERIFY_ME);
-      this.showLogOnScreen('Verify Me command sent to Monster Meter');
+      // this.showLogOnScreen('Verify Me command sent to Monster Meter');
     } catch (error) {
       this.handleError('sendVerifyMeCommand', error);
       throw error;
@@ -372,6 +371,7 @@ class MonsterMeterVerificationService {
       serialNumber: this.serialNumber,
       verificationData: this.dbDataVerification,
       summary: this.generateVerificationSummary(),
+      pressureArr: this.sweepIntervals,
     });
   }
 
@@ -391,7 +391,7 @@ class MonsterMeterVerificationService {
       const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
 
       if (result.success) {
-        this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
+        // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
         // Send PDF path to renderer for view PDF button
         this.sendToRenderer('monster-meter-pdf-generated', {
           filePath: result.filePath,
