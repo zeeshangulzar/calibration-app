@@ -6,6 +6,31 @@ import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.co
 
 const getLocalTimestamp = () => new Date().toLocaleTimeString();
 
+// Status SVG icons - loaded from assets folder
+let passIconSvg = '';
+let failIconSvg = '';
+
+// Load SVG icons from assets folder
+async function loadStatusIcons() {
+  try {
+    const passResponse = await fetch('../../assets/svgs/pass-icon.svg');
+    const failResponse = await fetch('../../assets/svgs/fail-icon.svg');
+
+    passIconSvg = await passResponse.text();
+    failIconSvg = await failResponse.text();
+
+    console.log('Status icons loaded successfully');
+  } catch (error) {
+    console.error('Failed to load status icons:', error);
+    // Fallback to inline SVGs if loading fails
+    passIconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" class="inline"><path d="M5.1 8L7.1 10.5L11.1 5.5M15 8C15 11.866 11.866 15 8 15C4.134 15 1 11.866 1 8C1 4.134 4.134 1 8 1C11.866 1 15 4.134 15 8Z" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+    failIconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" class="inline"><circle cx="8" cy="8" r="7" fill="none" stroke="#ef4444" stroke-width="2" /><path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+  }
+}
+
+const createPassSvg = () => passIconSvg;
+const createFailSvg = () => failIconSvg;
+
 // State management
 let eventListenersSetup = false;
 let isCalibrationActive = false;
@@ -199,7 +224,9 @@ const cleanupMonsterMeterModule = async () => {
 };
 
 // DOM event setup
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load status icons first
+  await loadStatusIcons();
   const {
     backBtn,
     portSelect,
@@ -424,7 +451,7 @@ const ipcHandlers = {
     if (data.verificationData && data.verificationData.length > 0) {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
       const status = latestPoint.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = latestPoint.inRange ? '✅' : '❌';
+      const statusIcon = latestPoint.inRange ? createPassSvg() : createFailSvg();
       addLogMessage(`${statusIcon} Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
     }
   },
@@ -649,7 +676,7 @@ function updateVerificationResultsTable(data) {
       row.classList.add('border-b');
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = point.inRange ? '✓' : '✗';
+      const statusIcon = point.inRange ? createPassSvg() : createFailSvg();
 
       row.innerHTML = `
         <td class="py-2 pr-6">${index + 1}</td>
@@ -684,14 +711,14 @@ function showVerificationSummary(summary) {
   if (!summaryDiv || !summary) return;
 
   const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
-  const statusIcon = summary.status === 'PASSED' ? '✓' : '✗';
+  const statusIcon = summary.status === 'PASSED' ? createPassSvg() : createFailSvg();
   const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
 
   summaryDiv.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
       <div class="flex items-center ${statusClass} font-semibold">
-        <span class="mr-2 text-xl">${statusIcon}</span>
+        <span class="mr-2">${statusIcon}</span>
         ${summary.status}
       </div>
     </div>
@@ -883,7 +910,7 @@ function initializeVerificationResultsTable() {
           </table>
         </div>
         <div id="verification-progress-text" class="mt-2 text-sm text-neutral-500">Waiting for verification data...</div>
-        <div id="verification-summary" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+        <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
           <!-- Verification summary will be populated here -->
         </div>
       </div>
