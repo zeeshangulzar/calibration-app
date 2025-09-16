@@ -39,7 +39,7 @@ export class AssemblySensorDb {
         .prepare(
           `SELECT id, plastic_body_qr AS bodyQR, cap_qr AS capQR, created_at, updated_at
           FROM device_assembly 
-          ORDER BY created_at DESC LIMIT ? OFFSET ?
+          ORDER BY id ASC LIMIT ? OFFSET ?
           `
         )
         .all(size, offset);

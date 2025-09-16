@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html class="" lang="en">
   <head>
     <link rel="stylesheet" href="../styles/index_styles.css" />
@@ -7,28 +7,23 @@
     <script src="../../assets/js/tailwind.min.js"></script>
     <script src="../../assets/js/font-awesome.min.js"></script>
     <script src="../../assets/js/jsQR.min.js"></script>
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
-    />
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" />
     <title>Sensor Calibration System</title>
   </head>
 
   <body class="h-full text-base-content">
     <div id="app-container" class="min-h-screen bg-neutral-50">
-      <header id="header" class="border-b bg-white shadow-sm">
+      <header id="header" class="bg-white border-b border-neutral-200">
         <div class="container mx-auto px-4 py-4">
           <div class="flex items-center justify-between">
-            <div class="text-xl">Sensors Assembly Section</div>
+            <div class="text-xl font-bold">Smart Monster Assembly</div>
           </div>
         </div>
       </header>
       <main id="main" class="container mx-auto p-4 space-y-6">
         <!-- Back Button -->
         <div id="back-button-assembly" class="mb-4 inline-block">
-          <button
-            class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200"
-          >
+          <button class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200">
             <i class="fa-solid fa-arrow-left mr-2"></i> Back
           </button>
         </div>
@@ -39,60 +34,32 @@
           <div class="space-y-4">
             <div class="flex flex-col gap-2">
               <h2 class="text-lg">Body QR</h2>
-              <input
-                id="bodyQR"
-                type="text"
-                readonly
-                class="w-full px-3 py-2 border rounded focus:outline-none"
-              />
+              <input id="bodyQR" type="text" readonly class="w-full px-3 py-2 border rounded focus:outline-none" />
             </div>
 
             <div class="flex flex-col gap-2">
               <h2 class="text-lg">Cap QR</h2>
-              <input
-                id="capQR"
-                type="text"
-                readonly
-                class="w-full px-3 py-2 border rounded focus:outline-none"
-              />
+              <input id="capQR" type="text" readonly class="w-full px-3 py-2 border rounded focus:outline-none" />
             </div>
 
             <div class="flex gap-4 mt-4">
-              <button
-                id="saveAssembly"
-                class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex-1 transition-colors duration-200 hover:bg-neutral-700"
-              >
-                Save Assembly
-              </button>
-              <button
-                id="resetAssembly"
-                class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex-1 transition-colors duration-200 hover:bg-neutral-700"
-              >
-                Reset
-              </button>
+              <button id="saveAssembly" class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex-1 transition-colors duration-200 hover:bg-neutral-700">Save Assembly</button>
+              <button id="resetAssembly" class="px-4 py-2 bg-neutral-800 text-white rounded-lg flex-1 transition-colors duration-200 hover:bg-neutral-700">Reset</button>
             </div>
           </div>
 
           <!-- Camera -->
           <div class="flex justify-end mt-0">
-            <video
-              class="w-[100px] md:w-[200px] lg:w-[280px] aspect-square rounded border border-neutral-300 object-cover"
-              id="video"
-              autoplay
-              muted
-            ></video>
+            <video class="w-[100px] md:w-[200px] lg:w-[380px] aspect-rectangle rounded border border-neutral-300 object-cover" id="video" autoplay muted></video>
           </div>
         </div>
 
         <!-- Bottom row: Assembled Sensors -->
-        <div class="mt-6">
+        <div class="mt-0">
           <h2 class="mb-4 text-xl">Assembled Sensors</h2>
-          <div
-            id="assembledListContainer"
-            class="bg-white p-3 rounded shadow-sm border min-h-[100px] overflow-x-auto mb-4 flex space-x-2"
-          >
+          <div id="assembledListContainer" class="bg-white p-3 rounded shadow-sm border min-h-[100px] overflow-x-auto mb-4 flex space-x-2">
             <table class="min-w-full divide-y divide-neutral-200 text-sm">
-              <thead>
+              <thead class="vertical-align: middle;">
                 <tr class="border-b">
                   <th class="px-3 py-2 text-left text-sm">ID</th>
                   <th class="px-3 py-2 text-left text-sm">Body</th>
@@ -102,27 +69,14 @@
                   <th class="px-3 py-2 text-left text-sm">Actions</th>
                 </tr>
               </thead>
-              <tbody
-                id="assembledList"
-                class="divide-y divide-neutral-100"
-              ></tbody>
+              <tbody id="assembledList" class="divide-y divide-neutral-100"></tbody>
             </table>
           </div>
           <div class="flex justify-end mt-2 space-x-2">
-            <button
-              id="prevPage"
-              class="px-3 py-1 bg-neutral-800 text-white rounded-lg"
-            >
-              Prev
-            </button>
+            <button id="prevPage" class="px-3 py-1 bg-neutral-800 text-white rounded-lg">Prev</button>
             <!-- <span id="pageInfo" class="px-3 py-1 text-md">Page 1 of N</span> -->
             <div id="pageNumbers" class="flex flex-wrap gap-1"></div>
-            <button
-              id="nextPage"
-              class="px-3 py-1 bg-neutral-800 text-white rounded-lg"
-            >
-              Next
-            </button>
+            <button id="nextPage" class="px-3 py-1 bg-neutral-800 text-white rounded-lg">Next</button>
           </div>
         </div>
       </main>
@@ -135,25 +89,12 @@
         </div>
       </footer> -->
     </div>
-    <div
-      id="custom-alert"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
-    >
+    <div id="custom-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
       <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
         <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
         <div class="space-x-2">
-          <button
-            id="custom-alert-ok"
-            class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
-          >
-            OK
-          </button>
-          <button
-            id="custom-alert-cancel"
-            class="rounded-lg bg-gray-300 px-4 py-2 text-black hover:bg-gray-400 hidden"
-          >
-            Cancel
-          </button>
+          <button id="custom-alert-ok" class="mt-2 px-8 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700">OK</button>
+          <button id="custom-alert-cancel" class="rounded-lg bg-gray-300 px-4 py-2 text-black hover:bg-gray-400 hidden">Cancel</button>
         </div>
       </div>
     </div>
