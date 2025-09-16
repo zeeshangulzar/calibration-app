@@ -2,9 +2,14 @@ import { formatDateTime } from '../../shared/helpers/date-helper.js';
 import { startCamera, pauseScanning, resumeScanning, stopCamera, checkCameraAvailability } from '../../shared/helpers/camera-helper.js';
 import { showNotification, showSuccess, showInfo, showConfirmationModal } from '../../shared/helpers/notification-helper.js';
 import { PAGINATION } from '../../config/constants/global.constants.js';
+import { ASSEMBLY_SENSORS_CONSTANTS } from '../../config/constants/assembly-sensors.constants.js';
 
 let currentPage = PAGINATION.DEFAULT_PAGE;
 const pageSize = PAGINATION.DEFAULT_SIZE;
+
+// Debounce mechanism for invalid QR alerts
+let invalidQRDebounceTimer = null;
+let isInvalidQRAlertShown = false;
 
 /**
  * Check if a field is a duplicate based on duplicate field type and target field
@@ -14,6 +19,34 @@ const pageSize = PAGINATION.DEFAULT_SIZE;
  */
 function isDuplicateField(duplicateField, targetField) {
   return (duplicateField === 'body' && targetField === 'bodyQR') || (duplicateField === 'cap' && targetField === 'capQR') || duplicateField === 'both';
+}
+
+/**
+ * Show debounced invalid QR alert to prevent multiple popups
+ * @param {string} qrValue - The invalid QR code value
+ */
+function showDebouncedInvalidQRAlert(qrValue) {
+  // Clear existing timer if any
+  if (invalidQRDebounceTimer) {
+    clearTimeout(invalidQRDebounceTimer);
+  }
+
+  // If alert is already shown, don't show another one
+  if (isInvalidQRAlertShown) {
+    return;
+  }
+
+  // Show the alert
+  isInvalidQRAlertShown = true;
+  showCustomAlert(`Invalid QR format scanned: ${qrValue}`, () => {
+    isInvalidQRAlertShown = false;
+    resumeScanning();
+  });
+
+  // Set timer to reset the alert flag after debounce time
+  invalidQRDebounceTimer = setTimeout(() => {
+    isInvalidQRAlertShown = false;
+  }, ASSEMBLY_SENSORS_CONSTANTS.INVALID_QR_DEBOUNCE_TIME);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -201,8 +234,8 @@ async function handleScannedQR(qrValue) {
   const bodyQRField = document.getElementById('bodyQR');
   const capQRField = document.getElementById('capQR');
 
-  const capPattern = /^(\d{2})-(\d{2})-(\d{4})$/; // 25-28-0030
-  const bodyPattern = /^\d{6}$/; // 000003
+  const capPattern = ASSEMBLY_SENSORS_CONSTANTS.QR_PATTERNS.CAP_PATTERN;
+  const bodyPattern = ASSEMBLY_SENSORS_CONSTANTS.QR_PATTERNS.BODY_PATTERN;
 
   let targetField = null;
 
@@ -212,7 +245,7 @@ async function handleScannedQR(qrValue) {
   if (capPattern.test(qrValue)) {
     const [, yearStr, weekStr] = qrValue.match(capPattern);
     const week = parseInt(weekStr, 10);
-    if (week < 1 || week > 53) {
+    if (week < ASSEMBLY_SENSORS_CONSTANTS.WEEK_VALIDATION.MIN_WEEK || week > ASSEMBLY_SENSORS_CONSTANTS.WEEK_VALIDATION.MAX_WEEK) {
       showNotification(`Invalid week number in Cap QR: ${week}`, 'error');
       resumeScanning();
       return;
@@ -221,8 +254,7 @@ async function handleScannedQR(qrValue) {
   } else if (bodyPattern.test(qrValue)) {
     targetField = 'bodyQR';
   } else {
-    showNotification('Invalid QR format scanned: ' + qrValue, 'error');
-    resumeScanning();
+    showDebouncedInvalidQRAlert(qrValue);
     return;
   }
 
@@ -282,6 +314,11 @@ function resetAssemblyForm({ body = true, cap = true } = {}) {
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
   stopCamera();
+  // Clear debounce timer
+  if (invalidQRDebounceTimer) {
+    clearTimeout(invalidQRDebounceTimer);
+    invalidQRDebounceTimer = null;
+  }
 });
 
 function showCustomAlert(message, onConfirm = null, onCancel = null) {
