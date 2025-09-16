@@ -190,6 +190,128 @@ class MonsterMeterCommunicationService extends EventEmitter {
     console.error(`Failed in ${method}:`, error);
   }
 
+  /**
+   * Write current date to Monster Meter using existing serial connection
+   */
+  async writeDateToMonsterMeter() {
+    try {
+      console.log('📅 Writing current date to Monster Meter...');
+
+      if (!this.port?.isOpen) {
+        throw new Error('Serial port not available or not open');
+      }
+
+      const currentDate = new Date();
+      const payload = this.buildSetTimePayload(currentDate);
+
+      console.log(`📤 Sending date: ${currentDate.toLocaleDateString()} ${currentDate.toLocaleTimeString()}`);
+
+      await this.writeSetTimeToExistingPort(payload);
+
+      console.log('✅ Date written to Monster Meter successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('⚠️ Failed to write date to Monster Meter:', error.message);
+      this.handleError('writeDateToMonsterMeter', error);
+      // Don't throw error - date writing is not critical for calibration
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Write SetTime payload to existing serial port connection
+   */
+  async writeSetTimeToExistingPort(payload) {
+    return new Promise((resolve, reject) => {
+      const FRAME_LEN = 100;
+      let responseBuffer = Buffer.alloc(0);
+      let timeout;
+
+      // Set up timeout for response
+      timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for Monster Meter response'));
+      }, 5000); // 5 second timeout
+
+      const dataHandler = chunk => {
+        responseBuffer = Buffer.concat([responseBuffer, chunk]);
+
+        if (responseBuffer.length >= FRAME_LEN) {
+          clearTimeout(timeout);
+          this.port.removeListener('data', dataHandler);
+          this.port.removeListener('error', errorHandler);
+
+          console.log(`📥 Got ${responseBuffer.length} bytes from device`);
+
+          try {
+            this.parsePcData(responseBuffer);
+          } catch (error) {
+            console.warn('Failed to parse response:', error.message);
+          }
+
+          resolve();
+        }
+      };
+
+      const errorHandler = error => {
+        clearTimeout(timeout);
+        this.port.removeListener('data', dataHandler);
+        this.port.removeListener('error', errorHandler);
+        reject(error);
+      };
+
+      this.port.on('data', dataHandler);
+      this.port.on('error', errorHandler);
+
+      // Send the payload
+      this.port.write(payload, error => {
+        if (error) {
+          clearTimeout(timeout);
+          this.port.removeListener('data', dataHandler);
+          this.port.removeListener('error', errorHandler);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  /**
+   * Build SetTime payload for Monster Meter
+   */
+  buildSetTimePayload(date, avgSamples = 1) {
+    const SET_TIME_CMD = 0xa7;
+    const cmd = Buffer.alloc(36, 0);
+
+    cmd[0] = SET_TIME_CMD;
+    cmd[1] = avgSamples;
+    cmd[31] = date.getFullYear() % 100; // YY
+    cmd[32] = date.getMonth() + 1; // MM
+    cmd[33] = date.getDate(); // DD
+    cmd[34] = date.getHours(); // HH
+    cmd[35] = date.getMinutes(); // mm
+
+    return cmd;
+  }
+
+  /**
+   * Parse PC_DATA reply from Monster Meter
+   */
+  parsePcData(buf) {
+    try {
+      const FRAME_LEN = 100;
+      if (buf.length < FRAME_LEN) {
+        throw new Error(`Short frame: ${buf.length}`);
+      }
+
+      const frame = buf.slice(0, FRAME_LEN);
+      const avgSamples = frame.readUInt8(0);
+      const swVersion = frame.slice(73, 93).toString('ascii').replace(/\0+$/, '');
+
+      console.log(`\n📊 Device Reply: AVG_Samples=${avgSamples}, SW=${swVersion}`);
+    } catch (error) {
+      console.warn('Failed to parse PC data:', error.message);
+    }
+  }
+
   cleanup() {
     console.log('[Communication] Starting cleanup...');
     this.port = null;

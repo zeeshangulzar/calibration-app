@@ -85,6 +85,7 @@ class MonsterMeterCalibrationService {
 
   async runCalibrationProcess() {
     const steps = [
+      { fn: this.writeDateViaComService, name: 'Write date to Monster Meter' },
       { fn: this.connectToFluke, name: 'Connect to Fluke' },
       { fn: this.runFlukePreReqs, name: 'Fluke prerequisites' },
       { fn: this.checkZeroPressure, name: 'Zero pressure check' },
@@ -572,6 +573,18 @@ class MonsterMeterCalibrationService {
       this.showLogOnScreen('✅ Monster Meter calibration service cleanup completed');
     } catch (error) {
       this.handleError(error, 'cleanup');
+    }
+  }
+
+  /**
+   * Write current date to Monster Meter via communication service
+   */
+  async writeDateViaComService() {
+    const result = await this.monsterMeterCommunication.writeDateToMonsterMeter();
+
+    if (!result.success) {
+      this.showLogOnScreen(`⚠️ Failed to write date to Monster Meter: ${result.error}`);
+      Sentry.captureException(result.error);
     }
   }
 
