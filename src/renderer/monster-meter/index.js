@@ -446,7 +446,7 @@ const ipcHandlers = {
 
   onMonsterMeterVerificationData: data => {
     updateVerificationProgress(data);
-    updateVerificationResultsTable(data.verificationData || []);
+    updateVerificationResultsTable(data.verificationData || [], data.pressureArr);
     // Add log message for each verification point
     if (data.verificationData && data.verificationData.length > 0) {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
@@ -659,28 +659,39 @@ function showVerificationResults(data) {
   if (data && data.verificationData) {
     console.log('Verification completed with data:', data.verificationData);
     console.log('Verification summary:', data.summary);
-    updateVerificationResultsTable(data.verificationData);
+    updateVerificationResultsTable(data.verificationData, data.pressureArr);
     showVerificationSummary(data.summary);
   }
 }
 
-function updateVerificationResultsTable(data) {
+function updateVerificationResultsTable(verificationData, pressureArr) {
   const tbody = document.getElementById('verification-results-tbody');
+  const progressText = document.getElementById('verification-progress-text');
+
   if (!tbody) return;
 
+  // Use pressure array from backend (same as calibration)
+  const expectedPressures = pressureArr;
+
+  // Clear existing rows
   tbody.innerHTML = '';
 
-  if (data && data.length > 0) {
-    data.forEach((point, index) => {
-      const row = document.createElement('tr');
-      row.classList.add('border-b');
+  // Add rows for each expected pressure point (matching calibration table format)
+  for (let i = 0; i < expectedPressures.length; i++) {
+    const row = document.createElement('tr');
+    const isComplete = verificationData && i < verificationData.length;
+    const point = isComplete ? verificationData[i] : null;
+
+    row.className = 'border-b';
+
+    if (isComplete && point) {
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
       const statusIcon = point.inRange ? createPassSvg() : createFailSvg();
 
       row.innerHTML = `
-        <td class="py-2 pr-6">${index + 1}</td>
-        <td class="py-2 pr-6">${point.referencePressure.toFixed(1)}</td>
+        <td class="py-2 pr-6">Point ${i + 1}</td>
+        <td class="py-2 pr-6">${expectedPressures[i]}</td>
         <td class="py-2 pr-6">${point.voltageHi.toFixed(7)}</td>
         <td class="py-2 pr-6">${point.pressureHi.toFixed(1)}</td>
         <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
@@ -692,8 +703,27 @@ function updateVerificationResultsTable(data) {
           </span>
         </td>
       `;
-      tbody.appendChild(row);
-    });
+    } else {
+      // Show empty row with dashes (same as calibration)
+      row.innerHTML = `
+        <td class="py-2 pr-6">Point ${i + 1}</td>
+        <td class="py-2 pr-6">${expectedPressures[i]}</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+      `;
+    }
+
+    tbody.appendChild(row);
+  }
+
+  // Update progress text (same as calibration)
+  if (progressText) {
+    const completed = verificationData ? verificationData.length : 0;
+    const total = expectedPressures.length;
+    progressText.textContent = `Progress: ${completed}/${total} points completed`;
   }
 }
 
@@ -890,29 +920,29 @@ function initializeVerificationResultsTable() {
   const verificationPanel = document.getElementById('monster-meter-panel-verification');
   if (verificationPanel) {
     verificationPanel.innerHTML = `
-      <div class="mb-4">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="border-b">
-              <tr>
-                <th class="pb-2 pr-6 text-left">Point</th>
-                <th class="pb-2 pr-6 text-left">Reference Pressure (PSI)</th>
-                <th class="pb-2 pr-6 text-left">SensorHi Voltage (V)</th>
-                <th class="pb-2 pr-6 text-left">SensorHi Pressure (PSI)</th>
-                <th class="pb-2 pr-6 text-left">SensorLo Voltage (V)</th>
-                <th class="pb-2 pr-6 text-left">SensorLo Pressure (PSI)</th>
-                <th class="pb-2 pr-6 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
-              <!-- Verification data will be populated here -->
-            </tbody>
-          </table>
-        </div>
-        <div id="verification-progress-text" class="mt-2 text-sm text-neutral-500">Waiting for verification data...</div>
-        <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
-          <!-- Verification summary will be populated here -->
-        </div>
+      <div class="overflow-x-auto fade-in mb-6">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left border-b">
+              <th class="pb-2 pr-6">Pressure Point</th>
+              <th class="pb-2 pr-6">Reference (PSI)</th>
+              <th class="pb-2 pr-6">SensorHi Voltage (V)</th>
+              <th class="pb-2 pr-6">SensorHi Pressure (PSI)</th>
+              <th class="pb-2 pr-6">SensorLo Voltage (V)</th>
+              <th class="pb-2 pr-6">SensorLo Pressure (PSI)</th>
+              <th class="pb-2 pr-6">Status</th>
+            </tr>
+          </thead>
+          <tbody id="verification-results-tbody">
+            <!-- Data rows will be added here -->
+          </tbody>
+        </table>
+      </div>
+      <div class="text-sm text-neutral-500">
+        <span id="verification-progress-text">Waiting for verification data...</span>
+      </div>
+      <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
+        <!-- Verification summary will be populated here -->
       </div>
     `;
   }

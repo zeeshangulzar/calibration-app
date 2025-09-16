@@ -56,7 +56,9 @@ class MonsterMeterVerificationService {
       this.initializeVerificationState(testerName, model, serialNumber);
       this.generateSweepIntervals();
 
-      this.sendToRenderer('monster-meter-verification-started');
+      this.sendToRenderer('monster-meter-verification-started', {
+        pressureArr: this.sweepIntervals,
+      });
       await this.runVerificationProcess();
 
       if (this.isVerificationStopped) {
@@ -369,6 +371,7 @@ class MonsterMeterVerificationService {
       serialNumber: this.serialNumber,
       verificationData: this.dbDataVerification,
       summary: this.generateVerificationSummary(),
+      pressureArr: this.sweepIntervals,
     });
   }
 
