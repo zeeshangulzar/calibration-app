@@ -199,7 +199,7 @@ class MonsterMeterVerificationService {
   async sendVerifyMeCommand() {
     try {
       await this.monsterMeterCommunication.sendCommand(MONSTER_METER_CONSTANTS.COMMANDS.VERIFY_ME);
-      this.showLogOnScreen('Verify Me command sent to Monster Meter');
+      // this.showLogOnScreen('Verify Me command sent to Monster Meter');
     } catch (error) {
       this.handleError('sendVerifyMeCommand', error);
       throw error;

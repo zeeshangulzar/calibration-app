@@ -452,7 +452,7 @@ const ipcHandlers = {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
       const status = latestPoint.inRange ? 'PASS' : 'FAIL';
       const statusIcon = latestPoint.inRange ? createPassSvg() : createFailSvg();
-      addLogMessage(`${statusIcon} Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+      addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
     }
   },
 
@@ -712,7 +712,7 @@ function showVerificationSummary(summary) {
 
   const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
   const statusIcon = summary.status === 'PASSED' ? createPassSvg() : createFailSvg();
-  const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+  // const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
 
   summaryDiv.innerHTML = `
     <div class="flex items-center justify-between mb-4">
@@ -746,7 +746,7 @@ function showVerificationSummary(summary) {
     </div>
   `;
 
-  summaryDiv.className = `mt-4 p-4 rounded-lg border ${bgClass}`;
+  summaryDiv.className = `mt-4 p-4 rounded-lg border bg-neutral-50`;
   summaryDiv.classList.remove('hidden');
 }
 

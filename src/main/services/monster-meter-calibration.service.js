@@ -101,7 +101,7 @@ class MonsterMeterCalibrationService {
         await step.fn.call(this);
       }
 
-      this.showLogOnScreen('✅ Calibration sweep completed');
+      // this.showLogOnScreen('✅ Calibration sweep completed');
     } catch (error) {
       this.showLogOnScreen(`❌ Calibration process failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
