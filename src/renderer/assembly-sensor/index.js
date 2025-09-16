@@ -185,9 +185,9 @@ async function initializeCamera() {
 
     // First check if camera is available
     const cameraCheck = await checkCameraAvailability();
-    
+
     if (!cameraCheck.success) {
-      showCameraErrorModal("🚫 No camera found or permission denied. Please connect a camera and reload.");
+      showCameraErrorModal('🚫 No camera found or permission denied. Please connect a camera and reload.');
       return;
     }
 
@@ -199,7 +199,7 @@ async function initializeCamera() {
     startCamera(video, handleScannedQR, showCameraErrorModal);
   } catch (error) {
     console.error('Camera initialization failed:', error);
-    showCameraErrorModal("🚫 Failed to initialize camera. Please reload the page.");
+    showCameraErrorModal('🚫 Failed to initialize camera. Please reload the page.');
   }
 }
 
@@ -215,10 +215,10 @@ function showCameraErrorModal(message) {
 
   alertMessage.textContent = message;
   alertOkBtn.textContent = 'OK';
-  
+
   // Hide cancel button for this modal
   alertCancelBtn.classList.add('hidden');
-  
+
   alertBox.classList.remove('hidden');
 
   // Set up home navigation functionality
@@ -259,7 +259,7 @@ async function handleScannedQR(qrValue) {
   }
 
   if (document.getElementById(targetField).value.trim()) {
-    showCustomAlert(`The ${targetField === 'bodyQR' ? 'Body' : 'Cap'} QR is already filled.`, () => {
+    showCustomAlert(`The ${targetField === 'bodyQR' ? 'Body' : 'Cap'} QR code is already filled.`, () => {
       resumeScanning();
     });
     return;
