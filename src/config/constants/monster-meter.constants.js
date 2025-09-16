@@ -71,15 +71,15 @@ export const MONSTER_METER_CONSTANTS = {
 
   // Calibration settings
   TESTER_NAMES: {
-    Gabriel: 'Gabriel',
+    Gabriel: 'Gabriel Nunez',
     'Tester 1': 'Tester 1',
     'Tester 2': 'Tester 2',
   },
 
   // Model options
   MODEL_OPTIONS: {
-    'GK-MM-250': 'GK-MM-250',
-    'GK-MM-WC-250': 'GK-MM-WC-250',
+    'GK-MM-250 – AA Battery': 'GK-MM-250 – AA Battery',
+    'GK-MM-WC-250 – Wireless Charging': 'GK-MM-WC-250 – Wireless Charging',
   },
 
   // Fallback coefficients (used when generated coefficients are NaN)

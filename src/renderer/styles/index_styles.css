@@ -2,3 +2,14 @@
 .hidden {
   display: none !important;
 }
+
+/* Select dropdown with custom arrow positioned to the left */
+.custom-select-arrow-left {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-position: calc(100% - 8px) center;
+  background-size: 16px;
+  background-repeat: no-repeat;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"></polyline></svg>');
+}
