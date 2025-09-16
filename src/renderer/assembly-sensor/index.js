@@ -1,7 +1,7 @@
-import { formatDateTime } from "../../shared/helpers/date-helper.js";
-import { startCamera, pauseScanning, resumeScanning, stopCamera } from "../../shared/helpers/camera-helper.js";
-import { showNotification, showSuccess, showInfo, showConfirmationModal } from "../../shared/helpers/notification-helper.js";
-import { PAGINATION } from "../../config/constants/global.constants.js";
+import { formatDateTime } from '../../shared/helpers/date-helper.js';
+import { startCamera, pauseScanning, resumeScanning, stopCamera, checkCameraAvailability } from '../../shared/helpers/camera-helper.js';
+import { showNotification, showSuccess, showInfo, showConfirmationModal } from '../../shared/helpers/notification-helper.js';
+import { PAGINATION } from '../../config/constants/global.constants.js';
 
 let currentPage = PAGINATION.DEFAULT_PAGE;
 const pageSize = PAGINATION.DEFAULT_SIZE;
@@ -13,58 +13,49 @@ const pageSize = PAGINATION.DEFAULT_SIZE;
  * @returns {boolean} - True if the field is a duplicate
  */
 function isDuplicateField(duplicateField, targetField) {
-  return (
-    (duplicateField === "body" && targetField === "bodyQR") ||
-    (duplicateField === "cap" && targetField === "capQR") ||
-    duplicateField === "both"
-  );
+  return (duplicateField === 'body' && targetField === 'bodyQR') || (duplicateField === 'cap' && targetField === 'capQR') || duplicateField === 'both';
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('back-button-assembly').addEventListener('click', () => {
+    if (window.electronAPI && window.electronAPI.loadHomeScreen) {
+      window.electronAPI.loadHomeScreen();
+    }
+  });
 
-  document
-    .getElementById("back-button-assembly")
-    .addEventListener("click", () => {
-      if (window.electronAPI && window.electronAPI.loadHomeScreen) {
-        window.electronAPI.loadHomeScreen();
-      }
-    });
+  document.getElementById('saveAssembly').addEventListener('click', async () => {
+    const bodyQR = document.getElementById('bodyQR').value.trim();
+    const capQR = document.getElementById('capQR').value.trim();
 
-  document
-    .getElementById("saveAssembly")
-    .addEventListener("click", async () => {
-      const bodyQR = document.getElementById("bodyQR").value.trim();
-      const capQR = document.getElementById("capQR").value.trim();
+    if (!bodyQR && !capQR) {
+      showNotification('Please scan both Body QR and Cap QR.', 'error');
+      return;
+    } else if (!bodyQR) {
+      showNotification('Please scan Body QR code first.', 'error');
+      return;
+    } else if (!capQR) {
+      showNotification('Please scan Cap QR code first.', 'error');
+      return;
+    }
 
-      if (!bodyQR && !capQR) {
-        showNotification("Please scan both Body QR and Cap QR.", 'error');
-        return;
-      } else if (!bodyQR) {
-        showNotification("Please scan Body QR code first.", 'error');
-        return;
-      } else if (!capQR) {
-        showNotification("Please scan Cap QR code first.", 'error');
-        return;
-      }
+    // Save the assembly
+    if (window.electronAPI && window.electronAPI.saveAssembledSensor) {
+      window.electronAPI.saveAssembledSensor({ bodyQR, capQR });
+    }
+  });
 
-      // Save the assembly
-      if (window.electronAPI && window.electronAPI.saveAssembledSensor) {
-        window.electronAPI.saveAssembledSensor({ bodyQR, capQR });
-      }
-    });
-
-  document.getElementById("resetAssembly").addEventListener("click", () => {
+  document.getElementById('resetAssembly').addEventListener('click', () => {
     resetAssemblyForm();
   });
 
-  document.getElementById("prevPage").addEventListener("click", () => {
+  document.getElementById('prevPage').addEventListener('click', () => {
     if (currentPage > 1) {
       currentPage--;
       fetchAssembledSensors();
     }
   });
 
-  document.getElementById("nextPage").addEventListener("click", () => {
+  document.getElementById('nextPage').addEventListener('click', () => {
     currentPage++;
     fetchAssembledSensors();
   });
@@ -75,51 +66,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function fetchAssembledSensors() {
   if (window.electronAPI && window.electronAPI.getAssembledSensors) {
-    window.electronAPI
-      .getAssembledSensors({ page: currentPage, size: pageSize })
-      .then((data) => {
-        const totalPages = Math.ceil(data.totalCount / pageSize);
+    window.electronAPI.getAssembledSensors({ page: currentPage, size: pageSize }).then(data => {
+      const totalPages = Math.ceil(data.totalCount / pageSize);
 
-        // ---- adjust currentPage if it's now out of bounds
-        if (currentPage > totalPages && totalPages > 0) {
-          currentPage = totalPages;
-          fetchAssembledSensors(); // recall with adjusted page
-          return;
-        }
+      // ---- adjust currentPage if it's now out of bounds
+      if (currentPage > totalPages && totalPages > 0) {
+        currentPage = totalPages;
+        fetchAssembledSensors(); // recall with adjusted page
+        return;
+      }
 
-        renderAssembledList(data.rows);
+      renderAssembledList(data.rows);
 
-        const prevBtn = document.getElementById("prevPage");
-        const nextBtn = document.getElementById("nextPage");
-        const pageNumbers = document.getElementById("pageNumbers");
+      const prevBtn = document.getElementById('prevPage');
+      const nextBtn = document.getElementById('nextPage');
+      const pageNumbers = document.getElementById('pageNumbers');
 
-        if (data.totalCount === 0) {
-          prevBtn.classList.add("hidden");
-          nextBtn.classList.add("hidden");
-          pageNumbers.classList.add("hidden");
-          return;
-        } else {
-          prevBtn.classList.remove("hidden");
-          nextBtn.classList.remove("hidden");
-          pageNumbers.classList.remove("hidden");
-        }
+      if (data.totalCount === 0) {
+        prevBtn.classList.add('hidden');
+        nextBtn.classList.add('hidden');
+        pageNumbers.classList.add('hidden');
+        return;
+      } else {
+        prevBtn.classList.remove('hidden');
+        nextBtn.classList.remove('hidden');
+        pageNumbers.classList.remove('hidden');
+      }
 
-        prevBtn.disabled = currentPage === 1;
-        prevBtn.classList.toggle("opacity-50", prevBtn.disabled);
-        prevBtn.classList.toggle("cursor-not-allowed", prevBtn.disabled);
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.classList.toggle('opacity-50', prevBtn.disabled);
+      prevBtn.classList.toggle('cursor-not-allowed', prevBtn.disabled);
 
-        nextBtn.disabled = currentPage === totalPages;
-        nextBtn.classList.toggle("opacity-50", nextBtn.disabled);
-        nextBtn.classList.toggle("cursor-not-allowed", nextBtn.disabled);
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.classList.toggle('opacity-50', nextBtn.disabled);
+      nextBtn.classList.toggle('cursor-not-allowed', nextBtn.disabled);
 
-        renderPageNumbers(totalPages);
-      });
+      renderPageNumbers(totalPages);
+    });
   }
 }
 
 function renderAssembledList(list) {
-  const tbody = document.getElementById("assembledList");
-  tbody.innerHTML = "";
+  const tbody = document.getElementById('assembledList');
+  tbody.innerHTML = '';
 
   if (!list.length) {
     tbody.innerHTML = `
@@ -130,19 +119,15 @@ function renderAssembledList(list) {
     return;
   }
 
-  list.forEach((item) => {
-    const tr = document.createElement("tr");
-    tr.setAttribute("data-id", item.id);
+  list.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-id', item.id);
     tr.innerHTML = `
       <td class="py-2 px-2 text-left">${item.id}</td>
       <td class="py-2 px-2 text-left">${item.bodyQR}</td>
       <td class="py-2 px-2 text-left">${item.capQR}</td>
       <td class="py-2 px-2 text-left">${formatDateTime(item.created_at)}</td>
-      <td class="py-2 px-2 text-left">${
-        item.updated_at
-          ? formatDateTime(item.updated_at)
-          : formatDateTime(item.created_at)
-      }</td>
+      <td class="py-2 px-2 text-left">${item.updated_at ? formatDateTime(item.updated_at) : formatDateTime(item.created_at)}</td>
       <td class="py-2 px-2 text-left space-x-2">
         <button
           class="rounded-md bg-red-600 hover:bg-red-700 px-4 py-1 text-white text-sm"
@@ -154,15 +139,67 @@ function renderAssembledList(list) {
   });
 }
 
-function initializeCamera() {
-  const video = document.getElementById("video");
+async function initializeCamera() {
+  const video = document.getElementById('video');
 
-  startCamera(video, handleScannedQR);
+  try {
+    // Show loading state
+    video.style.backgroundColor = '#f3f4f6';
+    video.style.display = 'flex';
+    video.style.alignItems = 'center';
+    video.style.justifyContent = 'center';
+    video.innerHTML = '<div style="color: #6b7280; font-size: 14px;">Checking camera...</div>';
+
+    // First check if camera is available
+    const cameraCheck = await checkCameraAvailability();
+    
+    if (!cameraCheck.success) {
+      showCameraErrorModal("🚫 No camera found or permission denied. Please connect a camera and reload.");
+      return;
+    }
+
+    // Clear loading state
+    video.innerHTML = '';
+    video.style.backgroundColor = '';
+
+    // If camera is available, start it with error callback
+    startCamera(video, handleScannedQR, showCameraErrorModal);
+  } catch (error) {
+    console.error('Camera initialization failed:', error);
+    showCameraErrorModal("🚫 Failed to initialize camera. Please reload the page.");
+  }
+}
+
+/**
+ * Show camera error modal with home navigation option
+ * @param {string} message - Error message to display
+ */
+function showCameraErrorModal(message) {
+  const alertBox = document.getElementById('custom-alert');
+  const alertMessage = document.getElementById('custom-alert-message');
+  const alertOkBtn = document.getElementById('custom-alert-ok');
+  const alertCancelBtn = document.getElementById('custom-alert-cancel');
+
+  alertMessage.textContent = message;
+  alertOkBtn.textContent = 'OK';
+  
+  // Hide cancel button for this modal
+  alertCancelBtn.classList.add('hidden');
+  
+  alertBox.classList.remove('hidden');
+
+  // Set up home navigation functionality
+  alertOkBtn.onclick = () => {
+    alertBox.classList.add('hidden');
+    if (window.electronAPI && window.electronAPI.loadHomeScreen) {
+      window.electronAPI.loadHomeScreen();
+    }
+  };
 }
 
 async function handleScannedQR(qrValue) {
-  const bodyQRField = document.getElementById("bodyQR");
-  const capQRField = document.getElementById("capQR");
+  const bodyQRField = document.getElementById('bodyQR');
+  const capQRField = document.getElementById('capQR');
 
   const capPattern = /^(\d{2})-(\d{2})-(\d{4})$/; // 25-28-0030
   const bodyPattern = /^\d{6}$/; // 000003
@@ -180,28 +217,25 @@ async function handleScannedQR(qrValue) {
       resumeScanning();
       return;
     }
-    targetField = "capQR";
+    targetField = 'capQR';
   } else if (bodyPattern.test(qrValue)) {
-    targetField = "bodyQR";
+    targetField = 'bodyQR';
   } else {
-    showNotification("Invalid QR format scanned: " + qrValue, 'error');
+    showNotification('Invalid QR format scanned: ' + qrValue, 'error');
     resumeScanning();
     return;
   }
 
   if (document.getElementById(targetField).value.trim()) {
-    showCustomAlert(
-      `The ${targetField === "bodyQR" ? "Body" : "Cap"} QR is already filled.`,
-      () => {
-        resumeScanning();
-      }
-    );
+    showCustomAlert(`The ${targetField === 'bodyQR' ? 'Body' : 'Cap'} QR is already filled.`, () => {
+      resumeScanning();
+    });
     return;
   }
 
   // Prepare data to check duplicates
-  const bodyQR = targetField === "bodyQR" ? qrValue : bodyQRField.value.trim();
-  const capQR = targetField === "capQR" ? qrValue : capQRField.value.trim();
+  const bodyQR = targetField === 'bodyQR' ? qrValue : bodyQRField.value.trim();
+  const capQR = targetField === 'capQR' ? qrValue : capQRField.value.trim();
 
   if (window.electronAPI && window.electronAPI.checkDuplicateQR) {
     const duplicateField = await window.electronAPI.checkDuplicateQR({
@@ -210,14 +244,9 @@ async function handleScannedQR(qrValue) {
     });
 
     if (isDuplicateField(duplicateField, targetField)) {
-      showCustomAlert(
-        `This ${targetField === "bodyQR" ? "Body" : "Cap"} QR (${
-          targetField === "bodyQR" ? bodyQR : capQR
-        }) is already saved.`,
-        () => {
-          resumeScanning();
-        }
-      );
+      showCustomAlert(`This ${targetField === 'bodyQR' ? 'Body' : 'Cap'} QR (${targetField === 'bodyQR' ? bodyQR : capQR}) is already saved.`, () => {
+        resumeScanning();
+      });
       return;
     }
   }
@@ -225,71 +254,64 @@ async function handleScannedQR(qrValue) {
   // If all good, assign value
   document.getElementById(targetField).value = qrValue;
 
-  showCustomAlert(
-    `Scanned ${targetField === "bodyQR" ? "Body" : "Cap"} QR: ${qrValue}`,
-    () => {
-      if (
-        !document.getElementById("bodyQR").value.trim() ||
-        !document.getElementById("capQR").value.trim()
-      ) {
-        resumeScanning(); // resume scanning if the other field is still empty
-      }
+  showCustomAlert(`Scanned ${targetField === 'bodyQR' ? 'Body' : 'Cap'} QR: ${qrValue}`, () => {
+    if (!document.getElementById('bodyQR').value.trim() || !document.getElementById('capQR').value.trim()) {
+      resumeScanning(); // resume scanning if the other field is still empty
     }
-  );
+  });
 }
 
 // Listen for assembly saved events
 if (window.electronAPI && window.electronAPI.onAssembledSaved) {
-  window.electronAPI.onAssembledSaved((action) => {
+  window.electronAPI.onAssembledSaved(action => {
     resetAssemblyForm();
     fetchAssembledSensors();
 
-    const message = action === "deleted"
-      ? "Assembled sensor deleted successfully." 
-      : "Sensor assembled successfully.";
-    
+    const message = action === 'deleted' ? 'Assembled sensor deleted successfully.' : 'Sensor assembled successfully.';
+
     showNotification(message, 'success');
   });
 }
 
 function resetAssemblyForm({ body = true, cap = true } = {}) {
-  if (body) document.getElementById("bodyQR").value = "";
-  if (cap) document.getElementById("capQR").value = "";
+  if (body) document.getElementById('bodyQR').value = '';
+  if (cap) document.getElementById('capQR').value = '';
   resumeScanning();
 }
 
 // Cleanup on page unload
-window.addEventListener("beforeunload", () => {
+window.addEventListener('beforeunload', () => {
   stopCamera();
 });
 
 function showCustomAlert(message, onConfirm = null, onCancel = null) {
-  const alertBox = document.getElementById("custom-alert");
-  const alertMessage = document.getElementById("custom-alert-message");
-  const alertOkBtn = document.getElementById("custom-alert-ok");
-  const alertCancelBtn = document.getElementById("custom-alert-cancel");
+  const alertBox = document.getElementById('custom-alert');
+  const alertMessage = document.getElementById('custom-alert-message');
+  const alertOkBtn = document.getElementById('custom-alert-ok');
+  const alertCancelBtn = document.getElementById('custom-alert-cancel');
 
   alertMessage.textContent = message;
-  alertBox.classList.remove("hidden");
+  alertOkBtn.textContent = 'OK'; // Reset button text to default
+  alertBox.classList.remove('hidden');
 
   // Show or hide Cancel button
-  if (typeof onCancel === "function") {
-    alertCancelBtn.classList.remove("hidden");
+  if (typeof onCancel === 'function') {
+    alertCancelBtn.classList.remove('hidden');
   } else {
-    alertCancelBtn.classList.add("hidden");
+    alertCancelBtn.classList.add('hidden');
   }
 
   alertOkBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onConfirm === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onConfirm === 'function') {
       onConfirm();
       resumeScanning();
     }
   };
 
   alertCancelBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onCancel === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onCancel === 'function') {
       onCancel();
       resumeScanning();
     }
@@ -299,7 +321,7 @@ function showCustomAlert(message, onConfirm = null, onCancel = null) {
 function deleteSensor(id) {
   pauseScanning();
   showConfirmationModal(
-    "Are you sure you want to delete this sensor?",
+    'Are you sure you want to delete this sensor?',
     () => {
       if (window.electronAPI && window.electronAPI.deleteAssembledSensor) {
         window.electronAPI.deleteAssembledSensor(id);
@@ -307,14 +329,14 @@ function deleteSensor(id) {
     },
     () => {
       resumeScanning();
-      console.log("Deletion cancelled");
+      console.log('Deletion cancelled');
     }
   );
 }
 
 function renderPageNumbers(totalPages) {
-  const container = document.getElementById("pageNumbers");
-  container.innerHTML = "";
+  const container = document.getElementById('pageNumbers');
+  container.innerHTML = '';
 
   const pages = [];
 
@@ -327,7 +349,7 @@ function renderPageNumbers(totalPages) {
     pages.push(1);
 
     if (currentPage > 4) {
-      pages.push("…");
+      pages.push('…');
     }
 
     const start = Math.max(2, currentPage - 1);
@@ -338,27 +360,23 @@ function renderPageNumbers(totalPages) {
     }
 
     if (currentPage < totalPages - 3) {
-      pages.push("…");
+      pages.push('…');
     }
 
     pages.push(totalPages);
   }
 
-  pages.forEach((page) => {
-    const btn = document.createElement("button");
+  pages.forEach(page => {
+    const btn = document.createElement('button');
     btn.textContent = page;
 
-    if (page === "…") {
+    if (page === '…') {
       btn.disabled = true;
-      btn.className = "px-2 py-1 text-gray-500 cursor-default text-sm";
+      btn.className = 'px-2 py-1 text-gray-500 cursor-default text-sm';
     } else {
-      btn.className =
-        "px-3 py-1 rounded text-sm" +
-        (page === currentPage
-          ? " bg-neutral-800 text-white font-medium"
-          : " bg-gray-200 hover:bg-gray-300");
+      btn.className = 'px-3 py-1 rounded text-sm' + (page === currentPage ? ' bg-neutral-800 text-white font-medium' : ' bg-gray-200 hover:bg-gray-300');
 
-      btn.addEventListener("click", () => {
+      btn.addEventListener('click', () => {
         currentPage = page;
         fetchAssembledSensors();
       });
@@ -367,7 +385,6 @@ function renderPageNumbers(totalPages) {
     container.appendChild(btn);
   });
 }
-
 
 // Make deleteSensor globally available
 window.deleteSensor = deleteSensor;
