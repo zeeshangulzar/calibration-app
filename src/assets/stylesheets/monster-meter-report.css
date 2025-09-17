@@ -111,8 +111,8 @@ body {
 }
 
 .validity-text {
-  font-size: 15px;
-  color: #666;
+  font-size: 15px !important;
+  color: black;
   text-align: center;
   margin-top: 10px;
   font-style: italic;
