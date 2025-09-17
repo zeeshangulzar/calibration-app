@@ -89,7 +89,6 @@ class MonsterMeterCalibrationService {
       { fn: this.connectToFluke, name: 'Connect to Fluke' },
       { fn: this.runFlukePreReqs, name: 'Fluke prerequisites' },
       { fn: this.checkZeroPressure, name: 'Zero pressure check' },
-      { fn: this.waitForFluke, name: 'Wait for Fluke' },
       { fn: this.zeroMonsterMeter, name: 'Zero Monster Meter' },
       { fn: this.sendStartCalibrationCommandToMM, name: 'Start calibration' },
       { fn: this.runCalibrationSweep, name: 'Calibration sweep' },
@@ -219,7 +218,8 @@ class MonsterMeterCalibrationService {
   async checkZeroPressure() {
     try {
       await this.fluke.setZeroPressureToFluke();
-      await this.fluke.waitForFlukeToReachZeroPressure();
+      await this.fluke.waitForFlukeToReachZeroPressure(true); // silent
+      this.showLogOnScreen('✅ Fluke reached zero pressure');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
