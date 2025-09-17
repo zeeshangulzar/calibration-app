@@ -1,6 +1,6 @@
 import { getTelnetClient } from '../services/telnet-client.service.js';
 import { COMMAND_HELPERS } from '../constants/fluke-commands.js';
-import { addCommandToHistory } from '../db/index.js';
+import { addCommandToHistory, getFlukeSettings } from '../db/index.js';
 import * as Sentry from '@sentry/electron/main';
 
 /**
@@ -68,8 +68,13 @@ class SettingsController {
    * @returns {Object} Current settings
    */
   getFlukeSettings() {
-    // This will be handled by the IPC layer now
-    return { success: true, message: 'Use IPC handler for database operations' };
+    try {
+      const settings = getFlukeSettings();
+      return { success: true, settings };
+    } catch (error) {
+      console.error('Failed to get Fluke settings:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   /**

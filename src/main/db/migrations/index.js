@@ -68,13 +68,11 @@ function validateMigrationStructure(migration, filename) {
       throw error;
     }
   }
-
   // Additional validation: Check SQL content for basic safety
   const upSQL = migration.up.trim().toLowerCase();
   if (upSQL.includes('drop table') && !upSQL.includes('if exists')) {
     console.warn(`---- Warning: ${filename} contains DROP TABLE without IF EXISTS - this could be dangerous`);
   }
-
   return true;
 }
 
@@ -109,7 +107,6 @@ function validateMigrationVersions(migrations) {
     console.warn(`---- Warning: Missing migration versions: ${missingVersions.join(', ')}`);
     console.warn('   This may indicate incomplete migration history');
   }
-
   // Validate version numbers are positive integers
   const invalidVersions = versions.filter(v => v <= 0 || !Number.isInteger(v));
   if (invalidVersions.length > 0) {
