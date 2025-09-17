@@ -96,7 +96,6 @@ class GVIPDFService {
    */
   generateReportId(serialNumber) {
     const now = new Date();
-    const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
     // use last date string instead of timestamp
     const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
     return `GVI-${serialNumber}-${dateStr}`;
