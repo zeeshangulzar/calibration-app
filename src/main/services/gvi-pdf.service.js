@@ -181,6 +181,7 @@ class GVIPDFService {
         companyCityStateZip: GLOBAL_CONSTANTS.COMPANY_CITY_STATE_ZIP,
         companyPhone: GLOBAL_CONSTANTS.COMPANY_PHONE,
         companyEmail: GLOBAL_CONSTANTS.COMPANY_EMAIL,
+        reportTitle: GVI_CONSTANTS.REPORT_TITLE,
       };
 
       return template(templateData);

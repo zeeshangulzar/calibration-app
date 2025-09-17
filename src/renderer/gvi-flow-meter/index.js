@@ -211,7 +211,7 @@ async function loadAvailableModels() {
           modelSelect.appendChild(option);
         });
 
-        addLogMessage(`Loaded ${result.models.length} models from database`);
+        // addLogMessage(`Loaded ${result.models.length} models from database`);
         updateStartButtonState(); // Update button state after models are loaded
       }
     } else {
@@ -500,8 +500,10 @@ function showGPMInput(step, currentStep, totalSteps) {
 
   if (container) {
     container.innerHTML = `
-    <div class="flex flex-row">
-      <h4>Please note this GPM at Gauge</h4>
+    <div class="flex flex-row text-center justify-center">
+      <div class="flex items-center">
+        <h4>Please note this GPM at Gauge</h4>
+      </div>
       <div class="ml-5 flex">
         <h1 class="text-4xl font-bold" id="gpm-at-gauge">${step.gpm}</h1>
         <span class="text-4xl font-bold ml-2">GPM</span>

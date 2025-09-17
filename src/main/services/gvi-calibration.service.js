@@ -40,10 +40,10 @@ export class GVICalibrationService {
       // Initialize Fluke service
       this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.isCalibrationActive);
 
-      this.showLogOnScreen('GVI Calibration Service initialized');
-      this.showLogOnScreen(`Model: ${config.model}`);
-      this.showLogOnScreen(`Serial Number: ${config.serialNumber}`);
-      this.showLogOnScreen(`Tester: ${config.tester}`);
+      // this.showLogOnScreen('GVI Calibration Service initialized');
+      // this.showLogOnScreen(`Model: ${config.model}`);
+      // this.showLogOnScreen(`Serial Number: ${config.serialNumber}`);
+      // this.showLogOnScreen(`Tester: ${config.tester}`);
 
       return { success: true };
     } catch (error) {

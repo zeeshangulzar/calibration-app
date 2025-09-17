@@ -147,7 +147,7 @@ export class GVIController {
         await this.calibrationService.initialize(config);
 
         this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
-        this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.state.totalSteps}`);
+        // this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.state.totalSteps}`);
 
         const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
 
