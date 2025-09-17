@@ -61,17 +61,7 @@ export function registerSettingsIpcHandlers() {
 
   ipcMain.handle('settings-save-fluke-settings', async (event, ip, port) => {
     try {
-      // Save to database
       const result = saveFlukeSettings(ip, port);
-
-      // Update the TelnetClientService instance if controller is available
-      // if (settingsController && settingsController.telnetClient) {
-      //   settingsController.telnetClient.updateSettings(ip, port);
-      //   console.log(`Updated TelnetClientService with new settings - IP: ${ip}, Port: ${port}`);
-      // }
-
-      // // FlukeFactoryService will automatically get updated settings on next use
-      // console.log(`FlukeFactoryService will automatically use updated settings on next use - IP: ${ip}, Port: ${port}`);
 
       if (result.success) {
         // Refresh TelnetClient settings
