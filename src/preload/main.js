@@ -27,7 +27,9 @@ try {
 contextBridge.exposeInMainWorld('electronAPI', {
   //======== Core Application APIs ========
   loadHomeScreen: () => ipcRenderer.send('load-home-screen'),
-  onShowAppVersion: callback => ipcRenderer.on('show-app-version', (_, version) => callback(version)),
+  onShowAppVersion: callback =>
+    ipcRenderer.on('show-app-version', (event, version) => callback(version)),
+  getMigrationStatus: () => ipcRenderer.invoke('get-migration-status'),
 
   //======== Kraken List APIs ========
   loadKrakenList: () => {
@@ -117,6 +119,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCalibrationStarted: callback => ipcRenderer.on('calibration-started', () => callback()),
   onKrakenNameUpdated: callback => ipcRenderer.on('kraken-name-updated', (_, data) => callback(data)),
 
+  //======== Assembly Sensor APIs ========
+  assemblySensors: () => ipcRenderer.invoke('assembly-sensors'),
+  getAssembledSensors: (args) =>
+    ipcRenderer.invoke('get-assembled-sensors', args),
+  saveAssembledSensor: (data) =>
+    ipcRenderer.send('save-assembled-sensor', data),
+  onAssembledSaved: (callback) =>
+    ipcRenderer.on('assembled-saved', (_event, action) => {
+      callback(action);
+    }),
+  deleteAssembledSensor: (id) =>
+    ipcRenderer.send('delete-assembled-sensor', id),
+  checkDuplicateQR: (data) => ipcRenderer.invoke('check-duplicate-qr', data),
+
   //======== Settings APIs ========
   loadSettings: () => ipcRenderer.send('load-settings'),
   settingsGoBack: () => ipcRenderer.send('settings-go-back'),
@@ -171,6 +187,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowKrakenCalibrationButton: callback => ipcRenderer.on('show-kraken-calibration-button', () => callback()),
   onHideKrakenCalibrationButton: callback => ipcRenderer.on('hide-kraken-calibration-button', () => callback()),
   onDeviceCalibrationStatusUpdate: callback => ipcRenderer.on('device-calibration-status-update', (_, data) => callback(data)),
+  onDeviceVerificationStatusUpdate: callback => ipcRenderer.on('device-verification-status-update', (_, data) => callback(data)),
   onCertificationStatusUpdate: callback => ipcRenderer.on('certification-status-update', (_, data) => callback(data)),
 
   // Back button events
@@ -210,10 +227,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Monster Meter calibration
   monsterMeterStartCalibration: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-calibration', testerName, model, serialNumber),
-  monsterMeterStopCalibration: (reason) => ipcRenderer.invoke('monster-meter-stop-calibration', reason),
+  monsterMeterStopCalibration: reason => ipcRenderer.invoke('monster-meter-stop-calibration', reason),
   monsterMeterGetCalibrationStatus: () => ipcRenderer.invoke('monster-meter-get-calibration-status'),
   monsterMeterStartVerification: (testerName, model, serialNumber) => ipcRenderer.invoke('monster-meter-start-verification', testerName, model, serialNumber),
-  monsterMeterStopVerification: (reason) => ipcRenderer.invoke('monster-meter-stop-verification', reason),
+  monsterMeterStopVerification: reason => ipcRenderer.invoke('monster-meter-stop-verification', reason),
   monsterMeterGetVerificationStatus: () => ipcRenderer.invoke('monster-meter-get-verification-status'),
 
   // Monster Meter event listeners

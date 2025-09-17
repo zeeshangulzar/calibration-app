@@ -6,6 +6,31 @@ import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.co
 
 const getLocalTimestamp = () => new Date().toLocaleTimeString();
 
+// Status SVG icons - loaded from assets folder
+let passIconSvg = '';
+let failIconSvg = '';
+
+// Load SVG icons from assets folder
+async function loadStatusIcons() {
+  try {
+    const passResponse = await fetch('../../assets/svgs/pass-icon.svg');
+    const failResponse = await fetch('../../assets/svgs/fail-icon.svg');
+
+    passIconSvg = await passResponse.text();
+    failIconSvg = await failResponse.text();
+
+    console.log('Status icons loaded successfully');
+  } catch (error) {
+    console.error('Failed to load status icons:', error);
+    // Fallback to inline SVGs if loading fails
+    passIconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" class="inline"><path d="M5.1 8L7.1 10.5L11.1 5.5M15 8C15 11.866 11.866 15 8 15C4.134 15 1 11.866 1 8C1 4.134 4.134 1 8 1C11.866 1 15 4.134 15 8Z" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+    failIconSvg = `<svg width="16" height="16" viewBox="0 0 16 16" class="inline"><circle cx="8" cy="8" r="7" fill="none" stroke="#ef4444" stroke-width="2" /><path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+  }
+}
+
+const createPassSvg = () => passIconSvg;
+const createFailSvg = () => failIconSvg;
+
 // State management
 let eventListenersSetup = false;
 let isCalibrationActive = false;
@@ -78,6 +103,35 @@ const setButtonState = (button, disabled, text, className = '') => {
   if (className) button.className = className;
 };
 
+const updateBackButton = () => {
+  const { backBtn } = elements;
+  if (!backBtn) return;
+
+  // Disable back button when calibration or verification is active
+  const shouldDisable = isCalibrationActive || isVerificationActive;
+  setButtonState(backBtn, shouldDisable);
+
+  // Show/hide status message
+  const statusMessage = document.getElementById('back-button-status-message');
+  const messageText = document.getElementById('back-button-message-text');
+
+  if (statusMessage && messageText) {
+    if (shouldDisable) {
+      let message = '';
+      if (isCalibrationActive) {
+        message = 'Back button is disabled during calibration. It will be re-enabled when calibration completes or if an error occurs.';
+      } else if (isVerificationActive) {
+        message = 'Back button is disabled during verification. It will be re-enabled when verification completes or if an error occurs.';
+      }
+
+      messageText.textContent = message;
+      statusMessage.classList.remove('hidden');
+    } else {
+      statusMessage.classList.add('hidden');
+    }
+  }
+};
+
 const updateConnectButton = () => {
   const { portSelect, connectPortButton } = elements;
   if (portSelect && connectPortButton) {
@@ -89,7 +143,7 @@ const updateConnectButton = () => {
 
 // Main event handlers
 const handleConnectPort = async () => {
-  const { portSelect, connectPortButton } = elements;
+  const { portSelect, connectPortButton, refreshPortsButton } = elements;
   const selectedPort = portSelect?.value;
 
   if (!selectedPort) {
@@ -98,22 +152,42 @@ const handleConnectPort = async () => {
   }
 
   try {
+    // Disable connect button, refresh button, and port dropdown during connection
     setButtonState(connectPortButton, true, 'Connecting...');
+    setButtonState(refreshPortsButton, true);
+    if (portSelect) {
+      portSelect.disabled = true;
+      portSelect.classList.add('opacity-50', 'cursor-not-allowed');
+    }
     addLogMessage(`Attempting to connect to ${selectedPort}...`);
 
     const result = await window.electronAPI.monsterMeterConnectPort(selectedPort);
 
     if (result.success) {
       addLogMessage(`Successfully connected to ${selectedPort}`);
+      // Keep port dropdown disabled after successful connection
+      // Don't re-enable it in the finally block
     } else {
       addLogMessage(`Failed to connect: ${result.error}`, 'error');
       NotificationHelper.showError(`Connection failed: ${result.error}`);
+      // Re-enable port dropdown only if connection failed
+      if (portSelect) {
+        portSelect.disabled = false;
+        portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
     }
   } catch (error) {
     addLogMessage(`Connection error: ${error.message}`, 'error');
     NotificationHelper.showError(`Connection error: ${error.message}`);
+    // Re-enable port dropdown only if connection failed
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   } finally {
-    setButtonState(connectPortButton, false);
+    // Re-enable buttons after connection attempt (but not port dropdown if successful)
+    setButtonState(connectPortButton, true);
+    setButtonState(refreshPortsButton, true);
     if (connectPortButton) {
       connectPortButton.innerHTML = '<i class="fa-solid fa-upload mr-2"></i> Connect';
     }
@@ -124,6 +198,20 @@ const cleanupMonsterMeterModule = async () => {
   try {
     console.log('Cleaning up Monster Meter module...');
     cleanupEventListeners();
+
+    // Re-enable port dropdown when cleaning up
+    const { portSelect, connectPortButton, refreshPortsButton } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    if (refreshPortsButton) {
+      refreshPortsButton.disabled = false;
+      refreshPortsButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    if (connectPortButton) {
+      connectPortButton.disabled = false;
+    }
 
     if (window.electronAPI.monsterMeterCleanupModule) {
       await window.electronAPI.monsterMeterCleanupModule();
@@ -136,7 +224,9 @@ const cleanupMonsterMeterModule = async () => {
 };
 
 // DOM event setup
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load status icons first
+  await loadStatusIcons();
   const {
     backBtn,
     portSelect,
@@ -181,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial button state
   updateConnectButton();
   updateCalibrationButtons();
+  updateBackButton();
 });
 
 // IPC Event Listeners
@@ -188,8 +279,6 @@ const ipcHandlers = {
   onMonsterMeterPortsUpdated: ports => {
     const { portSelect } = elements;
     if (!portSelect) return;
-
-    portSelect.innerHTML = '<option value="">Refreshing ports...</option>';
 
     setTimeout(() => {
       portSelect.innerHTML = '<option value="">Select Port</option>';
@@ -200,9 +289,6 @@ const ipcHandlers = {
         portSelect.appendChild(option);
       });
 
-      if (ports.length > 0) {
-        addLogMessage(`Port list updated: ${ports.length} port(s) available`);
-      }
       updateConnectButton();
     }, MONSTER_METER_CONSTANTS.UI_UPDATE_DELAY);
   },
@@ -226,6 +312,23 @@ const ipcHandlers = {
     NotificationHelper.showInfo('Monster Meter disconnected');
     updateCalibrationButtons();
 
+    // Re-enable port dropdown when disconnected
+    const { portSelect, connectPortButton, refreshPortsButton } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    if (connectPortButton) {
+      connectPortButton.disabled = false;
+      connectPortButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    if (refreshPortsButton) {
+      refreshPortsButton.disabled = false;
+      refreshPortsButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
     const statusEl = document.getElementById('portStatus');
     if (statusEl) {
       statusEl.textContent = 'Closed';
@@ -238,6 +341,13 @@ const ipcHandlers = {
     addLogMessage(`Connection error: ${data.error}`, 'error');
     NotificationHelper.showError(`Failed to connect to ${data.port}: ${data.error}`);
     updateCalibrationButtons();
+
+    // Re-enable port dropdown on connection error
+    const { portSelect } = elements;
+    if (portSelect) {
+      portSelect.disabled = false;
+      portSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   },
 
   onMonsterMeterError: data => {
@@ -253,6 +363,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationStarted: data => {
     isCalibrationActive = true;
     updateCalibrationButtons();
+    updateBackButton();
     // Clear previous calibration data when starting new calibration
     clearCalibrationData();
     showCalibrationResultsSection();
@@ -263,6 +374,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationStopped: data => {
     isCalibrationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage(`🛑 Calibration stopped: ${data.reason}`);
     NotificationHelper.showInfo(`Calibration stopped: ${data.reason}`);
     // Keep calibration table visible - don't clear data when stopping
@@ -271,6 +383,7 @@ const ipcHandlers = {
   onMonsterMeterCalibrationFailed: data => {
     isCalibrationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage(`❌ Calibration failed: ${data.error}`, 'error');
     NotificationHelper.showError(`Calibration failed: ${data.error}`);
   },
@@ -279,6 +392,7 @@ const ipcHandlers = {
     isCalibrationActive = false;
     isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
+    updateBackButton();
     addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
@@ -299,6 +413,7 @@ const ipcHandlers = {
     isVerificationActive = true;
     isCalibrationCompleted = false; // Reset when verification starts
     updateCalibrationButtons();
+    updateBackButton();
     showVerificationResultsSection();
     // Don't clear calibration data - keep it visible
     NotificationHelper.showSuccess('Verification started successfully!');
@@ -307,12 +422,14 @@ const ipcHandlers = {
   onMonsterMeterVerificationStopped: data => {
     isVerificationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     NotificationHelper.showInfo(`Verification stopped: ${data.reason}`);
   },
 
   onMonsterMeterVerificationFailed: data => {
     isVerificationActive = false;
     updateCalibrationButtons();
+    updateBackButton();
     NotificationHelper.showError(`Verification failed: ${data.error}`);
   },
 
@@ -320,6 +437,7 @@ const ipcHandlers = {
     isVerificationActive = false;
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
+    updateBackButton();
     enableVerificationTab();
     hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
@@ -328,19 +446,18 @@ const ipcHandlers = {
 
   onMonsterMeterVerificationData: data => {
     updateVerificationProgress(data);
-    updateVerificationResultsTable(data.verificationData || []);
+    updateVerificationResultsTable(data.verificationData || [], data.pressureArr);
     // Add log message for each verification point
     if (data.verificationData && data.verificationData.length > 0) {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
       const status = latestPoint.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = latestPoint.inRange ? '✅' : '❌';
-      addLogMessage(`${statusIcon} Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+      const statusIcon = latestPoint.inRange ? createPassSvg() : createFailSvg();
+      addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
     }
   },
 
   onMonsterMeterPDFGenerated: data => {
     showViewPDFButton(data.filePath, data.filename);
-    addLogMessage(`📄 PDF report generated: ${data.filename}`);
   },
 };
 
@@ -435,13 +552,20 @@ function showMonsterMeterWidget(deviceInfo) {
 
   card.innerHTML = `
     <div class="flex items-center gap-3">
-      <div>
+      <div class="w-full">
         <h3>Monster Meter</h3>
-        <p class="text-sm text-neutral-600">Name: <span id="nameText">${deviceName}</span></p>
-        <p id="portText" class="text-sm text-neutral-600">
-          Port: ${deviceInfo.port || 'Unknown'}
+        <div class="flex items-center gap-2">
+          <p class="text-sm text-neutral-600 font-bold">Name:</p>
+          <p class="text-sm text-neutral-600"><span id="nameText">${deviceName}</span></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <p class="text-sm text-neutral-600 font-bold">Port:</p>
+          <p class="text-sm text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+        </div>
+        <p>
           <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
         </p>
+        <div id="pdf-button-container" class="mt-2 inline-flex w-full"></div>
       </div>
     </div>
   `;
@@ -535,40 +659,71 @@ function showVerificationResults(data) {
   if (data && data.verificationData) {
     console.log('Verification completed with data:', data.verificationData);
     console.log('Verification summary:', data.summary);
-    updateVerificationResultsTable(data.verificationData);
+    updateVerificationResultsTable(data.verificationData, data.pressureArr);
     showVerificationSummary(data.summary);
   }
 }
 
-function updateVerificationResultsTable(data) {
+function updateVerificationResultsTable(verificationData, pressureArr) {
   const tbody = document.getElementById('verification-results-tbody');
+  const progressText = document.getElementById('verification-progress-text');
+
   if (!tbody) return;
 
+  // Use pressure array from backend (same as calibration)
+  const expectedPressures = pressureArr;
+
+  // Clear existing rows
   tbody.innerHTML = '';
 
-  if (data && data.length > 0) {
-    data.forEach((point, index) => {
-      const row = document.createElement('tr');
+  // Add rows for each expected pressure point (matching calibration table format)
+  for (let i = 0; i < expectedPressures.length; i++) {
+    const row = document.createElement('tr');
+    const isComplete = verificationData && i < verificationData.length;
+    const point = isComplete ? verificationData[i] : null;
+
+    row.className = 'border-b';
+
+    if (isComplete && point) {
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = point.inRange ? '✓' : '✗';
+      const statusIcon = point.inRange ? createPassSvg() : createFailSvg();
 
       row.innerHTML = `
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-200">${index + 1}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.referencePressure.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageHi.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureHi.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.voltageLo.toFixed(7)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">${point.pressureLo.toFixed(1)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${statusClass}">
+        <td class="py-2 pr-6">Point ${i + 1}</td>
+        <td class="py-2 pr-6">${expectedPressures[i]}</td>
+        <td class="py-2 pr-6">${point.voltageHi.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureHi.toFixed(1)}</td>
+        <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
+        <td class="py-2 pr-6">${point.pressureLo.toFixed(1)}</td>
+        <td class="py-2 pr-6 font-semibold ${statusClass}">
           <span class="inline-flex items-center">
             <span class="mr-1">${statusIcon}</span>
             ${statusText}
           </span>
         </td>
       `;
-      tbody.appendChild(row);
-    });
+    } else {
+      // Show empty row with dashes (same as calibration)
+      row.innerHTML = `
+        <td class="py-2 pr-6">Point ${i + 1}</td>
+        <td class="py-2 pr-6">${expectedPressures[i]}</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+        <td class="py-2 pr-6">-</td>
+      `;
+    }
+
+    tbody.appendChild(row);
+  }
+
+  // Update progress text (same as calibration)
+  if (progressText) {
+    const completed = verificationData ? verificationData.length : 0;
+    const total = expectedPressures.length;
+    progressText.textContent = `Progress: ${completed}/${total} points completed`;
   }
 }
 
@@ -586,14 +741,14 @@ function showVerificationSummary(summary) {
   if (!summaryDiv || !summary) return;
 
   const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
-  const statusIcon = summary.status === 'PASSED' ? '✓' : '✗';
-  const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+  const statusIcon = summary.status === 'PASSED' ? createPassSvg() : createFailSvg();
+  // const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
 
   summaryDiv.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
       <div class="flex items-center ${statusClass} font-semibold">
-        <span class="mr-2 text-xl">${statusIcon}</span>
+        <span class="mr-2">${statusIcon}</span>
         ${summary.status}
       </div>
     </div>
@@ -621,7 +776,7 @@ function showVerificationSummary(summary) {
     </div>
   `;
 
-  summaryDiv.className = `mt-4 p-4 rounded-lg border ${bgClass}`;
+  summaryDiv.className = `mt-4 p-4 rounded-lg border bg-neutral-50`;
   summaryDiv.classList.remove('hidden');
 }
 
@@ -765,30 +920,29 @@ function initializeVerificationResultsTable() {
   const verificationPanel = document.getElementById('monster-meter-panel-verification');
   if (verificationPanel) {
     verificationPanel.innerHTML = `
-      <div class="mb-4">
-        <h3 class="text-lg font-semibold mb-4 text-gray-800">Verification Results</h3>
-        <div class="overflow-x-auto border border-gray-300 rounded-lg">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Point</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Reference Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorHi Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Voltage (V)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">SensorLo Pressure (PSI)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody id="verification-results-tbody" class="bg-white divide-y divide-gray-200">
-              <!-- Verification data will be populated here -->
-            </tbody>
-          </table>
-        </div>
-        <div id="verification-progress-text" class="mt-2 text-sm text-neutral-500">Waiting for verification data...</div>
-        <div id="verification-summary" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
-          <!-- Verification summary will be populated here -->
-        </div>
+      <div class="overflow-x-auto fade-in mb-6">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left border-b">
+              <th class="pb-2 pr-6">Pressure Point</th>
+              <th class="pb-2 pr-6">Reference (PSI)</th>
+              <th class="pb-2 pr-6">SensorHi Voltage (V)</th>
+              <th class="pb-2 pr-6">SensorHi Pressure (PSI)</th>
+              <th class="pb-2 pr-6">SensorLo Voltage (V)</th>
+              <th class="pb-2 pr-6">SensorLo Pressure (PSI)</th>
+              <th class="pb-2 pr-6">Status</th>
+            </tr>
+          </thead>
+          <tbody id="verification-results-tbody">
+            <!-- Data rows will be added here -->
+          </tbody>
+        </table>
+      </div>
+      <div class="text-sm text-neutral-500">
+        <span id="verification-progress-text">Waiting for verification data...</span>
+      </div>
+      <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
+        <!-- Verification summary will be populated here -->
       </div>
     `;
   }
@@ -1058,18 +1212,19 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white transition-colors';
-  viewPDFBtn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2"></i>View PDF';
-  
+  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full';
+  viewPDFBtn.innerHTML =
+    '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
+
   // Add click handler to open PDF
   viewPDFBtn.addEventListener('click', () => {
     window.electronAPI.openPDF(filePath);
   });
 
-  // Insert button in the same location as Start Verification button (Calibration Control section)
-  const buttonContainer = document.querySelector('.flex.gap-3');
-  if (buttonContainer) {
-    buttonContainer.appendChild(viewPDFBtn);
+  // Insert button in the Monster Meter widget after port information
+  const pdfContainer = document.getElementById('pdf-button-container');
+  if (pdfContainer) {
+    pdfContainer.appendChild(viewPDFBtn);
   }
 }
 

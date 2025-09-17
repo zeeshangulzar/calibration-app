@@ -35,10 +35,18 @@ class FlukeFactoryService {
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
     // Always query database for latest settings
-    const mockFlukeEnabled = this.getMockFlukeSetting();
-    
-    // Clear existing instance to ensure fresh creation with latest settings
-    this.instance = null;
+    // const mockFlukeEnabled = this.getMockFlukeSetting();
+
+    // // Clear existing instance to ensure fresh creation with latest settings
+    // this.instance = null;
+    if (this.instance) {
+      // Update the process active function if the instance already exists
+      if (this.instance.updateProcessActiveFunction) {
+        console.log('🔧 Updating process active function on existing Fluke instance');
+        this.instance.updateProcessActiveFunction(isProcessActiveFn);
+      }
+      return this.instance;
+    }
 
     if (mockFlukeEnabled) {
       console.log('🔧 Creating Mock Fluke service (user setting enabled)');
@@ -97,7 +105,36 @@ class FlukeFactoryService {
       return this.instance;
     }
   }
+
+  /**
+   * Reset the singleton instance (for cleanup)
+   */
+  resetInstance() {
+    this.instance = null;
+    console.log('🔧 Fluke Factory instance reset');
+  }
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance() {
+    if (!FlukeFactoryService.instance) {
+      FlukeFactoryService.instance = new FlukeFactoryService();
+    }
+    return FlukeFactoryService.instance;
+  }
+
+  /**
+   * Reset singleton instance when settings change
+   */
+  static resetInstance() {
+    FlukeFactoryService.instance = null;
+    console.log('🔧 Fluke Factory instance reset');
+  }
 }
+
+// Static singleton instance
+// FlukeFactoryService.instance = null;
 
 // Export singleton getter function
 export const getFlukeFactory = () => FlukeFactoryService.getInstance();

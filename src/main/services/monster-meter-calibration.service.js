@@ -62,7 +62,17 @@ class MonsterMeterCalibrationService {
       this.showLogOnScreen(`🛑 Stopping calibration: ${reason}`);
       this.updateCalibrationFlags(false, true);
 
-      await this.setFlukeToZero();
+      // Set Fluke to zero but only disconnect if user is leaving (not for errors)
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+        await this.setFlukeToZero();
+
+        // Only disconnect if user is leaving or service is being destroyed
+        if (reason.includes('destroyed') || reason.includes('cleanup') || reason.includes('navigation')) {
+          await this.fluke.telnetClient.disconnect();
+          this.showLogOnScreen('🔌 Disconnected from Fluke');
+        }
+      }
+
       await this.handleCoefficientsRestore(reason);
 
       this.sendToRenderer('monster-meter-calibration-stopped', { reason });
@@ -75,9 +85,10 @@ class MonsterMeterCalibrationService {
 
   async runCalibrationProcess() {
     const steps = [
+      { fn: this.writeDateViaComService, name: 'Write date to Monster Meter' },
+      { fn: this.connectToFluke, name: 'Connect to Fluke' },
       { fn: this.runFlukePreReqs, name: 'Fluke prerequisites' },
       { fn: this.checkZeroPressure, name: 'Zero pressure check' },
-      { fn: this.waitForFluke, name: 'Wait for Fluke' },
       { fn: this.zeroMonsterMeter, name: 'Zero Monster Meter' },
       { fn: this.sendStartCalibrationCommandToMM, name: 'Start calibration' },
       { fn: this.runCalibrationSweep, name: 'Calibration sweep' },
@@ -89,9 +100,7 @@ class MonsterMeterCalibrationService {
         await step.fn.call(this);
       }
 
-      await this.setFlukeToZero();
-      await this.waitForFluke();
-      this.showLogOnScreen('✅ Calibration sweep completed');
+      // this.showLogOnScreen('✅ Calibration sweep completed');
     } catch (error) {
       this.showLogOnScreen(`❌ Calibration process failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -123,7 +132,11 @@ class MonsterMeterCalibrationService {
 
     if (this.isCalibrationStopped) return;
 
-    if (!data) throw new Error('Failed to get data from Monster Meter');
+    if (!data) {
+      this.showLogOnScreen('❌ Monster Meter not responding - stopping calibration');
+      this.setFlukeToZero();
+      throw new Error('Monster Meter is not responding');
+    }
 
     this.sendLiveSensorData(data, pressureValue);
     this.processCalibrationData(data, pressureValue);
@@ -136,7 +149,7 @@ class MonsterMeterCalibrationService {
     this.updateCalibrationFlags(true, false);
     this.clearSweepData();
 
-    this.logCalibrationInfo();
+    // this.logCalibrationInfo();
   }
 
   updateCalibrationFlags(active, stopped) {
@@ -186,16 +199,27 @@ class MonsterMeterCalibrationService {
   }
 
   // Simplified step methods
+  async connectToFluke() {
+    try {
+      const result = await this.fluke.connect();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to connect to Fluke');
+      }
+    } catch (error) {
+      this.showLogOnScreen(`❌ Failed to connect to Fluke: ${error.message}`);
+      throw error;
+    }
+  }
+
   async runFlukePreReqs() {
-    await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
+    await this.executeWithoutLogging(() => this.fluke.runPreReqs());
   }
 
   async checkZeroPressure() {
-    this.showLogOnScreen('🔍 Checking zero pressure...');
     try {
       await this.fluke.setZeroPressureToFluke();
-      await this.fluke.waitForFlukeToReachZeroPressure();
-      this.showLogOnScreen('✅ Zero pressure confirmed');
+      await this.fluke.waitForFlukeToReachZeroPressure(true); // silent
+      this.showLogOnScreen('✅ Fluke reached zero pressure');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -204,7 +228,7 @@ class MonsterMeterCalibrationService {
 
   async waitForFluke() {
     try {
-      await this.executeWithLogging('Waiting for Fluke', () => this.fluke.waitForFlukeToReachZeroPressure());
+      await this.executeWithoutLogging(() => this.fluke.waitForFlukeToReachZeroPressure());
     } catch (error) {
       this.showLogOnScreen(`❌ Wait for Fluke failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -218,7 +242,6 @@ class MonsterMeterCalibrationService {
       await this.monsterMeterCommunication.sendCommand(command);
       await this.addDelay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
     }
-    this.showLogOnScreen('✅ Monster Meter zeroed');
   }
 
   async sendStartCalibrationCommandToMM() {
@@ -238,14 +261,22 @@ class MonsterMeterCalibrationService {
     }
   }
 
+  async executeWithoutLogging(fn) {
+    try {
+      await fn();
+    } catch (error) {
+      throw error;
+    }
+  }
+
   sendLiveSensorData(data, referencePressure) {
     try {
       this.sendToRenderer('monster-meter-live-data', {
         referencePressure,
         voltageHi: data['SensorHi.vAVG'],
-        pressureHi: data['SensorHi.pAVG'],
+        pressureHi: data['SensorHi.psiAVG'],
         voltageLo: data['SensorLo.vAVG'],
-        pressureLo: data['SensorLo.pAVG'],
+        pressureLo: data['SensorLo.psiAVG'],
       });
     } catch (error) {
       this.handleError(error, 'sendLiveSensorData');
@@ -335,9 +366,6 @@ class MonsterMeterCalibrationService {
   }
 
   extractSensorData(data, pressureValue) {
-    const min = pressureValue - this.toleranceRange;
-    const max = pressureValue + this.toleranceRange;
-
     const sensorData = {
       voltageLo: data['SensorLo.vAVG'],
       pressureLo: data['SensorLo.psiAVG'],
@@ -377,18 +405,32 @@ class MonsterMeterCalibrationService {
   }
 
   async completeCalibration() {
-    this.showLogOnScreen('🎯 Completing calibration...');
     this.generateCoefficients();
     await this.writeCoefficientsToMonsterMeter();
+
+    // Keep Fluke connected for potential verification process
+    // Do not set Fluke to zero here - verification will start with zero setting as first step
+
     this.sendFinalResults();
   }
 
   generateCoefficients() {
-    this.showLogOnScreen('🧮 Generating coefficients...');
-
     if (this.voltagesHiArray.length < 4 || this.voltagesLoArray.length < 4) {
       throw new Error('Insufficient data points for coefficient generation');
     }
+
+    // Log input data for debugging
+    console.log('🔍 Debug - Coefficient generation input:');
+    console.log('Hi voltages:', this.voltagesHiArray);
+    console.log('Lo voltages:', this.voltagesLoArray);
+    console.log('Sweep intervals:', this.sweepIntervals);
+
+    // Validate input arrays
+    const validateArray = (arr, name) => {
+      if (arr.some(val => isNaN(val) || val === undefined)) {
+        throw new Error(`Invalid ${name} array contains NaN or undefined values: ${arr}`);
+      }
+    };
 
     const regressions = {
       lo: new PolynomialRegression(this.voltagesLoArray, this.sweepIntervals, 3),
@@ -399,11 +441,27 @@ class MonsterMeterCalibrationService {
       hi: { coeffA: regressions.hi.coefficients[1], coeffB: regressions.hi.coefficients[2], coeffC: regressions.hi.coefficients[3] },
       lo: { coeffA: regressions.lo.coefficients[1], coeffB: regressions.lo.coefficients[2], coeffC: regressions.lo.coefficients[3] },
     };
+
+    console.log('🔍 Debug - Generated coefficients:');
+    console.log('Hi coefficients:', this.currentCoefficients.hi);
+    console.log('Lo coefficients:', this.currentCoefficients.lo);
+
+    // Check for NaN coefficients and use fallback values if needed
+    const fallbackCoefficients = MONSTER_METER_CONSTANTS.FALLBACK_COEFFICIENTS;
+
+    // Check hi coefficients
+    if (isNaN(this.currentCoefficients.hi.coeffA) || isNaN(this.currentCoefficients.hi.coeffB) || isNaN(this.currentCoefficients.hi.coeffC)) {
+      this.currentCoefficients.hi = fallbackCoefficients.hi;
+    }
+
+    // Check lo coefficients
+    if (isNaN(this.currentCoefficients.lo.coeffA) || isNaN(this.currentCoefficients.lo.coeffB) || isNaN(this.currentCoefficients.lo.coeffC)) {
+      this.showLogOnScreen('⚠️ Generated Lo coefficients contain NaN - using fallback values');
+      this.currentCoefficients.lo = fallbackCoefficients.lo;
+    }
   }
 
   async writeCoefficientsToMonsterMeter() {
-    this.showLogOnScreen('💾 Writing coefficients to Monster Meter...');
-
     if (!this.currentCoefficients?.hi || !this.currentCoefficients?.lo) {
       throw new Error('Coefficients not generated');
     }
@@ -495,10 +553,28 @@ class MonsterMeterCalibrationService {
     try {
       this.showLogOnScreen('🧹 Cleaning up Monster Meter calibration service...');
       if (this.isCalibrationActive) await this.stopCalibration('Service cleanup');
+
+      // Reset Fluke factory instance for clean state
+      if (this.flukeFactory) {
+        this.flukeFactory.resetInstance();
+      }
+
       this.reset();
       this.showLogOnScreen('✅ Monster Meter calibration service cleanup completed');
     } catch (error) {
       this.handleError(error, 'cleanup');
+    }
+  }
+
+  /**
+   * Write current date to Monster Meter via communication service
+   */
+  async writeDateViaComService() {
+    const result = await this.monsterMeterCommunication.writeDateToMonsterMeter();
+
+    if (!result.success) {
+      this.showLogOnScreen(`⚠️ Failed to write date to Monster Meter: ${result.error}`);
+      Sentry.captureException(result.error);
     }
   }
 

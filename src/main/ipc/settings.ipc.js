@@ -65,13 +65,19 @@ export function registerSettingsIpcHandlers() {
       const result = saveFlukeSettings(ip, port);
 
       // Update the TelnetClientService instance if controller is available
-      if (settingsController && settingsController.telnetClient) {
-        settingsController.telnetClient.updateSettings(ip, port);
-        console.log(`Updated TelnetClientService with new settings - IP: ${ip}, Port: ${port}`);
-      }
+      // if (settingsController && settingsController.telnetClient) {
+      //   settingsController.telnetClient.updateSettings(ip, port);
+      //   console.log(`Updated TelnetClientService with new settings - IP: ${ip}, Port: ${port}`);
+      // }
 
-      // FlukeFactoryService will automatically get updated settings on next use
-      console.log(`FlukeFactoryService will automatically use updated settings on next use - IP: ${ip}, Port: ${port}`);
+      // // FlukeFactoryService will automatically get updated settings on next use
+      // console.log(`FlukeFactoryService will automatically use updated settings on next use - IP: ${ip}, Port: ${port}`);
+
+      if (result.success) {
+        // Refresh TelnetClient settings
+        const { getTelnetClient } = await import('../services/telnet-client.service.js');
+        getTelnetClient().refreshSettings();
+      }
 
       return result;
     } catch (error) {
@@ -216,8 +222,14 @@ export function registerSettingsIpcHandlers() {
   });
 
   // Navigation handlers
-  ipcMain.on('settings-go-back', () => {
+  ipcMain.on('settings-go-back', async () => {
     const mainWindow = getMainWindow();
+
+    // Cleanup settings controller and deactivate telnet manager before navigation
+    if (settingsController) {
+      await settingsController.cleanup();
+    }
+
     if (mainWindow) {
       // Navigate back to home screen (main layout)
       mainWindow.loadFile(path.join('src', 'renderer', 'layout', 'index.html'));

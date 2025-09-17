@@ -24,7 +24,7 @@ export const MONSTER_METER_CONSTANTS = {
     GET_DATA: 0xA4,
     ZERO_HIGH: 0xA5,
     ZERO_LOW: 0xA6,
-    VERIFY_ME: 0xA7,
+    VERIFY_ME: 0xA8,
   },
   // eslint-enable prettier/prettier
 
@@ -71,14 +71,28 @@ export const MONSTER_METER_CONSTANTS = {
 
   // Calibration settings
   TESTER_NAMES: {
-    Gabriel: 'Gabriel',
+    Gabriel: 'Gabriel Nunez',
     'Tester 1': 'Tester 1',
     'Tester 2': 'Tester 2',
   },
 
   // Model options
   MODEL_OPTIONS: {
-    'GK-MM-250': 'GK-MM-250',
-    'GK-MM-WC-250': 'GK-MM-WC-250',
+    'GK-MM-250 – AA Battery': 'GK-MM-250 – AA Battery',
+    'GK-MM-WC-250 – Wireless Charging': 'GK-MM-WC-250 – Wireless Charging',
+  },
+
+  // Fallback coefficients (used when generated coefficients are NaN)
+  FALLBACK_COEFFICIENTS: {
+    hi: {
+      coeffA: 3770.257568359375,
+      coeffB: 287.993896484375,
+      coeffC: -1201.8162841796875,
+    },
+    lo: {
+      coeffA: 3794.758056640625,
+      coeffB: 305.0020446777344,
+      coeffC: -1990.52783203125,
+    },
   },
 };

@@ -1,16 +1,16 @@
 /**
  * Migration Index
- * 
+ *
  * PURPOSE: This file serves as the central registry and validation system for all database migrations.
  * It ensures that migrations are properly structured, versioned, and can be safely executed.
- * 
+ *
  * KEY RESPONSIBILITIES:
  * - Import and validate all migration files
  * - Ensure version consistency and sequencing
  * - Provide migration discovery for the MigrationManager
  * - Validate migration structure and integrity
  * - Export migrations in the correct order
- * 
+ *
  * IMPORTANT: When adding new migration files, make sure to:
  * 1. Import them here with proper naming
  * 2. Add them to the importedMigrations array
@@ -28,17 +28,11 @@ import { migration as migration004 } from './004_migration_table_structure.js';
 import { migration as migration005 } from './005_add_mock_fluke_enabled.js';
 
 // Central registry of all migrations
-const importedMigrations = [
-  migration001,
-  migration002,
-  migration003,
-  migration004,
-  migration005
-];
+const importedMigrations = [migration001, migration002, migration003, migration004, migration005];
 
 /**
  * Comprehensive migration validation system
- * 
+ *
  * This function validates that each migration has the correct structure,
  * required fields, and proper SQL content before allowing execution.
  */
@@ -49,38 +43,36 @@ function validateMigrationStructure(migration, filename) {
     Sentry.captureException(error, {
       tags: {
         operation: 'validate_migration_structure',
-        migration_file: filename
-      }
+        migration_file: filename,
+      },
     });
     throw error;
   }
-  
+
   const checks = [
-    { key: "version", valid: v => typeof v === "number" },
-    { key: "description", valid: v => typeof v === "string" },
-    { key: "up", valid: v => typeof v === "string" && v.trim() },
-    { key: "down", valid: v => typeof v === "string" && v.trim() }
+    { key: 'version', valid: v => typeof v === 'number' },
+    { key: 'description', valid: v => typeof v === 'string' },
+    { key: 'up', valid: v => typeof v === 'string' && v.trim() },
+    { key: 'down', valid: v => typeof v === 'string' && v.trim() },
   ];
-  
+
   for (const { key, valid } of checks) {
     if (!valid(migration[key])) {
       const error = new Error(`---- Migration validation failed: ${filename} - invalid or missing ${key}`);
       Sentry.captureException(error, {
         tags: {
           operation: 'validate_migration_structure',
-          migration_file: filename
-        }
+          migration_file: filename,
+        },
       });
       throw error;
     }
   }
-  
   // Additional validation: Check SQL content for basic safety
   const upSQL = migration.up.trim().toLowerCase();
   if (upSQL.includes('drop table') && !upSQL.includes('if exists')) {
     console.warn(`---- Warning: ${filename} contains DROP TABLE without IF EXISTS - this could be dangerous`);
   }
-  
   return true;
 }
 
@@ -93,11 +85,11 @@ function validateMigrationVersions(migrations) {
     Sentry.captureException(error);
     throw error;
   }
-  
+
   // Extract and validate version numbers
   const versions = migrations.map(m => m.version);
   const uniqueVersions = [...new Set(versions)];
-  
+
   // Check for duplicate versions
   if (versions.length !== uniqueVersions.length) {
     const duplicates = versions.filter((v, i) => versions.indexOf(v) !== i);
@@ -105,28 +97,24 @@ function validateMigrationVersions(migrations) {
     Sentry.captureException(error);
     throw error;
   }
-  
+
   // Check for missing versions (gaps in sequence)
   const sortedVersions = [...versions].sort((a, b) => a - b);
-  const expectedVersions = Array.from(
-    { length: Math.max(...sortedVersions) }, 
-    (_, i) => i + 1
-  );
+  const expectedVersions = Array.from({ length: Math.max(...sortedVersions) }, (_, i) => i + 1);
   const missingVersions = expectedVersions.filter(v => !versions.includes(v));
-  
+
   if (missingVersions.length > 0) {
     console.warn(`---- Warning: Missing migration versions: ${missingVersions.join(', ')}`);
     console.warn('   This may indicate incomplete migration history');
   }
-  
   // Validate version numbers are positive integers
   const invalidVersions = versions.filter(v => v <= 0 || !Number.isInteger(v));
   if (invalidVersions.length > 0) {
     const error = new Error(`---- Invalid migration versions detected: ${invalidVersions.join(', ')} - versions must be positive integers`);
-    Sentry.captureException(error)
+    Sentry.captureException(error);
     throw error;
   }
-  
+
   return true;
 }
 
@@ -136,19 +124,18 @@ function validateMigrationVersions(migrations) {
 function validateAllMigrations() {
   try {
     console.log('🔍 Starting migration validation...');
-    
+
     // Validate each individual migration
     importedMigrations.forEach((migration, index) => {
-      const filename = Object.keys({ migration001, migration002, migration003, migration004, migration005 })[index];
+      const filename = Object.keys({ migration001, migration002, migration003, migration004 })[index];
       validateMigrationStructure(migration, filename);
     });
-    
+
     // Validate version consistency across all migrations
     validateMigrationVersions(importedMigrations);
-    
+
     console.log('---- All migrations validated successfully');
     return true;
-    
   } catch (error) {
     console.error('---- Migration validation failed:', error.message);
     Sentry.captureException(error);

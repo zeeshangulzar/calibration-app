@@ -15,5 +15,5 @@ export const migration = {
     DROP TABLE app_settings;
     CREATE TABLE app_settings AS SELECT * FROM app_settings_backup;
     DROP TABLE app_settings_backup;
-  `
+  `,
 };
