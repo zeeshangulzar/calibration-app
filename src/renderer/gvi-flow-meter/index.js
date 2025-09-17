@@ -238,12 +238,10 @@ async function handleModelChange() {
   try {
     const result = await window.electronAPI.gviGetCalibrationSteps(selectedModel);
     if (result.success && result.steps) {
-      // Update global calibration steps with database data
       calibrationSteps.length = 0;
       calibrationSteps.push(...result.steps);
 
       updateCalibrationTable();
-      addLogMessage(`Loaded ${result.steps.length} calibration steps for ${selectedModel}`);
     } else {
       addLogMessage(`Failed to load calibration steps for ${selectedModel}`, 'error');
     }
@@ -350,7 +348,7 @@ async function handleStartCalibration() {
     const serialNumber = elements.serialNumberInput.value.trim();
 
     // Get calibration steps for the selected model
-    const stepsResult = await window.electronAPI.gviGetCalibrationSteps(model);
+    const stepsResult = await window.electronAPI.gviGetCalibrationSteps(model); //rename variable name
     if (!stepsResult.success) {
       addLogMessage(`Failed to load calibration steps: ${stepsResult.error}`, 'error');
       return;
@@ -444,23 +442,6 @@ function hideCalibrationLoading() {
     container.style.backgroundSize = '';
     container.style.animation = '';
     container.style.boxShadow = '';
-  }
-}
-
-/**
- * Show pressure setting message
- */
-function showPressureSettingMessage() {
-  const container = elements.gpmAtGaugeContainer;
-  if (container) {
-    const pressure = gviCalibrationState?.getCurrentPressure() || 0;
-    container.innerHTML = `
-      <h4>Setting Pressure to ${pressure} PSI</h4>
-      <div class="flex items-end">
-        <h1 class="text-4xl font-bold text-blue-600">${pressure}</h1>
-        <span class="text-2xl font-bold text-blue-600 ml-2">PSI</span>
-      </div>
-    `;
   }
 }
 
@@ -694,62 +675,6 @@ async function generateCalibrationPDF(passed) {
     console.error('PDF generation error:', error);
     addLogMessage(`PDF generation failed: ${error.message}`, 'error');
     throw error;
-  }
-}
-
-/**
- * Show gauge results with color coding
- */
-function showGaugeResults(passed) {
-  hideCalibrationLoading();
-
-  const container = elements.gpmAtGaugeContainer;
-  const calibrationContainer = elements.calibrationControlContainer;
-
-  if (container) {
-    const statusColor = passed ? 'text-green-600' : 'text-red-600';
-    const statusText = passed ? 'PASS' : 'FAIL';
-
-    container.innerHTML = `
-      <h4>Gauge Results</h4>
-      <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">${calibrationModel || 'Unknown'}</h2>
-        <div class="text-xl">
-          Status: <span class="font-bold ${statusColor}">${statusText}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  // Update calibration container background color based on result
-  if (calibrationContainer) {
-    if (passed) {
-      calibrationContainer.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Green background
-      calibrationContainer.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-    } else {
-      calibrationContainer.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; // Red background
-      calibrationContainer.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-    }
-  }
-}
-
-/**
- * Show PDF view button
- */
-function showPDFViewButton(pdfPath) {
-  const buttonsContainer = elements.calibrationButtonsContainer;
-  if (buttonsContainer) {
-    buttonsContainer.innerHTML = `
-      <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 w-full">
-        VIEW PDF
-      </button>
-    `;
-
-    // Add event listener for PDF view button
-    const viewPdfBtn = document.getElementById('view-pdf-btn');
-    viewPdfBtn?.addEventListener('click', () => {
-      window.electronAPI.gviOpenPDF(pdfPath);
-    });
   }
 }
 

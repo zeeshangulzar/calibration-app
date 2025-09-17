@@ -54,9 +54,16 @@ export class GVIGaugeDb {
    */
   getGaugeModels() {
     try {
-      const models = this.getDb().prepare('SELECT DISTINCT model FROM gvi_gauges ORDER BY model').all();
+      const models = this.getDb().prepare('SELECT DISTINCT model FROM gvi_gauges').all();
+      // sort models by name, names having "Old" in them should come to last
+      const modelsReordered = [
+        // Keep all non-old first
+        ...models.filter(item => !item.model.toLowerCase().includes('old')),
+        // Then add old ones
+        ...models.filter(item => item.model.toLowerCase().includes('old')),
+      ];
       console.log('GVI Gauge Models found:', models);
-      return models.map(row => row.model);
+      return modelsReordered.map(row => row.model);
     } catch (error) {
       sentryLogger.handleError(error, {
         module: 'gvi',

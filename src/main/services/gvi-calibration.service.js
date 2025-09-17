@@ -1,5 +1,4 @@
 import { FlukeFactoryService } from './fluke-factory.service.js';
-import { GVI_CONSTANTS } from '../../config/constants/gvi.constants.js';
 import * as Sentry from '@sentry/electron/main';
 
 /**
@@ -100,39 +99,6 @@ export class GVICalibrationService {
   // Stop calibration functionality not implemented yet for GVI module
 
   /**
-   * Process a calibration step - just move to next step, no data tracking needed
-   */
-  async processStep(stepData) {
-    try {
-      if (!this.isCalibrationActive) {
-        throw new Error('Calibration not running');
-      }
-
-      this.showLogOnScreen(`Step completed - user noted GPM value manually`);
-
-      // No need to increment currentStep here - it's handled in nextStep()
-      const completed = this.currentStep >= this.steps.length;
-
-      this.sendToRenderer('gvi-step-updated', {
-        stepIndex: this.currentStep - 1,
-        currentStep: this.currentStep,
-        completed,
-      });
-
-      if (completed) {
-        this.isCalibrationActive = false;
-        await this.completeCalibration();
-      }
-
-      return { success: true, currentStep: this.currentStep, completed };
-    } catch (error) {
-      console.error('Failed to process GVI step:', error);
-      Sentry.captureException(error);
-      throw error;
-    }
-  }
-
-  /**
    * Complete calibration with final result (PASS/FAIL)
    */
   async completeCalibrationWithResult(passed) {
@@ -148,7 +114,7 @@ export class GVICalibrationService {
         completedAt: new Date().toISOString(),
         steps: this.steps.map(step => ({
           gpm: step.gpm,
-          psi: step.psi || step.psiMin,
+          psi: step.psiMin,
           // User noted GPM values manually in their diary
         })),
       };
@@ -199,24 +165,6 @@ export class GVICalibrationService {
       this.handleError(error, 'handleFinalResult');
       throw error;
     }
-  }
-
-  /**
-   * Generate calibration summary
-   */
-  generateSummary() {
-    const passedSteps = this.steps.filter(step => step.status === 'pass').length;
-    const totalSteps = this.steps.length;
-    const failedSteps = totalSteps - passedSteps;
-    const passRate = totalSteps > 0 ? ((passedSteps / totalSteps) * 100).toFixed(1) : 0;
-
-    return {
-      totalSteps,
-      passedSteps,
-      failedSteps,
-      passRate: parseFloat(passRate),
-      overallResult: failedSteps === 0 ? 'PASS' : 'FAIL',
-    };
   }
 
   // Calibration process steps
@@ -295,7 +243,7 @@ export class GVICalibrationService {
   }
 
   async setPressureForStep(step) {
-    const pressure = step.psi || step.psiMin || 0;
+    const pressure = step.psiMin;
     await this.fluke.setHighPressureToFluke(pressure);
     await this.fluke.waitForFlukeToReachTargetPressure(pressure);
     this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI for ${step.gpm} GPM`);
@@ -364,8 +312,6 @@ export class GVICalibrationService {
       throw error;
     }
   }
-
-  addDelay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   isActive = () => this.isCalibrationActive;
 

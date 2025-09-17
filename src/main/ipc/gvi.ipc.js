@@ -93,13 +93,6 @@ const handlers = {
     return gviController.getStatus();
   },
 
-  async updateStep(event, stepData) {
-    if (!gviController) {
-      return { success: false, error: 'GVI controller not initialized' };
-    }
-    return await gviController.updateStep(stepData);
-  },
-
   async nextStep(event) {
     if (!gviController) {
       return { success: false, error: 'GVI controller not initialized' };
@@ -147,13 +140,6 @@ const handlers = {
     }
     return await gviController.openPDF(pdfPath);
   },
-
-  async refreshFlukeService(event) {
-    if (!gviController) {
-      return { success: false, error: 'GVI controller not initialized' };
-    }
-    return await gviController.refreshFlukeService();
-  },
 };
 
 /**
@@ -170,7 +156,6 @@ export function registerGVIIpcHandlers() {
   ipcMain.handle('gvi-start-calibration', createHandler('startCalibration'));
   // Stop calibration not implemented yet for GVI module
   ipcMain.handle('gvi-get-status', createHandler('getStatus'));
-  ipcMain.handle('gvi-update-step', createHandler('updateStep'));
   ipcMain.handle('gvi-next-step', createHandler('nextStep'));
   ipcMain.handle('gvi-handle-final-result', createHandler('handleFinalResult'));
 
@@ -180,7 +165,6 @@ export function registerGVIIpcHandlers() {
   // Fluke methods removed - handled by calibration service
   ipcMain.handle('gvi-generate-pdf', createHandler('generatePDF'));
   ipcMain.handle('gvi-open-pdf', createHandler('openPDF'));
-  ipcMain.handle('gvi-refresh-fluke-service', createHandler('refreshFlukeService'));
 
   console.log('GVI IPC handlers registered successfully');
 }

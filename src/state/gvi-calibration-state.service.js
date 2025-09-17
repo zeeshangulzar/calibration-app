@@ -67,46 +67,6 @@ class GVICalibrationStateService extends EventEmitter {
   }
 
   /**
-   * Move to next step
-   */
-  nextStep() {
-    try {
-      if (this.currentStepIndex < this.totalSteps - 1) {
-        this.currentStepIndex++;
-        this.emit('stepChanged', {
-          currentStep: this.currentStepIndex,
-          totalSteps: this.totalSteps,
-          step: this.calibrationSteps[this.currentStepIndex],
-        });
-        console.log(`[State] Moved to step ${this.currentStepIndex + 1}/${this.totalSteps}`);
-      }
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { component: 'gvi-state-service' },
-        extra: { method: 'nextStep', currentStep: this.currentStepIndex, totalSteps: this.totalSteps },
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Add test result for current step
-   */
-  addTestResult(stepIndex, result) {
-    try {
-      this.testResults[stepIndex] = result;
-      this.emit('testResultAdded', { stepIndex, result });
-      console.log(`[State] Test result added for step ${stepIndex + 1}:`, result);
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { component: 'gvi-state-service' },
-        extra: { method: 'addTestResult', stepIndex, result },
-      });
-      throw error;
-    }
-  }
-
-  /**
    * Complete calibration
    */
   completeCalibration() {

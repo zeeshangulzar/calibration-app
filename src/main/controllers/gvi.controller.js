@@ -51,18 +51,6 @@ export class GVIController {
     }
   }
 
-  /**
-   * Refresh Fluke service when settings change
-   */
-  async refreshFlukeService() {
-    return this.handleAsync('refreshFlukeService', async () => {
-      this.showLogOnScreen('Refreshing GVI Fluke service with updated settings...');
-      this.initializeFlukeService();
-      this.showLogOnScreen('GVI Fluke service refreshed with updated settings');
-      return { success: true };
-    });
-  }
-
   async getAvailableModels() {
     return this.handleAsync('getModels', () => {
       const models = getGVIGaugeModels();
@@ -79,9 +67,7 @@ export class GVIController {
     return this.handleAsync('goBack', async () => {
       // If calibration is in progress, just reset state (no stop functionality yet)
       if (this.state.isCalibrationActive) {
-        this.showLogOnScreen('Resetting calibration state...');
         this.state.updateCalibrationStatus(false);
-        this.showLogOnScreen('Calibration state reset, returning to main menu');
       }
 
       // Reset calibration state
@@ -178,31 +164,6 @@ export class GVIController {
   }
 
   // Stop calibration functionality not implemented yet for GVI module
-
-  async updateStep(stepData) {
-    return this.handleAsync(
-      'updateStepData',
-      async () => {
-        if (!this.state.isCalibrationActive) {
-          throw new Error('No calibration in progress');
-        }
-
-        const result = await this.calibrationService.processStep(stepData);
-
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-
-        // Update state service
-        if (result.completed) {
-          this.state.updateCalibrationStatus(false);
-        }
-
-        return { currentStep: this.state.currentStepIndex, completed: result.completed };
-      },
-      { stepData }
-    );
-  }
 
   async nextStep() {
     return this.handleAsync('nextStep', async () => {

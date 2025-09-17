@@ -97,7 +97,9 @@ class GVIPDFService {
   generateReportId(serialNumber) {
     const now = new Date();
     const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
-    return `GVI-${serialNumber}-${timestamp}`;
+    // use last date string instead of timestamp
+    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    return `GVI-${serialNumber}-${dateStr}`;
   }
 
   /**
@@ -200,10 +202,13 @@ class GVIPDFService {
     try {
       const logoPath = path.join(__dirname, '../../assets/images/hm_logo.jpg');
       console.log('Logo path:', logoPath);
-      if (fsSync.existsSync(logoPath)) {
-        return `file://${logoPath}`;
+      if (!fsSync.existsSync(logoPath)) {
+        console.warn('Logo file not found at:', logoPath);
+        return '';
       }
-      return '';
+
+      const logoBase64 = fsSync.readFileSync(logoPath, { encoding: 'base64' });
+      return `data:image/jpeg;base64,${logoBase64}`;
     } catch (error) {
       console.error('Error getting logo path:', error);
       Sentry.captureException(error);
