@@ -38,7 +38,7 @@ class TelnetClientService extends EventEmitter {
       this.port = parseInt(settings.fluke_port);
     } catch (error) {
       Sentry.captureException(error, {
-        tags: { service: 'telnet-client', method: 'loadFlukeSettings' }
+        tags: { service: 'telnet-client', method: 'loadFlukeSettings' },
       });
       console.error('Failed to load Fluke settings:', error);
       this.host = '10.10.69.27';
@@ -196,7 +196,7 @@ class TelnetClientService extends EventEmitter {
       } catch (error) {
         Sentry.captureException(error, {
           tags: { service: 'telnet-client', method: 'sendCommand' },
-          extra: { command }
+          extra: { command },
         });
         clearTimeout(responseTimer);
         this.client.removeListener('data', responseHandler);
@@ -224,7 +224,7 @@ class TelnetClientService extends EventEmitter {
       } catch (error) {
         Sentry.captureException(error, {
           tags: { service: 'telnet-client', method: 'sendRawCommand' },
-          extra: { command }
+          extra: { command },
         });
         reject({ success: false, error: `Failed to send command: ${error.message}` });
       }
@@ -250,7 +250,7 @@ class TelnetClientService extends EventEmitter {
       };
     } catch (error) {
       Sentry.captureException(error, {
-        tags: { service: 'telnet-client', method: 'testConnection' }
+        tags: { service: 'telnet-client', method: 'testConnection' },
       });
       return {
         success: false,

@@ -6,15 +6,21 @@ import * as Sentry from '@sentry/electron/main';
  * Handles the business logic for GVI flow meter calibration
  */
 export class GVICalibrationService {
-  constructor(sendToRenderer, showLogOnScreen) {
+  constructor(gviState, sendToRenderer, showLogOnScreen) {
+    this.gviState = gviState;
     this.sendToRenderer = sendToRenderer;
     this.showLogOnScreen = showLogOnScreen;
+    this.flukeFactory = new FlukeFactoryService();
+    this.fluke = null;
+
+    this.reset();
+  }
+
+  reset() {
     this.config = null;
     this.isRunning = false;
     this.isCalibrationActive = false;
     this.startTime = null;
-    this.flukeFactory = new FlukeFactoryService();
-    this.fluke = null;
     this.currentStep = 0;
     this.steps = [];
     this.results = null;
@@ -26,28 +32,12 @@ export class GVICalibrationService {
   /**
    * Initialize the calibration service with configuration
    */
-  async initialize(config) {
+  async initialize() {
     try {
-      this.config = config;
-      this.isRunning = false;
-      this.isCalibrationActive = false;
-      this.startTime = null;
-      this.currentStep = 0;
-      this.steps = [];
-      this.results = null;
-
-      // Initialize Fluke service
-      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.isCalibrationActive);
-
-      // this.showLogOnScreen('GVI Calibration Service initialized');
-      // this.showLogOnScreen(`Model: ${config.model}`);
-      // this.showLogOnScreen(`Serial Number: ${config.serialNumber}`);
-      // this.showLogOnScreen(`Tester: ${config.tester}`);
-
+      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.gviState.isCalibrationActive);
       return { success: true };
     } catch (error) {
-      console.error('Failed to initialize GVI calibration service:', error);
-      Sentry.captureException(error);
+      this.handleError(error, 'initialize');
       throw error;
     }
   }

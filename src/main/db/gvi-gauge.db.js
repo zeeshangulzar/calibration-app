@@ -62,15 +62,15 @@ export class GVIGaugeDb {
         // Then add old ones
         ...models.filter(item => item.model.toLowerCase().includes('old')),
       ];
-      console.log('GVI Gauge Models found:', models);
-      return modelsReordered.map(row => row.model);
+      const result = modelsReordered.map(row => row.model);
+      return result;
     } catch (error) {
+      console.error('[GVI DB] Error getting gauge models:', error);
       sentryLogger.handleError(error, {
         module: 'gvi',
         service: 'gvi-gauge-db',
         method: 'getGaugeModels',
       });
-      console.error('Failed to get GVI gauge models:', error);
       return [];
     }
   }

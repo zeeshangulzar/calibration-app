@@ -24,11 +24,6 @@ class GVICalibrationStateService extends EventEmitter {
     this.serialNumber = null;
     this.currentConfig = null;
     this.totalSteps = 0;
-    this.mainWindow = null;
-    this.controller = null;
-    this.pdfService = null;
-    this.flukeFactory = null;
-    this.fluke = null;
   }
 
   /**
@@ -87,29 +82,6 @@ class GVICalibrationStateService extends EventEmitter {
       });
       throw error;
     }
-  }
-
-  /**
-   * Set main window reference
-   */
-  setMainWindow(mainWindow) {
-    this.mainWindow = mainWindow;
-  }
-
-  /**
-   * Set controller reference
-   */
-  setController(controller) {
-    this.controller = controller;
-  }
-
-  /**
-   * Set service references
-   */
-  setServices(pdfService, flukeFactory, fluke) {
-    this.pdfService = pdfService;
-    this.flukeFactory = flukeFactory;
-    this.fluke = fluke;
   }
 
   /**

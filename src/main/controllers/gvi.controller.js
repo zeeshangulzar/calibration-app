@@ -1,9 +1,8 @@
 import { GVICalibrationService } from '../services/gvi-calibration.service.js';
 import { getGVIGaugeSteps, getGVIGaugeModels } from '../db/gvi-gauge.db.js';
-import { sentryLogger } from '../loggers/sentry.logger.js';
-import { GVIPDFService } from '../services/gvi-pdf.service.js';
-import { FlukeFactoryService } from '../services/fluke-factory.service.js';
+import { getGVIPDFService } from '../services/gvi-pdf.service.js';
 import { getGVICalibrationState } from '../../state/gvi-calibration-state.service.js';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 import { shell } from 'electron';
 
 /**
@@ -13,58 +12,59 @@ export class GVIController {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
     this.calibrationService = null;
-    this.pdfService = new GVIPDFService();
-    this.flukeFactory = new FlukeFactoryService();
-    this.fluke = null;
-
-    // Get state service instance
+    this.pdfService = getGVIPDFService();
     this.state = getGVICalibrationState();
-    this.state.setMainWindow(mainWindow);
-    this.state.setController(this);
-    this.state.setServices(this.pdfService, this.flukeFactory, this.fluke);
+
+    this.setupEventListeners();
   }
 
-  async initialize() {
-    return this.handleAsync('initialize', async () => {
-      this.calibrationService = new GVICalibrationService(this.sendToRenderer.bind(this), this.showLogOnScreen.bind(this));
+  setupEventListeners() {
+    // State events
+    this.state.on('calibrationStarted', data => {
+      this.sendToRenderer('gvi-calibration-started', data);
+    });
 
-      // Initialize Fluke service using factory
-      this.initializeFlukeService();
-
-      this.sendToRenderer('gvi-initialized');
-      this.showLogOnScreen('GVI Flow Meter controller initialized');
+    this.state.on('calibrationCompleted', data => {
+      this.sendToRenderer('gvi-calibration-completed', data);
     });
   }
 
-  /**
-   * Initialize or refresh Fluke service from factory
-   * This should be called when settings change
-   */
-  initializeFlukeService() {
+  async initialize() {
     try {
-      // Reset factory instance to get fresh settings from database
-      this.flukeFactory = new FlukeFactoryService();
+      // Initialize calibration service with proper dependency injection
+      this.calibrationService = new GVICalibrationService(this.state, this.sendToRenderer.bind(this), this.showLogOnScreen.bind(this));
 
-      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen.bind(this), () => this.state.isCalibrationActive);
+      await this.calibrationService.initialize();
+
+      this.sendToRenderer('gvi-initialized');
+      this.showLogOnScreen('GVI Flow Meter controller initialized');
     } catch (error) {
-      this.handleError(error, 'initializeFlukeService');
+      this.handleError('initialize', error, 'Failed to initialize GVI system');
     }
   }
 
   async getAvailableModels() {
-    return this.handleAsync('getModels', () => {
+    try {
       const models = getGVIGaugeModels();
-      // console.log('GVI Controller - Available models:', models);
-      return { models };
-    });
+      return { success: true, models };
+    } catch (error) {
+      this.handleError('getAvailableModels', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async getCalibrationSteps(model) {
-    return this.handleAsync('getCalibrationSteps', () => ({ steps: getGVIGaugeSteps(model) }), { model });
+    try {
+      const steps = getGVIGaugeSteps(model);
+      return { success: true, steps };
+    } catch (error) {
+      this.handleError('getCalibrationSteps', error, null, { model });
+      return { success: false, error: error.message };
+    }
   }
 
   async goBack() {
-    return this.handleAsync('goBack', async () => {
+    try {
       // If calibration is in progress, just reset state (no stop functionality yet)
       if (this.state.isCalibrationActive) {
         this.state.updateCalibrationStatus(false);
@@ -77,96 +77,93 @@ export class GVIController {
       // Send back navigation to renderer
       this.sendToRenderer('gvi-go-back');
       return { success: true };
-    });
+    } catch (error) {
+      this.handleError('goBack', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async generatePDF(calibrationData) {
-    return this.handleAsync(
-      'generatePDF',
-      async () => {
-        this.showLogOnScreen('Generating GVI calibration PDF...');
+    try {
+      this.showLogOnScreen('Generating GVI calibration PDF...');
 
-        // Use the dedicated GVI PDF service
-        const result = await this.pdfService.generateGVIPDF(calibrationData);
+      // Use the dedicated GVI PDF service
+      const result = await this.pdfService.generateGVIPDF(calibrationData);
 
-        if (result.success) {
-          this.showLogOnScreen(`PDF generated successfully: ${result.filePath}`);
-          return { success: true, pdfPath: result.filePath };
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      { calibrationData }
-    );
+      if (result.success) {
+        this.showLogOnScreen(`PDF generated successfully: ${result.filePath}`);
+        return { success: true, pdfPath: result.filePath };
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      this.handleError('generatePDF', error, null, { calibrationData });
+      return { success: false, error: error.message };
+    }
   }
 
   async openPDF(pdfPath) {
-    return this.handleAsync(
-      'openPDF',
-      async () => {
-        await shell.openPath(pdfPath);
-        return { success: true };
-      },
-      { pdfPath }
-    );
+    try {
+      await shell.openPath(pdfPath);
+      return { success: true };
+    } catch (error) {
+      this.handleError('openPDF', error, null, { pdfPath });
+      return { success: false, error: error.message };
+    }
   }
 
   async startCalibration(config) {
-    return this.handleAsync(
-      'startCalibration',
-      async () => {
-        if (this.state.isCalibrationActive) {
-          throw new Error('Calibration already in progress');
+    try {
+      if (this.state.isCalibrationActive) {
+        throw new Error('Calibration already in progress');
+      }
+
+      this.validateConfig(config);
+
+      const stepsResult = await this.getCalibrationSteps(config.model);
+      if (!stepsResult.success) {
+        throw new Error(`Failed to load calibration steps: ${stepsResult.error}`);
+      }
+
+      // Set state in state service
+      this.state.setCurrentConfig(config);
+      this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
+
+      this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
+
+      const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
+
+      if (!result.success) {
+        this.state.updateCalibrationStatus(false);
+
+        // Check if it's a Fluke connectivity error
+        if (result.error && (result.error.includes('Not connected to Fluke device') || result.error.includes('Fluke connection failed'))) {
+          this.sendToRenderer('gvi-calibration-failed', {
+            error: 'Calibration failed: Fluke connection failed - calibration cannot proceed',
+          });
+          return { success: false, error: 'Calibration failed: Fluke connection failed - calibration cannot proceed' };
         }
 
-        this.validateConfig(config);
+        throw new Error(result.error);
+      }
 
-        const stepsResult = await this.getCalibrationSteps(config.model);
-        if (!stepsResult.success) {
-          throw new Error(`Failed to load calibration steps: ${stepsResult.error}`);
-        }
+      this.sendToRenderer('gvi-calibration-started', {
+        config: this.state.getCurrentConfig(),
+        currentStep: this.state.currentStepIndex,
+        totalSteps: this.state.totalSteps,
+      });
 
-        // Set state in state service
-        this.state.setCurrentConfig(config);
-        this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
-
-        await this.calibrationService.initialize(config);
-
-        this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
-        // this.showLogOnScreen(`Tester: ${config.tester} | Total steps: ${this.state.totalSteps}`);
-
-        const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
-
-        if (!result.success) {
-          this.state.updateCalibrationStatus(false);
-
-          // Check if it's a Fluke connectivity error
-          if (result.error && (result.error.includes('Not connected to Fluke device') || result.error.includes('Fluke connection failed'))) {
-            this.sendToRenderer('gvi-calibration-failed', {
-              error: 'Calibration failed: Fluke connection failed - calibration cannot proceed',
-            });
-            return { success: false, error: 'Calibration failed: Fluke connection failed - calibration cannot proceed' };
-          }
-
-          throw new Error(result.error);
-        }
-
-        this.sendToRenderer('gvi-calibration-started', {
-          config: this.state.getCurrentConfig(),
-          currentStep: this.state.currentStepIndex,
-          totalSteps: this.state.totalSteps,
-        });
-
-        return { currentStep: this.state.currentStepIndex, totalSteps: this.state.totalSteps };
-      },
-      { config }
-    );
+      return { success: true, currentStep: this.state.currentStepIndex, totalSteps: this.state.totalSteps };
+    } catch (error) {
+      this.handleError('startCalibration', error, null, { config });
+      return { success: false, error: error.message };
+    }
   }
 
   // Stop calibration functionality not implemented yet for GVI module
 
   async nextStep() {
-    return this.handleAsync('nextStep', async () => {
+    try {
       if (!this.state.isCalibrationActive) {
         throw new Error('No calibration in progress');
       }
@@ -181,29 +178,31 @@ export class GVIController {
         this.state.updateCalibrationStatus(false);
       }
 
-      return { completed: result.completed };
-    });
+      return { success: true, completed: result.completed };
+    } catch (error) {
+      this.handleError('nextStep', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async handleFinalResult(passed) {
-    return this.handleAsync(
-      'handleFinalResult',
-      async () => {
-        if (!this.state.isCalibrationActive) {
-          throw new Error('No calibration in progress');
-        }
+    try {
+      if (!this.state.isCalibrationActive) {
+        throw new Error('No calibration in progress');
+      }
 
-        const result = await this.calibrationService.handleFinalResult(passed);
+      const result = await this.calibrationService.handleFinalResult(passed);
 
-        if (!result.success) {
-          throw new Error(result.error);
-        }
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-        this.state.updateCalibrationStatus(false);
-        return { success: true };
-      },
-      { passed }
-    );
+      this.state.updateCalibrationStatus(false);
+      return { success: true };
+    } catch (error) {
+      this.handleError('handleFinalResult', error, null, { passed });
+      return { success: false, error: error.message };
+    }
   }
 
   getStatus() {
@@ -218,7 +217,7 @@ export class GVIController {
         steps: state.calibrationSteps,
       };
     } catch (error) {
-      this.handleError(error, 'getStatus');
+      this.handleError('getStatus', error);
       return {
         success: false,
         error: error.message,
@@ -245,12 +244,12 @@ export class GVIController {
       for (const [field, value] of required) {
         if (!value) {
           const error = new Error(`${field === 'config' ? 'Configuration' : field} is required`);
-          this.handleError(error, 'validateConfig', { config, field, value });
+          this.handleError('validateConfig', error, null, { config, field, value });
           throw error;
         }
       }
     } catch (error) {
-      this.handleError(error, 'validateConfig', { config });
+      this.handleError('validateConfig', error, null, { config });
     }
   }
 
@@ -260,7 +259,7 @@ export class GVIController {
         this.mainWindow.webContents.send(event, data);
       }
     } catch (error) {
-      this.handleError(error, 'sendToRenderer', { event, data });
+      this.handleError('sendToRenderer', error, null, { event, data });
     }
   }
 
@@ -272,16 +271,19 @@ export class GVIController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      this.handleError(error, 'showLogOnScreen', { message });
+      this.handleError('showLogOnScreen', error, null, { message });
     }
   }
 
   async cleanup() {
     try {
+      console.log('[Controller] Starting GVI cleanup...');
+
       // Reset calibration state (no stop functionality yet)
       if (this.state.isCalibrationActive) {
         this.state.updateCalibrationStatus(false);
       }
+
       if (this.calibrationService) {
         await this.calibrationService.cleanup();
         this.calibrationService = null;
@@ -290,32 +292,24 @@ export class GVIController {
       // Cleanup state service
       await this.state.cleanup();
 
-      this.fluke = null;
-      this.flukeFactory = null;
-      console.log('GVI controller cleaned up');
+      this.state = this.pdfService = this.mainWindow = null;
+      console.log('[Controller] GVI cleanup completed');
     } catch (error) {
-      this.handleError(error, 'cleanup');
+      this.handleError('cleanup', error);
     }
   }
 
-  // Helper methods
-  async handleAsync(method, fn, extra = {}) {
-    try {
-      const result = await fn();
-      return { success: true, ...result };
-    } catch (error) {
-      this.handleError(error, method, extra);
-      return { success: false, error: error.message };
-    }
-  }
-
-  handleError(error, method, extra = {}) {
-    console.error(`Failed to ${method}:`, error);
+  handleError(method, error, userMessage = null, extra = {}) {
     sentryLogger.handleError(error, {
       module: 'gvi',
       service: 'gvi-controller',
       method,
       extra,
     });
+    console.error(`Error in ${method}:`, error);
+
+    if (userMessage) {
+      this.sendToRenderer('gvi-error', { message: userMessage });
+    }
   }
 }

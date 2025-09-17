@@ -268,4 +268,14 @@ class GVIPDFService {
   }
 }
 
+// Singleton instance
+let gviPDFServiceInstance = null;
+
+export function getGVIPDFService() {
+  if (!gviPDFServiceInstance) {
+    gviPDFServiceInstance = new GVIPDFService();
+  }
+  return gviPDFServiceInstance;
+}
+
 export { GVIPDFService };
