@@ -151,50 +151,6 @@ export function registerSettingsIpcHandlers() {
     }
   });
 
-  // Developer settings IPC handlers (matching preload API)
-  ipcMain.handle('developer-settings-get', async () => {
-    try {
-      const settings = getDeveloperSettings();
-      return { success: true, settings };
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-ipc', method: 'developer-settings-get' },
-      });
-      console.error('Failed to get developer settings:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('developer-settings-save', async (event, settings) => {
-    try {
-      // Save to database
-      const result = saveDeveloperSettings(settings);
-      console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled ? 'ENABLED' : 'DISABLED'}`);
-
-      return result;
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-ipc', method: 'developer-settings-save' },
-      });
-      console.error('Failed to save developer settings:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('developer-settings-validate-password', async (event, password) => {
-    // Simple password validation (you can make this more secure)
-    const validPassword = password === 'developer123'; // Change this to your desired password
-    return { success: true, valid: validPassword };
-  });
-
-  ipcMain.on('developer-settings-go-back', () => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      // Navigate back to home screen (main layout)
-      mainWindow.loadFile(path.join('src', 'renderer', 'layout', 'index.html'));
-    }
-  });
-
   ipcMain.handle('settings-get-command-history', async (event, limit) => {
     try {
       const history = getCommandHistory(limit);
