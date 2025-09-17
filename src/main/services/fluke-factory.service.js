@@ -12,6 +12,7 @@ import * as Sentry from '@sentry/electron/main';
 class FlukeFactoryService {
   constructor() {
     this.instance = null;
+    this.mockFlukeEnabled = this.getMockFlukeSetting();
     console.log(`🔧 Fluke Factory initialized - will always query database for latest settings`);
   }
 
@@ -35,10 +36,8 @@ class FlukeFactoryService {
    */
   getFlukeService(showLogOnScreen, isProcessActiveFn) {
     // Always query database for latest settings
-    // const mockFlukeEnabled = this.getMockFlukeSetting();
+    const mockFlukeEnabled = this.getMockFlukeSetting();
 
-    // // Clear existing instance to ensure fresh creation with latest settings
-    // this.instance = null;
     if (this.instance) {
       // Update the process active function if the instance already exists
       if (this.instance.updateProcessActiveFunction) {
