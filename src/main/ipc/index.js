@@ -6,6 +6,7 @@ import { registerKrakenCalibrationIpcHandlers, cleanupKrakenCalibration } from '
 import { registerSettingsIpcHandlers } from './settings.ipc.js';
 import { registerDeveloperSettingsIpcHandlers } from './developer-settings.ipc.js';
 import { registerMonsterMeterIpcHandlers } from './monster-meter.ipc.js';
+import { registerGVIIpcHandlers, cleanupGVI } from './gvi.ipc.js';
 import { registerAssemblySensorIpcHandlers } from './assembly-sensor.ipc.js';
 import { registerMigrationIpcHandlers } from './migration.ipc.js';
 
@@ -24,6 +25,7 @@ export function registerIpcHandlers() {
   registerMigrationIpcHandlers();
   registerDeveloperSettingsIpcHandlers();
   registerMonsterMeterIpcHandlers();
+  registerGVIIpcHandlers();
 }
 
 function registerCoreIpcHandlers() {
@@ -45,6 +47,9 @@ export async function cleanupIpcResources() {
 
     // Cleanup kraken calibration (includes Fluke disconnection)
     await cleanupKrakenCalibration();
+
+    // Cleanup GVI flow meter
+    await cleanupGVI();
 
     console.log('IPC resources cleanup completed');
   } catch (error) {

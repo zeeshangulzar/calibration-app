@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{reportTitle}}</title>
+    <link rel="stylesheet" href="gvi-report.css" />
+  </head>
+  <body>
+    <div class="top-header">
+      <div class="logo-and-address">
+        <img src="{{logoUrl}}" alt="Company Logo" />
+        <div class="company-details">
+          <div>{{companyAddress}}</div>
+          <div>{{companyCityStateZip}}</div>
+          <div>Phone: {{companyPhone}}</div>
+          <div>Email: {{companyEmail}}</div>
+        </div>
+      </div>
+      <div class="report-box">
+        <div>Report #</div>
+        <div class="report-number">{{reportId}}</div>
+      </div>
+    </div>
+
+    <div class="header">
+      <h1>{{reportTitle}}</h1>
+    </div>
+
+    <div class="info-boxes">
+      <div class="info-box">
+        <div class="info-label">Model:</div>
+        <div class="info-value">{{model}}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Serial Number:</div>
+        <div class="info-value">{{serialNumber}}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Tester:</div>
+        <div class="info-value">{{tester}}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Date:</div>
+        <div class="info-value">{{testDate}}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Time:</div>
+        <div class="info-value">{{testTime}}</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Result:</div>
+        <div class="info-value result-{{result}}">{{result}}</div>
+      </div>
+    </div>
+
+    <table class="summary-table">
+      <tr>
+        <th>Reference Standard</th>
+        <th>GVI Flow Meter Accuracy</th>
+        <th>Condition</th>
+      </tr>
+      <tr>
+        <td>
+          Automated Pressure Calibrator: 2271A<br />
+          Serial #: {{serialNumber}}
+        </td>
+        <td>
+          Flow range as per model specifications<br />
+          Pressure accuracy: ±1.0 PSI
+        </td>
+        <td>Calibration Temp: {{calibrationTemperature}}</td>
+      </tr>
+    </table>
+
+    <h3 style="color: #000">Calibration Steps</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>GPM</th>
+          <th>Pressure Min (PSI)</th>
+          <th>Pressure Max (PSI)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each calibrationSteps}}
+        <tr>
+          <td>{{@index}}</td>
+          <td>{{gpm}}</td>
+          <td>{{psiMin}}</td>
+          <td>{{psiMax}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    {{#if testResults.length}}
+    <h3 style="color: #000">Test Results</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>GPM Reading</th>
+          <th>Result</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each testResults}}
+        <tr>
+          <td>{{@index}}</td>
+          <td>{{gpm}}</td>
+          <td style="color: {{#if passed}}green{{else}}red{{/if}}">{{#if passed}}PASS{{else}}FAIL{{/if}}</td>
+          <td>{{timestamp}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+
+    <div class="footer">
+      <div class="footer-row">
+        <div class="footer-item">
+          <p><strong>Inspected By:</strong> {{tester}}</p>
+        </div>
+        <div class="footer-item">
+          <p><strong>Tested At:</strong> {{testDate}} {{testTime}}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

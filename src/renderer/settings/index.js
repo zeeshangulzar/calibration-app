@@ -1,4 +1,4 @@
-import { formatTime } from "../../shared/helpers/date-helper.js";
+import { formatTime } from '../../shared/helpers/date-helper.js';
 /**
  * Settings Page JavaScript
  * Handles Fluke configuration and interactive commands

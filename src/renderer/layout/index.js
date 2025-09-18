@@ -33,6 +33,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Add click handler for GVI card
+  const gviCard = document.getElementById('gvi-card');
+  if (gviCard) {
+    gviCard.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.loadGVI) {
+        window.electronAPI.loadGVI();
+      }
+    });
+  }
+
   // Add click handler for Settings button
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {

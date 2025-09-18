@@ -13,7 +13,7 @@ let isInitialized = false;
 /**
  * Initialize database with proper PRAGMAs and migrations
  */
-export function initializeDatabase() {
+export async function initializeDatabase() {
   if (isInitialized) {
     return db;
   }
@@ -64,7 +64,7 @@ export function initializeDatabase() {
  */
 export function getDatabase() {
   if (!isInitialized) {
-    return initializeDatabase();
+    throw new Error('Database not initialized. Call initializeDatabase() first.');
   }
   return db;
 }
