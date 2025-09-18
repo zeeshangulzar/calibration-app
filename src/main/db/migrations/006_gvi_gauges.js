@@ -1,5 +1,5 @@
 export const migration = {
-  version: 5,
+  version: 6,
   description: 'Create GVI gauges table with ranges column',
   up: `
     CREATE TABLE IF NOT EXISTS gvi_gauges (
