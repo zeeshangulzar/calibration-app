@@ -219,13 +219,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadGVI: () => ipcRenderer.send('load-gvi'),
   gviGoBack: () => ipcRenderer.send('gvi-go-back'),
   gviStartCalibration: config => ipcRenderer.invoke('gvi-start-calibration', config),
-  gviStopCalibration: () => ipcRenderer.invoke('gvi-stop-calibration'),
   gviGetStatus: () => ipcRenderer.invoke('gvi-get-status'),
   gviNextStep: () => ipcRenderer.invoke('gvi-next-step'),
   gviHandleFinalResult: passed => ipcRenderer.invoke('gvi-handle-final-result', passed),
   gviGetAvailableModels: () => ipcRenderer.invoke('gvi-get-available-models'),
   gviGetCalibrationSteps: model => ipcRenderer.invoke('gvi-get-calibration-steps', model),
-  // Fluke methods removed - handled by calibration service
   gviGeneratePDF: calibrationData => ipcRenderer.invoke('gvi-generate-pdf', calibrationData),
   gviOpenPDF: pdfPath => ipcRenderer.invoke('gvi-open-pdf', pdfPath),
 

@@ -71,6 +71,9 @@ export class GVICalibrationService {
    */
   async runCalibrationProcess() {
     try {
+      // Connect to Fluke device first
+      await this.connectToFluke();
+
       // Run prerequisites
       await this.runFlukePreReqs();
       await this.checkZeroPressure();
@@ -78,15 +81,11 @@ export class GVICalibrationService {
 
       // Start the first calibration step
       await this.runCalibrationSteps();
-
-      this.showLogOnScreen('✅ Calibration process started - waiting for user interaction');
     } catch (error) {
       this.showLogOnScreen(`❌ Calibration process failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
     }
   }
-
-  // Stop calibration functionality not implemented yet for GVI module
 
   /**
    * Complete calibration with final result (PASS/FAIL)
@@ -112,8 +111,7 @@ export class GVICalibrationService {
       this.results = results;
 
       // Set Fluke to zero after calibration completion
-      await this.setFlukeToZero();
-      await this.waitForFluke();
+      this.fluke.setZeroPressureToFluke();
 
       this.showLogOnScreen(`✅ Calibration completed - Result: ${passed ? 'PASS' : 'FAIL'}`);
       this.sendToRenderer('gvi-calibration-completed', results);
@@ -158,15 +156,24 @@ export class GVICalibrationService {
   }
 
   // Calibration process steps
+  async connectToFluke() {
+    await this.executeWithLogging('Connecting to Fluke device', async () => {
+      const result = await this.fluke.connect();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to connect to Fluke device');
+      }
+      return result;
+    });
+  }
+
   async runFlukePreReqs() {
     await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
   }
 
   async checkZeroPressure() {
-    this.showLogOnScreen('🔍 Checking zero pressure...');
     try {
       await this.fluke.setZeroPressureToFluke();
-      await this.fluke.waitForFlukeToReachZeroPressure();
+      await this.fluke.waitForFlukeToReachZeroPressure(true);
       this.showLogOnScreen('✅ Zero pressure confirmed');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
@@ -176,7 +183,7 @@ export class GVICalibrationService {
 
   async waitForFluke() {
     try {
-      await this.executeWithLogging('Waiting for Fluke', () => this.fluke.waitForFlukeToReachZeroPressure());
+      await this.fluke.waitForFlukeToReachZeroPressure();
     } catch (error) {
       this.showLogOnScreen(`❌ Wait for Fluke failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -254,7 +261,6 @@ export class GVICalibrationService {
     this.steps = steps || [];
     this.currentStep = 0;
     this.isCalibrationActive = true;
-    this.logCalibrationInfo();
   }
 
   validateConfiguration() {
@@ -264,11 +270,6 @@ export class GVICalibrationService {
     if (!this.steps || this.steps.length === 0) {
       throw new Error('No calibration steps defined');
     }
-  }
-
-  logCalibrationInfo() {
-    const info = [`🔧 Model: ${this.model}`, `🔢 Serial number: ${this.serialNumber}`, `👤 Tester: ${this.testerName}`, `📊 Total steps: ${this.steps.length}`];
-    info.forEach(msg => this.showLogOnScreen(msg));
   }
 
   logDebugInfo(method, params) {

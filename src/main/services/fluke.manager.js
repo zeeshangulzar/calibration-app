@@ -190,7 +190,7 @@ export class FlukeManager {
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke for all sensors...`);
+      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }

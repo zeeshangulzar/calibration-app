@@ -129,8 +129,6 @@ export class GVIController {
       this.state.setCurrentConfig(config);
       this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
 
-      this.showLogOnScreen(`Starting calibration for ${config.model} (SN: ${config.serialNumber})`);
-
       const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
 
       if (!result.success) {
@@ -159,8 +157,6 @@ export class GVIController {
       return { success: false, error: error.message };
     }
   }
-
-  // Stop calibration functionality not implemented yet for GVI module
 
   async nextStep() {
     try {

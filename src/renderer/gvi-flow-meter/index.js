@@ -109,10 +109,6 @@ function setupEventListeners() {
     addLogMessage('GVI controller initialized');
   });
 
-  window.electronAPI.onGVICalibrationStarted?.(data => {
-    addLogMessage(`Calibration started - ${data.totalSteps} steps`);
-  });
-
   window.electronAPI.onGVICalibrationStopped?.(() => {
     calibrationInProgress = false;
     addLogMessage('Calibration stopped');
@@ -152,10 +148,6 @@ function setupCalibrationEventListeners() {
   });
 
   // Listen for calibration started events
-  window.electronAPI.onGVICalibrationStarted?.(data => {
-    addLogMessage(`Calibration started - ${data.totalSteps} steps`);
-    addLogMessage('Follow the on-screen instructions to complete each step');
-  });
 
   // Listen for step updated events
   window.electronAPI.onGVIStepUpdated?.(data => {
@@ -211,7 +203,6 @@ async function loadAvailableModels() {
           modelSelect.appendChild(option);
         });
 
-        // addLogMessage(`Loaded ${result.models.length} models from database`);
         updateStartButtonState(); // Update button state after models are loaded
       }
     } else {
@@ -401,9 +392,6 @@ async function startCalibrationProcess(model, tester, serialNumber, steps) {
       addLogMessage(`Calibration start failed: ${result.error}`, 'error');
       return;
     }
-
-    addLogMessage('Calibration started successfully');
-    addLogMessage('Follow the on-screen instructions to complete each step');
   } catch (error) {
     console.error('Calibration process error:', error);
     addLogMessage(`Calibration error: ${error.message}`, 'error');
@@ -666,7 +654,6 @@ async function generateCalibrationPDF(passed) {
     const result = await window.electronAPI.gviGeneratePDF(calibrationData);
 
     if (result.success) {
-      // addLogMessage(`PDF generated successfully: ${result.filename}`);
       return result; // Return the full result object
     } else {
       throw new Error(result.error);
