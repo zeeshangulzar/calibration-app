@@ -86,12 +86,6 @@ export class FlowMeterSweepService {
       // Connect to Fluke device first
       await this.connectToFluke();
 
-      // Check if Fluke is available and responsive
-      const isAvailable = await this.checkFlukeAvailability();
-      if (!isAvailable) {
-        throw new Error('Fluke device is not responding. Please check connection and try again.');
-      }
-
       // Run prerequisites
       await this.runFlukePreReqs();
       await this.checkZeroPressure();
@@ -122,23 +116,6 @@ export class FlowMeterSweepService {
       // If connection fails, try to cleanup and throw error
       await this.cleanupFlukeConnection();
       throw error;
-    }
-  }
-
-  /**
-   * Check if Fluke device is available
-   */
-  async checkFlukeAvailability() {
-    try {
-      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        // Try to send a simple command to check if device is responsive
-        await this.fluke.sendCommand('Output:state?', 5000); // 5 second timeout
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.log('Fluke device not available:', error.message);
-      return false;
     }
   }
 

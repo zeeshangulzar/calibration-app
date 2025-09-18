@@ -58,9 +58,6 @@ function setupEventListeners() {
   // DOM event listeners
   elements.backBtn?.addEventListener('click', () => {
     if (window.electronAPI && window.electronAPI.flowMeterSweepGoBack) {
-      if (sweepInProgress) {
-        NotificationHelper.showInfo('Stopping sweep and setting Fluke to zero...');
-      }
       window.electronAPI.flowMeterSweepGoBack();
     }
   });
@@ -132,7 +129,7 @@ function setupSweepEventListeners() {
 
   // Listen for sweep started events
   window.electronAPI.onFlowMeterSweepStarted?.(data => {
-    addLogMessage(`Sweep started for ${data.model}`);
+    // addLogMessage(`Sweep started for ${data.model}`);
     sweepInProgress = true;
     updateStartButtonState();
   });
@@ -240,9 +237,6 @@ function updatePressureRangesTable() {
         <tr class="border-b">
           <td class="px-3 py-2 font-medium">Increasing</td>
           <td class="px-3 py-2">${psi} PSI</td>
-          <td class="px-3 py-2">
-            <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800" id="inc-status-${index}">Pending</span>
-          </td>
         </tr>
       `);
     });
@@ -255,9 +249,6 @@ function updatePressureRangesTable() {
         <tr class="border-b">
           <td class="px-3 py-2 font-medium">Decreasing</td>
           <td class="px-3 py-2">${psi} PSI</td>
-          <td class="px-3 py-2">
-            <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800" id="dec-status-${index}">Pending</span>
-          </td>
         </tr>
       `);
     });
@@ -282,6 +273,14 @@ function addLogMessage(message, type = 'info') {
   if (scrollContainer) {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
   }
+}
+
+/**
+ * Clear all log messages from the sweep logs
+ */
+function clearLogMessages() {
+  if (!elements.sweepLogs) return;
+  elements.sweepLogs.innerHTML = '';
 }
 
 /**
@@ -326,6 +325,9 @@ async function handleStartSweep() {
   if (!validateForm() || sweepInProgress) {
     return;
   }
+
+  // Clear previous logs when starting a new sweep
+  clearLogMessages();
 
   try {
     const flowMeterId = elements.flowMeterSelect.value;
@@ -398,10 +400,10 @@ function showSweepLoading() {
     container.style.transition = 'all 0.3s ease';
 
     // Add striped loading animation
-    container.style.background = 'linear-gradient(45deg, transparent 25%, rgba(59, 130, 246, 0.15) 25%, rgba(59, 130, 246, 0.15) 50%, transparent 50%, transparent 75%, rgba(59, 130, 246, 0.15) 75%)';
+    container.style.background = 'linear-gradient(45deg, transparent 25%, rgba(75, 85, 99, 0.15) 25%, rgba(75, 85, 99, 0.15) 50%, transparent 50%, transparent 75%, rgba(75, 85, 99, 0.15) 75%)';
     container.style.backgroundSize = '15px 15px';
     container.style.animation = 'removing-stripes 0.8s linear infinite';
-    container.style.boxShadow = 'inset 0 0 20px rgba(59, 130, 246, 0.2)';
+    container.style.boxShadow = 'inset 0 0 20px rgba(75, 85, 99, 0.2)';
   }
 }
 
@@ -431,7 +433,11 @@ function showPSIDisplay(step, currentStep, totalSteps) {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Please note PSI <span id="current-psi-value" class="font-bold text-blue-600">${step.psi}</span></h4>
+          <h4>Please note</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="current-psi-value mr-4">${step.psi}</h1>
+          <span class="text-4xl font-bold ml-2">PSI</span>
         </div>
       </div>
     `;
@@ -444,7 +450,7 @@ function showPSIDisplay(step, currentStep, totalSteps) {
     if (isLastStep) {
       // Show COMPLETE button for the last step
       buttonsContainer.innerHTML = `
-        <button id="complete-sweep-btn" class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200">
+        <button id="complete-sweep-btn" class="border-left-0 rounded-r-md bg-neutral-800 w-full text-white text-xl font-bold px-4 py-2 hover:bg-neutral-700 transition-colors duration-200">
           COMPLETE
         </button>
       `;
@@ -455,7 +461,7 @@ function showPSIDisplay(step, currentStep, totalSteps) {
     } else {
       // Show NEXT button for intermediate steps
       buttonsContainer.innerHTML = `
-        <button id="next-step-btn" class="border-left-0 rounded-r-md bg-blue-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-blue-700 transition-colors duration-200">
+        <button id="next-step-btn" class="border-left-0 rounded-r-md bg-neutral-800 w-full text-white text-xl font-bold px-4 py-2 hover:bg-neutral-700 transition-colors duration-200">
           NEXT
         </button>
       `;
@@ -541,8 +547,8 @@ function showSweepCompletion() {
 
   if (buttonsContainer) {
     buttonsContainer.innerHTML = `
-      <button id="restart-sweep-btn" class="border-left-0 rounded-r-md bg-blue-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-blue-700 transition-colors duration-200">
-        RESTART SWEEP
+      <button id="restart-sweep-btn" class="border-left-0 rounded-r-md bg-neutral-800 w-full text-white text-xl font-bold px-4 py-2 hover:bg-neutral-700 transition-colors duration-200">
+        START AGAIN
       </button>
     `;
 
@@ -591,7 +597,11 @@ function resetSweepUI() {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Please note PSI <span id="current-psi-value" class="font-bold text-gray-500">N/A</span></h4>
+          <h4>Please note</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="current-psi-value mr-4">N/A</h1>
+          <span class="text-4xl font-bold ml-2">PSI</span>
         </div>
       </div>
     `;
@@ -603,7 +613,7 @@ function resetSweepUI() {
     buttonsContainer.innerHTML = `
       <button
         id="start-sweep-btn"
-        class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-r-md bg-neutral-800 w-full text-white text-xl font-bold px-4 py-2 hover:bg-neutral-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
         START SWEEP
@@ -616,6 +626,18 @@ function resetSweepUI() {
 
     // Update the elements reference to the new button
     elements.startSweepBtn = startBtn;
+  }
+
+  // Reset flow meter select box
+  const flowMeterSelect = elements.flowMeterSelect;
+  if (flowMeterSelect) {
+    flowMeterSelect.value = '';
+  }
+
+  // Clear pressure ranges table
+  const pressureRangesTable = elements.pressureRangesTable;
+  if (pressureRangesTable) {
+    pressureRangesTable.innerHTML = '';
   }
 
   // Reset sweep state
@@ -656,7 +678,11 @@ function stopSweepProcess() {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Please note PSI <span id="current-psi-value" class="font-bold text-gray-500">N/A</span></h4>
+          <h4>Please note</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="current-psi-value mr-4">N/A</h1>
+          <span class="text-4xl font-bold ml-2">PSI</span>
         </div>
       </div>
     `;
@@ -667,7 +693,7 @@ function stopSweepProcess() {
     buttonsContainer.innerHTML = `
       <button
         id="start-sweep-btn"
-        class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-r-md bg-neutral-800 w-full text-white text-xl font-bold px-4 py-2 hover:bg-neutral-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
         START SWEEP
