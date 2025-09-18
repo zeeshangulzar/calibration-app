@@ -183,7 +183,7 @@ class MonsterMeterVerificationService {
   async connectToFluke() {
     // Check if Fluke is already connected (e.g., from previous calibration)
     if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-      this.showLogOnScreen('✅ Fluke already connected');
+      // this.showLogOnScreen('✅ Fluke already connected');
       return;
     }
 
