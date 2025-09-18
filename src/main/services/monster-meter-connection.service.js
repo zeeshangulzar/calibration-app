@@ -178,6 +178,10 @@ class MonsterMeterConnectionService extends EventEmitter {
         console.log(`[Connection] Port ${portPath} opened successfully`);
         this.connectedPort = port;
         this.isConnected = true;
+
+        // Get and log Monster Meter serial number
+        this.logMonsterMeterSerialNumber(portPath);
+
         this.emit('connected', { port: portPath });
         resolve(port);
       });
@@ -284,6 +288,34 @@ class MonsterMeterConnectionService extends EventEmitter {
       tags: { service: 'monster-meter-connection', method },
     });
     console.error(`Failed in ${method}:`, error);
+  }
+
+  /**
+   * Get and log Monster Meter serial number from FTDI device
+   */
+  async logMonsterMeterSerialNumber(portPath) {
+    try {
+      const ports = await SerialPort.list();
+
+      // Find the FTDI device that matches our connected port
+      const ftdiDevice = ports.find(p => p.path === portPath && p.vendorId?.toLowerCase() === '0403' && p.productId?.toLowerCase() === '6001');
+
+      if (ftdiDevice) {
+        const serialNumber = ftdiDevice.serialNumber || 'N/A';
+
+        console.log('🔍 Monster Meter Device Info:');
+        console.log(`  📍 Port: ${ftdiDevice.path}`);
+        console.log(`  🔢 Serial Number: ${serialNumber}`);
+        console.log(`  🏭 Manufacturer: ${ftdiDevice.manufacturer || 'N/A'}`);
+        console.log(`  📝 Description: ${ftdiDevice.friendlyName || ftdiDevice.pnpId || 'N/A'}`);
+        // i want to send the monster meeter serial number to sentry
+        Sentry.captureMessage(`Monster Meter Device Info: ${serialNumber}`, {
+          tags: { service: 'monster-meter-connection', method: 'logMonsterMeterSerialNumber' },
+        });
+      }
+    } catch (error) {
+      this.handleError('logMonsterMeterSerialNumberError', error);
+    }
   }
 
   async cleanup() {

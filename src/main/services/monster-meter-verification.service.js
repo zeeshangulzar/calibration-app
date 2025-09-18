@@ -1,7 +1,7 @@
 /**
  * Monster Meter Verification Service
  * Handles the verification process for Monster Meter devices
- * 
+ *
  * This service manages the verification workflow which includes:
  * - Sending VERIFY_ME command to Monster Meter
  * - Running 8-point pressure sweep (0 to 250 PSI)
@@ -31,10 +31,7 @@ class MonsterMeterVerificationService {
 
   async initialize() {
     try {
-      this.fluke = this.flukeFactory.getFlukeService(
-        this.showLogOnScreen, 
-        () => this.isVerificationActive && !this.isVerificationStopped
-      );
+      this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.isVerificationActive && !this.isVerificationStopped);
     } catch (error) {
       this.handleError('initialize', error);
       throw error;
@@ -59,7 +56,9 @@ class MonsterMeterVerificationService {
       this.initializeVerificationState(testerName, model, serialNumber);
       this.generateSweepIntervals();
 
-      this.sendToRenderer('monster-meter-verification-started');
+      this.sendToRenderer('monster-meter-verification-started', {
+        pressureArr: this.sweepIntervals,
+      });
       await this.runVerificationProcess();
 
       if (this.isVerificationStopped) {
@@ -76,7 +75,18 @@ class MonsterMeterVerificationService {
   async stopVerification(reason = 'Verification stopped by user') {
     try {
       this.updateVerificationFlags(false, true);
-      await this.setFlukeToZero();
+
+      // Set Fluke to zero but only disconnect if user is leaving (not for errors)
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+        await this.setFlukeToZero();
+
+        // Only disconnect if user is leaving or service is being destroyed
+        if (reason.includes('destroyed') || reason.includes('cleanup') || reason.includes('navigation')) {
+          await this.fluke.telnetClient.disconnect();
+          this.showLogOnScreen('🔌 Disconnected from Fluke');
+        }
+      }
+
       this.sendToRenderer('monster-meter-verification-stopped', { reason });
       return { success: true };
     } catch (error) {
@@ -92,7 +102,7 @@ class MonsterMeterVerificationService {
       testerName: this.testerName,
       model: this.model,
       serialNumber: this.serialNumber,
-      progress: this.getProgressInfo()
+      progress: this.getProgressInfo(),
     };
   }
 
@@ -102,6 +112,10 @@ class MonsterMeterVerificationService {
     this.model = model;
     this.serialNumber = serialNumber;
     this.maxPressure = MONSTER_METER_CONSTANTS.SWEEP_VALUE;
+
+    // Set verification as active
+    this.updateVerificationFlags(true, false);
+
     this.clearVerificationData();
   }
 
@@ -132,9 +146,9 @@ class MonsterMeterVerificationService {
 
   generateSweepIntervals() {
     this.sweepIntervals = generateStepArray(this.maxPressure);
-    this.logDebugInfo('generateSweepIntervals', { 
+    this.logDebugInfo('generateSweepIntervals', {
       intervals: this.sweepIntervals,
-      count: this.sweepIntervals.length 
+      count: this.sweepIntervals.length,
     });
   }
 
@@ -144,20 +158,42 @@ class MonsterMeterVerificationService {
    */
   async runVerificationProcess() {
     try {
-      // Step 1: Send VERIFY_ME command to Monster Meter
+      // Step 1: Connect to Fluke
+      await this.connectToFluke();
+
+      // Step 2: Set Fluke to zero pressure first
+      await this.setFlukeToZero();
+
+      // Step 3: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
       await this.delay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
 
-      // Step 2: Run the pressure sweep
+      // Step 4: Run the pressure sweep
       this.showLogOnScreen('Verification sweep starting...');
       await this.runVerificationSweep();
       this.showLogOnScreen('Verification sweep completed');
 
-      // Step 3: Set Fluke back to zero
-      await this.delay(2000);
-      await this.setFlukeToZero();
+      // Keep Fluke connected - will be disconnected when user leaves Monster Meter screen
     } catch (error) {
       this.handleError('runVerificationProcess', error);
+      throw error;
+    }
+  }
+
+  async connectToFluke() {
+    // Check if Fluke is already connected (e.g., from previous calibration)
+    if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+      // this.showLogOnScreen('✅ Fluke already connected');
+      return;
+    }
+
+    try {
+      const result = await this.fluke.connect();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to connect to Fluke');
+      }
+    } catch (error) {
+      this.showLogOnScreen(`❌ Failed to connect to Fluke: ${error.message}`);
       throw error;
     }
   }
@@ -165,7 +201,7 @@ class MonsterMeterVerificationService {
   async sendVerifyMeCommand() {
     try {
       await this.monsterMeterCommunication.sendCommand(MONSTER_METER_CONSTANTS.COMMANDS.VERIFY_ME);
-      this.showLogOnScreen('Verify Me command sent to Monster Meter');
+      // this.showLogOnScreen('Verify Me command sent to Monster Meter');
     } catch (error) {
       this.handleError('sendVerifyMeCommand', error);
       throw error;
@@ -179,6 +215,9 @@ class MonsterMeterVerificationService {
       const pressureValue = this.sweepIntervals[i];
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
+      this.showLogOnScreen('Waiting for 2 seconds');
+      await this.delay(2000);
+      this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
       await this.delay(1000);
     }
@@ -214,7 +253,9 @@ class MonsterMeterVerificationService {
     try {
       const data = await this.monsterMeterCommunication.readData();
       if (!data) {
-        throw new Error('No data received from Monster Meter');
+        this.showLogOnScreen('❌ Monster Meter not responding - stopping verification');
+        await this.setFlukeToZero();
+        throw new Error('Monster Meter is not responding');
       }
 
       this.processVerificationData(data, pressureValue);
@@ -239,8 +280,7 @@ class MonsterMeterVerificationService {
     // Check if readings are within tolerance range
     const toleranceMin = pressureValue - this.toleranceRange;
     const toleranceMax = pressureValue + this.toleranceRange;
-    const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && 
-                   pressureLo >= toleranceMin && pressureLo <= toleranceMax;
+    const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && pressureLo >= toleranceMin && pressureLo <= toleranceMax;
 
     const verificationPoint = {
       referencePressure: pressureValue,
@@ -248,7 +288,7 @@ class MonsterMeterVerificationService {
       pressureHi,
       voltageLo,
       pressureLo,
-      inRange
+      inRange,
     };
 
     this.updateVerificationArrays(voltageHi, pressureHi, voltageLo, pressureLo, pressureValue);
@@ -275,7 +315,7 @@ class MonsterMeterVerificationService {
       pressureLoArray: this.pressureLoArray,
       verificationData: this.dbDataVerification,
       completed: this.sweepIntervalsCompleted.length,
-      total: this.sweepIntervals.length
+      total: this.sweepIntervals.length,
     });
   }
 
@@ -284,26 +324,39 @@ class MonsterMeterVerificationService {
       referencePressure: this.sweepIntervalsCompleted[this.sweepIntervalsCompleted.length - 1],
       sensorHi: {
         voltage: data['SensorHi.vAVG'],
-        pressure: data['SensorHi.psiAVG']
+        pressure: data['SensorHi.psiAVG'],
       },
       sensorLo: {
         voltage: data['SensorLo.vAVG'],
-        pressure: data['SensorLo.psiAVG']
-      }
+        pressure: data['SensorLo.psiAVG'],
+      },
     });
   }
 
   async completeVerification() {
     try {
+      this.showLogOnScreen('✅ Verification sweep completed successfully');
+
+      // Set verification as complete (not active, not stopped)
       this.updateVerificationFlags(false, false);
-      
+
       // Generate verification summary
       const summary = this.generateVerificationSummary();
-      
+
       // Generate PDF report
+      this.showLogOnScreen('📄 Generating PDF report...');
       await this.generatePDFReport(summary);
-      
+
+      // Send final results to UI
       this.sendFinalResults();
+
+      // Set Fluke to zero in background silently
+      try {
+        await this.setFlukeToZeroSilent();
+      } catch (error) {
+        console.log('Background Fluke zero setting failed:', error.message);
+      }
+
       this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
@@ -317,7 +370,8 @@ class MonsterMeterVerificationService {
       model: this.model,
       serialNumber: this.serialNumber,
       verificationData: this.dbDataVerification,
-      summary: this.generateVerificationSummary()
+      summary: this.generateVerificationSummary(),
+      pressureArr: this.sweepIntervals,
     });
   }
 
@@ -331,24 +385,17 @@ class MonsterMeterVerificationService {
       const device = {
         id: this.serialNumber,
         displayName: `Monster Meter ${this.model}`,
-        model: this.model
+        model: this.model,
       };
 
-      const result = await this.pdfService.generateMonsterMeterPDF(
-        device,
-        this.dbDataVerification,
-        summary,
-        this.testerName,
-        this.model,
-        this.serialNumber
-      );
+      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
 
       if (result.success) {
-        this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
+        // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
         // Send PDF path to renderer for view PDF button
         this.sendToRenderer('monster-meter-pdf-generated', {
           filePath: result.filePath,
-          filename: result.filename
+          filename: result.filename,
         });
       } else {
         this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
@@ -368,7 +415,7 @@ class MonsterMeterVerificationService {
     const totalPoints = this.dbDataVerification.length;
     const passedPoints = this.dbDataVerification.filter(point => point.inRange).length;
     const failedPoints = totalPoints - passedPoints;
-    const passRate = totalPoints > 0 ? (passedPoints / totalPoints * 100).toFixed(1) : 0;
+    const passRate = totalPoints > 0 ? ((passedPoints / totalPoints) * 100).toFixed(1) : 0;
     const status = passedPoints === totalPoints ? 'PASSED' : 'FAILED';
 
     return {
@@ -377,7 +424,7 @@ class MonsterMeterVerificationService {
       failedPoints,
       passRate: `${passRate}%`,
       status,
-      toleranceRange: this.toleranceRange
+      toleranceRange: this.toleranceRange,
     };
   }
 
@@ -390,9 +437,21 @@ class MonsterMeterVerificationService {
     }
   }
 
+  async setFlukeToZeroSilent() {
+    try {
+      await this.fluke.setZeroPressureToFluke();
+      // Don't wait for it to reach zero pressure - fire and forget
+      console.log('Fluke set to zero pressure (background - not waiting)');
+    } catch (error) {
+      console.log('Background Fluke zero setting error:', error.message);
+      throw error;
+    }
+  }
+
   updateVerificationFlags(isActive, isStopped) {
     this.isVerificationActive = isActive;
     this.isVerificationStopped = isStopped;
+    console.log(`MonsterMeterVerification: Flags updated - isActive: ${isActive}, isStopped: ${isStopped}`);
   }
 
   clearVerificationData() {
@@ -408,9 +467,7 @@ class MonsterMeterVerificationService {
     return {
       completed: this.sweepIntervalsCompleted.length,
       total: this.sweepIntervals?.length || 0,
-      percentage: this.sweepIntervals?.length > 0 
-        ? Math.round((this.sweepIntervalsCompleted.length / this.sweepIntervals.length) * 100)
-        : 0
+      percentage: this.sweepIntervals?.length > 0 ? Math.round((this.sweepIntervalsCompleted.length / this.sweepIntervals.length) * 100) : 0,
     };
   }
 
@@ -436,7 +493,7 @@ class MonsterMeterVerificationService {
   handleError(method, error, extra = {}) {
     Sentry.captureException(error, {
       tags: { service: 'monster-meter-verification', method },
-      extra
+      extra,
     });
     console.error(`[MonsterMeterVerificationService.${method}]`, error);
   }

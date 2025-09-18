@@ -183,6 +183,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowKrakenCalibrationButton: callback => ipcRenderer.on('show-kraken-calibration-button', () => callback()),
   onHideKrakenCalibrationButton: callback => ipcRenderer.on('hide-kraken-calibration-button', () => callback()),
   onDeviceCalibrationStatusUpdate: callback => ipcRenderer.on('device-calibration-status-update', (_, data) => callback(data)),
+  onDeviceVerificationStatusUpdate: callback => ipcRenderer.on('device-verification-status-update', (_, data) => callback(data)),
   onCertificationStatusUpdate: callback => ipcRenderer.on('certification-status-update', (_, data) => callback(data)),
 
   // Back button events
