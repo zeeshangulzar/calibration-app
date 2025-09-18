@@ -43,6 +43,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Add click handler for Flow Meter Sweep card
+  const flowMeterSweepCard = document.getElementById('flow-meter-sweep-card');
+  if (flowMeterSweepCard) {
+    flowMeterSweepCard.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.loadFlowMeterSweep) {
+        window.electronAPI.loadFlowMeterSweep();
+      }
+    });
+  }
+
   // Add click handler for Settings button
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {
