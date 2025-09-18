@@ -52,8 +52,8 @@ function validateMigrationStructure(migration, filename) {
   const checks = [
     { key: 'version', valid: v => typeof v === 'number' },
     { key: 'description', valid: v => typeof v === 'string' },
-    { key: 'up', valid: v => typeof v === 'string' && v.trim() },
-    { key: 'down', valid: v => typeof v === 'string' && v.trim() },
+    { key: 'up', valid: v => (typeof v === 'string' && v.trim()) || (Array.isArray(v) && v.length > 0) },
+    { key: 'down', valid: v => (typeof v === 'string' && v.trim()) || (Array.isArray(v) && v.length > 0) },
   ];
 
   for (const { key, valid } of checks) {
@@ -70,7 +70,7 @@ function validateMigrationStructure(migration, filename) {
   }
 
   // Additional validation: Check SQL content for basic safety
-  const upSQL = migration.up.trim().toLowerCase();
+  const upSQL = Array.isArray(migration.up) ? migration.up.join(' ').toLowerCase() : migration.up.trim().toLowerCase();
   if (upSQL.includes('drop table') && !upSQL.includes('if exists')) {
     console.warn(`---- Warning: ${filename} contains DROP TABLE without IF EXISTS - this could be dangerous`);
   }
