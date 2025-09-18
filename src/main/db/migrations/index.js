@@ -26,9 +26,9 @@ import { migration as migration002 } from './002_command_history.js';
 import { migration as migration003 } from './003_device_assembly.js';
 import { migration as migration004 } from './004_migration_table_structure.js';
 import { migration as migration005 } from './005_add_mock_fluke_enabled.js';
-
+import { migration as migration006 } from './006_gvi_gauges.js';
 // Central registry of all migrations
-const importedMigrations = [migration001, migration002, migration003, migration004, migration005];
+const importedMigrations = [migration001, migration002, migration003, migration004, migration005, migration006];
 
 /**
  * Comprehensive migration validation system
@@ -52,8 +52,8 @@ function validateMigrationStructure(migration, filename) {
   const checks = [
     { key: 'version', valid: v => typeof v === 'number' },
     { key: 'description', valid: v => typeof v === 'string' },
-    { key: 'up', valid: v => typeof v === 'string' && v.trim() },
-    { key: 'down', valid: v => typeof v === 'string' && v.trim() },
+    { key: 'up', valid: v => (typeof v === 'string' && v.trim()) || (Array.isArray(v) && v.length > 0) },
+    { key: 'down', valid: v => (typeof v === 'string' && v.trim()) || (Array.isArray(v) && v.length > 0) },
   ];
 
   for (const { key, valid } of checks) {
@@ -70,7 +70,7 @@ function validateMigrationStructure(migration, filename) {
   }
 
   // Additional validation: Check SQL content for basic safety
-  const upSQL = migration.up.trim().toLowerCase();
+  const upSQL = Array.isArray(migration.up) ? migration.up.join(' ').toLowerCase() : migration.up.trim().toLowerCase();
   if (upSQL.includes('drop table') && !upSQL.includes('if exists')) {
     console.warn(`---- Warning: ${filename} contains DROP TABLE without IF EXISTS - this could be dangerous`);
   }
@@ -130,7 +130,7 @@ function validateAllMigrations() {
 
     // Validate each individual migration
     importedMigrations.forEach((migration, index) => {
-      const filename = Object.keys({ migration001, migration002, migration003, migration004 })[index];
+      const filename = Object.keys({ migration001, migration002, migration003, migration004, migration005 })[index];
       validateMigrationStructure(migration, filename);
     });
 
