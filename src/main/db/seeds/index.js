@@ -1,4 +1,5 @@
 import { seed as seedGVIRanges } from './gvi_ranges.seed.js';
+import { seed as seedFlowMeters } from './flow_meter_seed.js';
 
 export async function runAllSeeds(db) {
   if (!db) {
@@ -8,14 +9,14 @@ export async function runAllSeeds(db) {
   try {
     // Run GVI ranges seed
     const gviResult = await seedGVIRanges(db);
-
+    const flowMeterResult = await seedFlowMeters(db);
     if (gviResult.inserted > 0) {
       console.log(`Database seeded: ${gviResult.inserted} GVI ranges inserted`);
     } else if (gviResult.skipped > 0) {
       console.log('Database already seeded, skipping');
     }
 
-    return { success: true, results: { gviRanges: gviResult } };
+    return { success: true, results: { gviRanges: gviResult, flowMeters: flowMeterResult } };
   } catch (error) {
     console.error('Seeding failed:', error);
     return { success: false, error: error.message };

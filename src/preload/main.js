@@ -237,6 +237,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onGVICalibrationCompleted: callback => ipcRenderer.on('gvi-calibration-completed', (_, data) => callback(data)),
   onGVICalibrationFailed: callback => ipcRenderer.on('gvi-calibration-failed', (_, data) => callback(data)),
   onGVILogMessage: callback => ipcRenderer.on('gvi-log-message', (_, data) => callback(data)),
+
+  //======== Flow Meter Sweep APIs ========
+  loadFlowMeterSweep: () => ipcRenderer.send('load-flow-meter-sweep'),
+  flowMeterSweepGoBack: () => ipcRenderer.send('flow-meter-sweep-go-back'),
+  flowMeterSweepGetAvailableFlowMeters: () => ipcRenderer.invoke('flow-meter-sweep-get-available-flow-meters'),
+  flowMeterSweepGetPressureRanges: flowMeterId => ipcRenderer.invoke('flow-meter-sweep-get-pressure-ranges', flowMeterId),
+  flowMeterSweepStartSweep: config => ipcRenderer.invoke('flow-meter-sweep-start-sweep', config),
+  flowMeterSweepGetStatus: () => ipcRenderer.invoke('flow-meter-sweep-get-status'),
+  flowMeterSweepNextStep: () => ipcRenderer.invoke('flow-meter-sweep-next-step'),
+  flowMeterSweepCompleteSweep: () => ipcRenderer.invoke('flow-meter-sweep-complete-sweep'),
+
+  // Flow Meter Sweep event listeners
+  onFlowMeterSweepInitialized: callback => ipcRenderer.on('flow-meter-sweep-initialized', () => callback()),
+  onFlowMeterSweepStarted: callback => ipcRenderer.on('flow-meter-sweep-started', (_, data) => callback(data)),
+  onFlowMeterSweepStopped: callback => ipcRenderer.on('flow-meter-sweep-stopped', () => callback()),
+  onFlowMeterSweepStepReady: callback => ipcRenderer.on('flow-meter-sweep-step-ready', (_, data) => callback(data)),
+  onFlowMeterSweepStepUpdated: callback => ipcRenderer.on('flow-meter-sweep-step-updated', (_, data) => callback(data)),
+  onFlowMeterSweepCompleted: callback => ipcRenderer.on('flow-meter-sweep-completed', (_, data) => callback(data)),
+  onFlowMeterSweepFailed: callback => ipcRenderer.on('flow-meter-sweep-failed', (_, data) => callback(data)),
+  onFlowMeterSweepLogMessage: callback => ipcRenderer.on('flow-meter-sweep-log-message', (_, data) => callback(data)),
   monsterMeterReadData: () => ipcRenderer.invoke('monster-meter-read-data'),
   monsterMeterTestCommunication: () => ipcRenderer.invoke('monster-meter-test-communication'),
   monsterMeterGetUsbDevices: () => ipcRenderer.invoke('monster-meter-get-usb-devices'),

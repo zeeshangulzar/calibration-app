@@ -7,6 +7,7 @@ import { registerSettingsIpcHandlers } from './settings.ipc.js';
 import { registerDeveloperSettingsIpcHandlers } from './developer-settings.ipc.js';
 import { registerMonsterMeterIpcHandlers } from './monster-meter.ipc.js';
 import { registerGVIIpcHandlers, cleanupGVI } from './gvi.ipc.js';
+import { registerFlowMeterSweepIpcHandlers, cleanupFlowMeterSweep } from './flow-meter-sweep.ipc.js';
 import { registerAssemblySensorIpcHandlers } from './assembly-sensor.ipc.js';
 import { registerMigrationIpcHandlers } from './migration.ipc.js';
 
@@ -26,6 +27,7 @@ export function registerIpcHandlers() {
   registerDeveloperSettingsIpcHandlers();
   registerMonsterMeterIpcHandlers();
   registerGVIIpcHandlers();
+  registerFlowMeterSweepIpcHandlers();
 }
 
 function registerCoreIpcHandlers() {
@@ -50,6 +52,9 @@ export async function cleanupIpcResources() {
 
     // Cleanup GVI flow meter
     await cleanupGVI();
+
+    // Cleanup flow meter sweep
+    await cleanupFlowMeterSweep();
 
     console.log('IPC resources cleanup completed');
   } catch (error) {
