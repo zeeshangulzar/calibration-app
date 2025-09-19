@@ -352,9 +352,10 @@ class MonsterMeterVerificationService {
 
       // Set Fluke to zero in background silently
       try {
-        await this.setFlukeToZeroSilent();
+        // await this.sendVentCommandToFluke();
+        await this.fluke.ventFluke();
       } catch (error) {
-        console.log('Background Fluke zero setting failed:', error.message);
+        console.log('Background Fluke vent command failed:', error.message);
       }
 
       this.showLogOnScreen('Verification completed successfully');

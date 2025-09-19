@@ -162,8 +162,7 @@ class KrakenVerificationService {
         console.log('KrakenVerification: Restored Fluke process active function to calibration check');
       }
 
-      // Always set Fluke to zero pressure after verification completes or fails (silently)
-      this.fluke.setZeroPressureToFluke(true);
+      this.fluke.ventFluke();
     }
   }
 

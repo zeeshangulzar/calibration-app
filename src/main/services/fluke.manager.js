@@ -280,6 +280,19 @@ export class FlukeManager {
     }
   }
 
+  async ventFluke() {
+    try {
+      const response = await this.telnetClient.sendCommand(FlukeUtil.flukeSetOutputPressureModeVentCommand);
+      return response;
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ventFluke' },
+      });
+      console.warn('Fluke vent command failed:', error);
+      return false;
+    }
+  }
+
   async disconnect() {
     if (this.telnetClient && this.telnetClient.isConnected) {
       await this.telnetClient.disconnect();
