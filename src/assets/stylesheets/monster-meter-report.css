@@ -19,8 +19,12 @@ body {
 }
 
 .top-header img {
-  height: 70px;
-  width: 70px;
+  height: 65px;
+  width: 95px;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  filter: contrast(1.1) brightness(1.05);
 }
 
 .company-details {
