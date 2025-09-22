@@ -263,6 +263,11 @@ class TelnetClientService extends EventEmitter {
     });
   }
 
+  sendCommandWithoutWaitingForResponse(command) {
+    this.client.write(command + '\n');
+    this.emit('commandSent', { command });
+  }
+
   /**
    * Test connection with identification command
    * @returns {Promise<Object>} Test result

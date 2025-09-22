@@ -76,9 +76,9 @@ class MonsterMeterVerificationService {
     try {
       this.updateVerificationFlags(false, true);
 
-      // Set Fluke to zero but only disconnect if user is leaving (not for errors)
+      // Vent Fluke before stopping verification
       if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        await this.setFlukeToZero();
+        this.fluke.ventFluke();
 
         // Only disconnect if user is leaving or service is being destroyed
         if (reason.includes('destroyed') || reason.includes('cleanup') || reason.includes('navigation')) {

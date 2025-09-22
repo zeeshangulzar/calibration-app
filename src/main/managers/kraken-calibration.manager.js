@@ -435,6 +435,11 @@ export class KrakenCalibrationManager {
       // Update global state
       this.globalState.isCalibrationActive = false;
 
+      // Vent Fluke before stopping calibration
+      if (this.fluke) {
+        this.fluke.ventFluke();
+      }
+
       // Show stop notification in logs
       this.showLogOnScreen('🛑 CALIBRATION STOPPED');
       if (errorDetails) {
