@@ -10,7 +10,7 @@
  * - Generating pass/fail summary
  */
 import { FlukeFactoryService } from './fluke-factory.service.js';
-import { generateStepArray } from '../utils/kraken-calibration.utils.js';
+import { generateReverseStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
 import * as Sentry from '@sentry/electron/main';
@@ -145,7 +145,7 @@ class MonsterMeterVerificationService {
   }
 
   generateSweepIntervals() {
-    this.sweepIntervals = generateStepArray(this.maxPressure);
+    this.sweepIntervals = generateReverseStepArray(this.maxPressure);
     this.logDebugInfo('generateSweepIntervals', {
       intervals: this.sweepIntervals,
       count: this.sweepIntervals.length,
@@ -162,7 +162,7 @@ class MonsterMeterVerificationService {
       await this.connectToFluke();
 
       // Step 2: Set Fluke to zero pressure first
-      await this.setFlukeToZero();
+      // await this.setFlukeToZero(); // not required now due to reverse sweep
 
       // Step 3: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
@@ -335,7 +335,7 @@ class MonsterMeterVerificationService {
 
   async completeVerification() {
     try {
-      this.showLogOnScreen('✅ Verification sweep completed successfully');
+      // this.showLogOnScreen('✅ Verification sweep completed successfully');
 
       // Set verification as complete (not active, not stopped)
       this.updateVerificationFlags(false, false);
@@ -351,13 +351,13 @@ class MonsterMeterVerificationService {
       this.sendFinalResults();
 
       // Set Fluke to zero in background silently
-      try {
-        await this.setFlukeToZeroSilent();
-      } catch (error) {
-        console.log('Background Fluke zero setting failed:', error.message);
-      }
+      // try {
+      //   // await this.setFlukeToZeroSilent(); // Fluke is already set to zero in reverse sweep
+      // } catch (error) {
+      //   console.log('Background Fluke zero setting failed:', error.message);
+      // }
 
-      this.showLogOnScreen('Verification completed successfully');
+      this.showLogOnScreen('✅ Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
       throw error;
@@ -388,7 +388,7 @@ class MonsterMeterVerificationService {
         model: this.model,
       };
 
-      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
+      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification.reverse(), summary, this.testerName, this.model, this.serialNumber);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
