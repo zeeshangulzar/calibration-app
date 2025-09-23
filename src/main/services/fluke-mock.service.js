@@ -117,6 +117,11 @@ class FlukeMockService {
     return true;
   }
 
+  async ventFluke() {
+    console.log('🔧 [MOCK] Venting Fluke (no-op)');
+    return true;
+  }
+
   /**
    * Mock method - disconnects from Fluke (no-op)
    */

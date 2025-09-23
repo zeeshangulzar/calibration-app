@@ -95,6 +95,7 @@ class FlukeFactoryService {
    * Reset the singleton instance (for cleanup)
    */
   resetInstance() {
+    this.instance.disconnect(); // first disconnect the instance
     this.instance = null;
     console.log('🔧 Fluke Factory instance reset');
   }
@@ -113,6 +114,7 @@ class FlukeFactoryService {
    * Reset singleton instance when settings change
    */
   static resetInstance() {
+    FlukeFactoryService.instance.disconnect(); // first disconnect the instance
     FlukeFactoryService.instance = null;
     console.log('🔧 Fluke Factory instance reset');
   }

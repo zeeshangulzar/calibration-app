@@ -253,6 +253,10 @@ export class GVICalibrationService {
     }
   }
 
+  ventFluke() {
+    this.fluke.ventFluke();
+  }
+
   // Utility methods
   initializeCalibrationState(testerName, model, serialNumber, steps) {
     this.testerName = testerName;
@@ -332,6 +336,10 @@ export class GVICalibrationService {
       if (this.isCalibrationActive) {
         this.isCalibrationActive = false;
       }
+      if (this.fluke.telnetClient.isConnected) {
+        this.fluke.telnetClient.disconnect();
+      }
+
       this.reset();
       this.showLogOnScreen('✅ GVI calibration service cleanup completed');
     } catch (error) {

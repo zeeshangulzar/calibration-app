@@ -280,9 +280,22 @@ export class FlukeManager {
     }
   }
 
+  async ventFluke() {
+    try {
+      this.telnetClient.sendCommandWithoutWaitingForResponse(FlukeUtil.flukeSetOutputPressureModeVentCommand);
+      console.log('Fluke vent command sent');
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ventFluke' },
+      });
+      console.warn('Fluke vent command failed:', error);
+    }
+  }
+
   async disconnect() {
     if (this.telnetClient && this.telnetClient.isConnected) {
-      await this.telnetClient.disconnect();
+      this.ventFluke();
+      this.telnetClient.disconnect();
       console.log('Fluke disconnected successfully');
     }
   }
