@@ -12,4 +12,19 @@ function generateStepArray(maxVal) {
   return stepArr;
 }
 
-export { generateStepArray };
+function generateReverseStepArray(maxVal) {
+  const stepArr = [maxVal];
+  let interval = 50;
+  if (maxVal === 100) {
+    interval = 25;
+  }
+  for (let val = maxVal - interval; val >= 0; val -= interval) {
+    stepArr.push(val);
+    if (val === 100) {
+      interval = 25;
+    }
+  }
+  return stepArr;
+}
+
+export { generateStepArray, generateReverseStepArray };
