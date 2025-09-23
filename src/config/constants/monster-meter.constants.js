@@ -9,6 +9,7 @@ export const MONSTER_METER_CONSTANTS = {
   DATA_TIMEOUT: 5000,
   MAX_RETRIES: 3,
   SWEEP_VALUE: 250,
+  TEMPERATURE_SUBTRACTION: 5.0, // celcius subtraction to get lab temperature
 
   TOLERANCE_RANGE: 1.0, // In percentage +-1 percent
   
