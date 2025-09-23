@@ -6,6 +6,9 @@ import { PolynomialRegression } from 'ml-regression-polynomial';
 import { FlukeFactoryService } from './fluke-factory.service.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
+
+import { convertCelciusToFahrenheit } from '../utils/general.utils.js';
+
 import * as Sentry from '@sentry/electron/main';
 
 class MonsterMeterCalibrationService {
@@ -17,6 +20,8 @@ class MonsterMeterCalibrationService {
 
     this.flukeFactory = new FlukeFactoryService();
     this.toleranceRange = MONSTER_METER_CONSTANTS.TOLERANCE_RANGE;
+    // Use the same state instance passed as parameter instead of creating a new one
+    this.state = monsterMeterState;
 
     this.reset();
   }
@@ -89,6 +94,7 @@ class MonsterMeterCalibrationService {
       { fn: this.connectToFluke, name: 'Connect to Fluke' },
       { fn: this.runFlukePreReqs, name: 'Fluke prerequisites' },
       { fn: this.checkZeroPressure, name: 'Zero pressure check' },
+      { fn: this.captureFlukeTemperature, name: 'Capture Fluke temperature' },
       { fn: this.zeroMonsterMeter, name: 'Zero Monster Meter' },
       { fn: this.sendStartCalibrationCommandToMM, name: 'Start calibration' },
       { fn: this.runCalibrationSweep, name: 'Calibration sweep' },
@@ -223,6 +229,21 @@ class MonsterMeterCalibrationService {
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
+    }
+  }
+
+  async captureFlukeTemperature() {
+    try {
+      let temperature = await this.fluke.getTemperature();
+      if (temperature) {
+        temperature = temperature - 5.0; // Subtract 5 degrees to get Lab temperature
+        let farenheitTemperature = convertCelciusToFahrenheit(temperature);
+        this.state.setFlukeTemperature(farenheitTemperature);
+      } else {
+        this.state.setFlukeTemperature('N/A');
+      }
+    } catch (error) {
+      this.handleError(error, 'captureFlukeTemperature');
     }
   }
 

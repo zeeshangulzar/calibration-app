@@ -10,10 +10,9 @@
       <div class="logo-and-address">
         <img src="{{logoUrl}}" alt="Company Logo" />
         <div class="company-details">
-          <div>1234 Industrial Blvd</div>
-          <div>City, State 12345</div>
-          <div>(555) 123-4567</div>
-          <div>service@hosemonster.com</div>
+          <div>{{companyAddress}}, {{companyCityStateZip}}</div>
+          <div>{{companyPhone}}</div>
+          <div>{{companyEmail}}</div>
         </div>
       </div>
       <div class="report-box">
@@ -82,9 +81,9 @@
         </td>
         <td>
           0 to {{sweepValue}} psi operating pressure range<br />
-          +/- {{toleranceRange}} PSI Read of Tested Pressure
+          within +/-{{toleranceRange}}% read of Tested Pressure and confirms to NFPA25 standards
         </td>
-        <td>Calibration Temp: {{calibrationTemperature}}</td>
+        <td>Calibration Temp: {{temperature}} F</td>
       </tr>
     </table>
 

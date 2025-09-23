@@ -278,8 +278,9 @@ class MonsterMeterVerificationService {
     const pressureLo = data['SensorLo.psiAVG'];
 
     // Check if readings are within tolerance range
-    const toleranceMin = pressureValue - this.toleranceRange;
-    const toleranceMax = pressureValue + this.toleranceRange;
+    // Calculate tolerance based on percentage +-1 percent of the pressure value
+    const toleranceMin = pressureValue - (pressureValue * this.toleranceRange) / 100;
+    const toleranceMax = pressureValue + (pressureValue * this.toleranceRange) / 100;
     const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && pressureLo >= toleranceMin && pressureLo <= toleranceMax;
 
     const verificationPoint = {
@@ -289,6 +290,11 @@ class MonsterMeterVerificationService {
       voltageLo,
       pressureLo,
       inRange,
+      // Add calculated tolerance limits for PDF display
+      toleranceMin: toleranceMin,
+      toleranceMax: toleranceMax,
+      upperLimit: toleranceMax,
+      lowerLimit: toleranceMin,
     };
 
     this.updateVerificationArrays(voltageHi, pressureHi, voltageLo, pressureLo, pressureValue);
@@ -388,7 +394,8 @@ class MonsterMeterVerificationService {
         model: this.model,
       };
 
-      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
+      let temperature = this.monsterMeterState.getFlukeTemperature();
+      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber, temperature);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
@@ -397,8 +404,6 @@ class MonsterMeterVerificationService {
           filePath: result.filePath,
           filename: result.filename,
         });
-      } else {
-        this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
       }
     } catch (error) {
       this.handleError('generatePDFReport', error);

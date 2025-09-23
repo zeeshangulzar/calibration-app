@@ -10,7 +10,7 @@ export const MONSTER_METER_CONSTANTS = {
   MAX_RETRIES: 3,
   SWEEP_VALUE: 250,
 
-  TOLERANCE_RANGE: 1.5,
+  TOLERANCE_RANGE: 1.0, // In percentage +-1 percent
   
   // Calibration settings
   CALIBRATION_TEMPERATURE: 'N/A', // Default calibration temperature

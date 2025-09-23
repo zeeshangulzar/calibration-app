@@ -771,7 +771,7 @@ function showVerificationSummary(summary) {
       </div>
       <div class="flex justify-between">
         <span class="text-gray-600">Tolerance Range:</span>
-        <span class="font-semibold text-gray-900">±${summary.toleranceRange} PSI</span>
+        <span class="font-semibold text-gray-900">±${summary.toleranceRange} %</span>
       </div>
     </div>
   `;

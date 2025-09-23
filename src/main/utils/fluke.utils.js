@@ -24,6 +24,8 @@ const flukeSetPressureCommand = 'SOURce:PRESsure:LEVel:IMMediate:AMPLitude';
 
 const flukeCheckSystemErrorCommand = 'SYSTem:ERRor?';
 
+const flukeGetTemperatureCommand = 'MEASure:TEMPerature2?';
+
 export {
   ConnectionCommand,
   flukeCheckOutputStateCommand,
@@ -41,4 +43,5 @@ export {
   flukeSetPressureCommand,
   flukeCheckSystemErrorCommand,
   flukeTolerance,
+  flukeGetTemperatureCommand,
 };
