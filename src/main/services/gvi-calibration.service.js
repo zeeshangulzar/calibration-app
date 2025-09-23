@@ -27,6 +27,7 @@ export class GVICalibrationService {
     this.testerName = '';
     this.model = '';
     this.serialNumber = '';
+    this.fluke = null;
   }
 
   /**
@@ -336,7 +337,8 @@ export class GVICalibrationService {
       if (this.isCalibrationActive) {
         this.isCalibrationActive = false;
       }
-      if (this.fluke.telnetClient.isConnected) {
+
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
         this.fluke.telnetClient.disconnect();
       }
 
@@ -345,17 +347,6 @@ export class GVICalibrationService {
     } catch (error) {
       this.handleError(error, 'cleanup');
     }
-  }
-
-  reset() {
-    this.isCalibrationActive = false;
-    this.testerName = '';
-    this.model = '';
-    this.serialNumber = '';
-    this.currentStep = 0;
-    this.steps = [];
-    this.results = null;
-    this.fluke = null;
   }
 
   destroy = async () => {
