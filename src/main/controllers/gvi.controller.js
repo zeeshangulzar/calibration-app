@@ -65,14 +65,26 @@ export class GVIController {
 
   async goBack() {
     try {
-      // If calibration is in progress, just reset state (no stop functionality yet)
-      if (this.state.isCalibrationActive) {
+      // If calibration is in progress, stop it and disconnect Fluke
+      if (this.state && this.state.isCalibrationActive) {
         this.state.updateCalibrationStatus(false);
+
+        // Stop the calibration process first
+        if (this.calibrationService) {
+          await this.calibrationService.stopCalibration();
+
+          // Clean up calibration service and disconnect Fluke
+          await this.calibrationService.cleanup();
+          // Reset FlukeFactory instance to ensure clean state for next use
+          this.calibrationService.flukeFactory.resetInstance();
+        }
       }
 
-      // Reset calibration state
-      this.state.setCurrentConfig(null);
-      this.state.reset();
+      // Reset calibration state (but don't destroy the state service)
+      if (this.state) {
+        this.state.setCurrentConfig(null);
+        this.state.reset();
+      }
 
       // Send back navigation to renderer
       this.sendToRenderer('gvi-go-back');
@@ -129,7 +141,14 @@ export class GVIController {
       this.state.setCurrentConfig(config);
       this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
 
-      const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
+      let result;
+      try {
+        result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
+      } catch (error) {
+        this.state.updateCalibrationStatus(false);
+        this.handleError('startCalibration', error);
+        return { success: false, error: error.message };
+      }
 
       if (!result.success) {
         this.state.updateCalibrationStatus(false);
@@ -140,6 +159,14 @@ export class GVIController {
             error: 'Calibration failed: Fluke connection failed - calibration cannot proceed',
           });
           return { success: false, error: 'Calibration failed: Fluke connection failed - calibration cannot proceed' };
+        }
+
+        // Check if it's a Fluke timeout error
+        if (result.error && result.error.includes('Fluke is Busy: Response timed out')) {
+          this.sendToRenderer('gvi-calibration-failed', {
+            error: 'Calibration failed: Fluke device is busy or not responding - please try again',
+          });
+          return { success: false, error: 'Calibration failed: Fluke device is busy or not responding - please try again' };
         }
 
         throw new Error(result.error);
