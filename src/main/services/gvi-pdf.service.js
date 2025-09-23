@@ -60,7 +60,7 @@ class GVIPDFService {
         .replace(/:/g, '-')
         .replace(/\s/g, '');
 
-      const filename = `GVI_${calibrationData.model}_${calibrationData.serialNumber}_${dateStr}_${timeStr}.pdf`;
+      const filename = `${calibrationData.serialNumber}_${dateStr}_${timeStr}.pdf`;
       const sanitizedFilename = this.sanitizeFilename(filename);
       const filePath = path.join(dateFolderPath, sanitizedFilename);
 

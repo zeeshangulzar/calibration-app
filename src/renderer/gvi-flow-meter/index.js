@@ -58,7 +58,7 @@ function initializeElements() {
  * Populate tester dropdown from GVI constants
  */
 function populateTesterDropdown() {
-  populateSelectOptions('tester-select', GVI_CONSTANTS.TESTER_NAMES, 'Select Tester');
+  populateSelectOptions('tester-select', GVI_CONSTANTS.TESTER_NAMES, 'Select Tester Name');
 }
 
 /**
