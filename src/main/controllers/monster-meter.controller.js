@@ -1,7 +1,6 @@
 import { getMonsterMeterConnection } from '../services/monster-meter-connection.service.js';
 import { getMonsterMeterCommunication } from '../services/monster-meter-communication.service.js';
 import { getMonsterMeterState } from '../../state/monster-meter-state.service.js';
-import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import * as Sentry from '@sentry/electron/main';
 
 /**

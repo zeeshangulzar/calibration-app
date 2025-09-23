@@ -12,4 +12,8 @@ function getLocalTimestamp() {
   return timestamp;
 }
 
-export { getLocalTimestamp };
+function convertCelciusToFahrenheit(celsius) {
+  return (celsius * 9) / 5 + 32;
+}
+
+export { getLocalTimestamp, convertCelciusToFahrenheit };
