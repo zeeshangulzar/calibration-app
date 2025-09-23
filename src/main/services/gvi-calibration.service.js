@@ -10,7 +10,7 @@ export class GVICalibrationService {
     this.gviState = gviState;
     this.sendToRenderer = sendToRenderer;
     this.showLogOnScreen = showLogOnScreen;
-    this.flukeFactory = FlukeFactoryService.getInstance();
+    this.flukeFactory = new FlukeFactoryService();
     this.fluke = null;
 
     this.reset();
@@ -159,11 +159,6 @@ export class GVICalibrationService {
   // Calibration process steps
   async connectToFluke() {
     await this.executeWithLogging('Connecting to Fluke device', async () => {
-      // Check if Fluke is already connected (e.g., from previous calibration)
-      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        return { success: true, message: 'Already connected' };
-      }
-
       const result = await this.fluke.connect();
       if (!result.success) {
         throw new Error(result.error || 'Failed to connect to Fluke device');
@@ -337,8 +332,6 @@ export class GVICalibrationService {
 
   async cleanup() {
     try {
-      this.showLogOnScreen('🧹 Cleaning up GVI calibration service...');
-
       // Stop calibration if active
       if (this.isCalibrationActive) {
         this.isCalibrationActive = false;
@@ -352,7 +345,6 @@ export class GVICalibrationService {
       }
 
       this.reset();
-      this.showLogOnScreen('✅ GVI calibration service cleanup completed');
     } catch (error) {
       this.handleError(error, 'cleanup');
     }
