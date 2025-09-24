@@ -236,9 +236,9 @@ class MonsterMeterCalibrationService {
     try {
       let temperature = await this.fluke.getTemperature();
       if (temperature) {
-        temperature = temperature - MONSTER_METER_CONSTANTS.TEMPERATURE_SUBTRACTION; // Subtract 5 degrees to get Lab temperature
         let farenheitTemperature = convertCelciusToFahrenheit(temperature);
-        this.state.setFlukeTemperature(farenheitTemperature);
+        farenheitTemperature = farenheitTemperature - MONSTER_METER_CONSTANTS.TEMPERATURE_SUBTRACTION;
+        this.state.setFlukeTemperature(farenheitTemperature.toFixed(0));
       } else {
         this.state.setFlukeTemperature('N/A');
       }

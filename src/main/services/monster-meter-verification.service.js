@@ -278,9 +278,11 @@ class MonsterMeterVerificationService {
     const pressureLo = data['SensorLo.psiAVG'];
 
     // Check if readings are within tolerance range
-    // Calculate tolerance based on percentage +-1 percent of the pressure value
-    const toleranceMin = pressureValue - (pressureValue * this.toleranceRange) / 100;
-    const toleranceMax = pressureValue + (pressureValue * this.toleranceRange) / 100;
+    // Calculate tolerance based on 1% of the maximum sweep value (250 PSI)
+    const maxSweepValue = MONSTER_METER_CONSTANTS.SWEEP_VALUE; // 250 PSI
+    const toleranceValue = maxSweepValue * (this.toleranceRange / 100); // 1% of 250 PSI = 2.5 PSI
+    const toleranceMin = pressureValue - toleranceValue;
+    const toleranceMax = pressureValue + toleranceValue;
     const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && pressureLo >= toleranceMin && pressureLo <= toleranceMax;
 
     const verificationPoint = {
