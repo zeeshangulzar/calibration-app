@@ -63,6 +63,30 @@ export class GVIController {
     }
   }
 
+  async stopCalibration() {
+    try {
+      // Stop the calibration process
+      if (this.calibrationService) {
+        await this.calibrationService.stopCalibration();
+        // Set Fluke to zero
+        await this.calibrationService.fluke.setZeroPressureToFluke();
+      }
+
+      // Update state
+      if (this.state) {
+        this.state.updateCalibrationStatus(false);
+      }
+
+      // Send notification to renderer
+      this.sendToRenderer('gvi-calibration-stopped');
+
+      return { success: true };
+    } catch (error) {
+      this.handleError('stopCalibration', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   async goBack() {
     try {
       // If calibration is in progress, stop it and disconnect Fluke
@@ -97,13 +121,10 @@ export class GVIController {
 
   async generatePDF(calibrationData) {
     try {
-      this.showLogOnScreen('Generating GVI calibration PDF...');
-
       // Use the dedicated GVI PDF service
       const result = await this.pdfService.generateGVIPDF(calibrationData);
 
       if (result.success) {
-        this.showLogOnScreen(`PDF generated successfully: ${result.filePath}`);
         return { success: true, pdfPath: result.filePath };
       } else {
         throw new Error(result.error);

@@ -220,6 +220,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadGVI: () => ipcRenderer.send('load-gvi'),
   gviGoBack: () => ipcRenderer.send('gvi-go-back'),
   gviStartCalibration: config => ipcRenderer.invoke('gvi-start-calibration', config),
+  gviStopCalibration: () => ipcRenderer.invoke('gvi-stop-calibration'),
   gviGetStatus: () => ipcRenderer.invoke('gvi-get-status'),
   gviNextStep: () => ipcRenderer.invoke('gvi-next-step'),
   gviHandleFinalResult: passed => ipcRenderer.invoke('gvi-handle-final-result', passed),

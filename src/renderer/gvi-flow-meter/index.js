@@ -4,6 +4,7 @@ import { populateSelectOptions } from '../view_helpers/index.js';
 
 // Application state
 let calibrationInProgress = false;
+let stopRequested = false;
 let eventListenersSetup = false;
 let currentStepData = null;
 let calibrationModel = null;
@@ -18,6 +19,7 @@ const elements = {
   testerSelect: null,
   serialNumberInput: null,
   startCalibrationBtn: null,
+  stopCalibrationBtn: null,
   calibrationControlContainer: null,
   gpmAtGaugeContainer: null,
   calibrationButtonsContainer: null,
@@ -46,6 +48,7 @@ function initializeElements() {
   elements.testerSelect = document.getElementById('tester-select');
   elements.serialNumberInput = document.getElementById('serial-number');
   elements.startCalibrationBtn = document.getElementById('start-calibration-btn');
+  elements.stopCalibrationBtn = document.getElementById('stop-calibration-btn');
   elements.calibrationControlContainer = document.getElementById('gvi-calibration-control-container');
   elements.gpmAtGaugeContainer = document.getElementById('gpm-at-gauge-container');
   elements.calibrationButtonsContainer = document.getElementById('gvi-calibration-control-buttons-container');
@@ -69,11 +72,13 @@ function setupEventListeners() {
 
   // DOM event listeners
   elements.backBtn?.addEventListener('click', () => {
-    // Allow going back during calibration - controller will handle stopping calibration and setting Fluke to zero
+    // Disable back button during calibration
+    if (calibrationInProgress) {
+      return;
+    }
+
+    // Allow going back when not in calibration
     if (window.electronAPI && window.electronAPI.gviGoBack) {
-      if (calibrationInProgress) {
-        NotificationHelper.showInfo('Stopping calibration and setting Fluke to zero...');
-      }
       window.electronAPI.gviGoBack();
     }
   });
@@ -89,6 +94,9 @@ function setupEventListeners() {
 
   // Start calibration button
   elements.startCalibrationBtn?.addEventListener('click', handleStartCalibration);
+
+  // Stop calibration button
+  elements.stopCalibrationBtn?.addEventListener('click', handleStopCalibration);
 
   // Error alert OK button
   document.getElementById('error-ok-btn')?.addEventListener('click', () => {
@@ -111,7 +119,6 @@ function setupEventListeners() {
 
   window.electronAPI.onGVICalibrationStopped?.(() => {
     calibrationInProgress = false;
-    addLogMessage('Calibration stopped');
   });
 
   window.electronAPI.onGVIStepUpdated?.(data => {
@@ -136,21 +143,28 @@ function setupEventListeners() {
 function setupCalibrationEventListeners() {
   // Listen for step ready events from calibration service
   window.electronAPI.onGVIStepReady?.(data => {
+    // Check if stop was requested - if so, ignore this step
+    if (stopRequested) {
+      return;
+    }
+
     addLogMessage(`Step ${data.currentStep}/${data.totalSteps}: ${data.step.gpm} GPM`);
     addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI`);
 
     // Store current step data for pressure setting display
     currentStepData = data;
 
-    // Remove loading animation and show GPM input
-    hideCalibrationLoading();
-    showGPMInput(data.step, data.currentStep, data.totalSteps);
+    // Show pressure setting message and then transition to GPM input
+    showPressureSettingMessage(data.step, data.currentStep, data.totalSteps);
   });
-
-  // Listen for calibration started events
 
   // Listen for step updated events
   window.electronAPI.onGVIStepUpdated?.(data => {
+    // Check if stop was requested - if so, ignore this update
+    if (stopRequested) {
+      return;
+    }
+
     addLogMessage(`Step ${data.stepIndex + 1} completed: ${data.stepData.status.toUpperCase()}`);
 
     if (data.completed) {
@@ -166,7 +180,7 @@ function setupCalibrationEventListeners() {
   window.electronAPI.onGVICalibrationCompleted?.(data => {
     addLogMessage('Calibration completed successfully');
     NotificationHelper.showSuccess('Calibration completed successfully');
-    completeCalibration();
+    // Don't call completeCalibration() here - let the user make their PASS/FAIL decision first
   });
 
   // Listen for calibration failed events
@@ -252,8 +266,8 @@ function updateCalibrationTable() {
       return `
       <tr id="step-${index}" class="border-b ${step.status === 'current' ? 'bg-blue-50' : ''}">
         <td class="px-3 py-2 font-medium">${step.gpm}</td>
-        <td class="px-3 py-2">${step.psiMin}</td>
-        <td class="px-3 py-2">${step.psiMax}</td>
+        <td class="px-3 py-2">${parseFloat(step.psiMin).toFixed(2)}</td>
+        <td class="px-3 py-2">${parseFloat(step.psiMax).toFixed(2)}</td>
       </tr>
     `;
     })
@@ -292,7 +306,7 @@ function addLogMessage(message, type = 'info') {
  * Get local timestamp for log messages
  */
 function getLocalTimestamp() {
-  return new Date().toLocaleString();
+  return new Date().toLocaleTimeString();
 }
 
 /**
@@ -312,6 +326,7 @@ function validateForm() {
 function updateStartButtonState() {
   const isValid = validateForm();
   const btn = elements.startCalibrationBtn;
+  const buttonsContainer = elements.calibrationButtonsContainer;
 
   console.log('updateStartButtonState - isValid:', isValid, 'calibrationInProgress:', calibrationInProgress, 'btn:', btn);
 
@@ -323,6 +338,139 @@ function updateStartButtonState() {
   } else {
     console.log('No button found in updateStartButtonState');
   }
+
+  // Handle View PDF button visibility and reset container
+  if (buttonsContainer && !calibrationInProgress) {
+    const viewPdfBtn = document.getElementById('view-pdf-btn');
+    const startBtn = document.getElementById('start-calibration-btn');
+
+    if (viewPdfBtn && startBtn) {
+      if (isValid) {
+        // Form is valid - show start button, hide view PDF button
+        viewPdfBtn.style.display = 'none';
+        startBtn.style.display = 'block';
+
+        // Reset the GPM container to original state
+        resetGPMContainer();
+      } else {
+        // Form is not valid - show view PDF button, hide start button
+        viewPdfBtn.style.display = 'block';
+        startBtn.style.display = 'none';
+      }
+    }
+  }
+}
+
+/**
+ * Reset GPM container to original state
+ */
+function resetGPMContainer() {
+  const container = elements.gpmAtGaugeContainer;
+  if (container) {
+    container.innerHTML = `
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4>Please note this GPM at Gauge</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
+          <span class="text-4xl font-bold ml-2">GPM</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Clear all calibration logs
+ */
+function clearCalibrationLogs() {
+  const logsContainer = elements.calibrationLogs;
+  if (logsContainer) {
+    logsContainer.innerHTML = '';
+  }
+}
+
+/**
+ * Disable form elements during calibration
+ */
+function disableFormElements() {
+  // Disable back button
+  if (elements.backBtn) {
+    disableElement(elements.backBtn);
+  }
+
+  // Show back button status message
+  const statusMessage = document.getElementById('back-button-status-message');
+  const messageText = document.getElementById('back-button-message-text');
+
+  if (statusMessage && messageText) {
+    messageText.textContent = 'Back button is disabled during calibration. It will be re-enabled when calibration completes or if an error occurs.';
+    statusMessage.classList.remove('hidden');
+  }
+
+  // Disable form inputs
+  if (elements.modelSelect) {
+    disableElement(elements.modelSelect);
+  }
+
+  if (elements.testerSelect) {
+    disableElement(elements.testerSelect);
+  }
+
+  if (elements.serialNumberInput) {
+    disableElement(elements.serialNumberInput);
+  }
+}
+
+/**
+ * Enable form elements after calibration
+ */
+function enableFormElements() {
+  // Enable back button
+  if (elements.backBtn) {
+    enableElement(elements.backBtn);
+  }
+
+  // Hide back button status message
+  const statusMessage = document.getElementById('back-button-status-message');
+  if (statusMessage) {
+    statusMessage.classList.add('hidden');
+  }
+
+  // Enable form inputs
+  if (elements.modelSelect) {
+    enableElement(elements.modelSelect);
+  }
+
+  if (elements.testerSelect) {
+    enableElement(elements.testerSelect);
+  }
+
+  if (elements.serialNumberInput) {
+    enableElement(elements.serialNumberInput);
+  }
+}
+
+function enableElement(inputElement) {
+  inputElement.disabled = false;
+  inputElement.classList.remove('opacity-50', 'cursor-not-allowed');
+}
+
+function disableElement(inputElement) {
+  if (!inputElement) return;
+  inputElement.disabled = true;
+  inputElement.classList.add('opacity-50', 'cursor-not-allowed');
+}
+
+function hideElement(element) {
+  if (!element) return;
+  element.classList.add('hidden');
+}
+
+function showElement(element) {
+  if (!element) return;
+  element.classList.remove('hidden');
 }
 
 /**
@@ -361,16 +509,99 @@ async function handleStartCalibration() {
 }
 
 /**
+ * Handle stop calibration button click
+ */
+async function handleStopCalibration() {
+  if (!calibrationInProgress) {
+    return;
+  }
+
+  try {
+    addLogMessage('Stopping calibration...');
+
+    // Immediately reset the UI state to prevent any step processing
+    calibrationInProgress = false;
+    stopRequested = true;
+
+    // Hide any step-related UI elements immediately
+    hideCalibrationLoading();
+
+    // Reset the GPM input container to initial state
+    const container = elements.gpmAtGaugeContainer;
+    if (container) {
+      container.innerHTML = `
+        <div class="flex flex-row text-center justify-center">
+          <div class="flex items-center">
+            <h4>Please note this GPM at Gauge</h4>
+          </div>
+          <div class="ml-5 flex">
+            <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
+            <span class="text-4xl font-bold ml-2">GPM</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // Reset calibration buttons to initial state
+    const buttonsContainer = elements.calibrationButtonsContainer;
+    if (buttonsContainer) {
+      buttonsContainer.innerHTML = `
+        <button
+          id="start-calibration-btn"
+          class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
+        >
+          START CALIBRATION
+        </button>
+      `;
+
+      // Re-add event listener
+      const startBtn = document.getElementById('start-calibration-btn');
+      startBtn?.addEventListener('click', handleStartCalibration);
+      elements.startCalibrationBtn = startBtn;
+    }
+
+    // Call the stop calibration API
+    const result = await window.electronAPI.gviStopCalibration();
+    if (!result.success) {
+      addLogMessage(`Failed to stop calibration: ${result.error}`, 'error');
+    } else {
+      addLogMessage('Calibration stopped successfully');
+      NotificationHelper.showInfo('Calibration stopped.');
+    }
+
+    // Complete the UI reset
+    stopCalibrationProcess();
+  } catch (error) {
+    console.error('Error stopping calibration:', error);
+    addLogMessage(`Error stopping calibration: ${error.message}`, 'error');
+    // Still reset the UI even if there was an error
+    stopCalibrationProcess();
+  }
+}
+
+/**
  * Start the calibration process
  */
 async function startCalibrationProcess(model, tester, serialNumber, steps) {
   try {
+    // Clear all logs as first step
+    clearCalibrationLogs();
+
     // Store calibration data locally
     calibrationModel = model;
     calibrationTester = tester;
     calibrationSerialNumber = serialNumber;
     calibrationSteps = [...steps];
     calibrationInProgress = true;
+    stopRequested = false;
+
+    // Disable form elements during calibration
+    disableFormElements();
+
+    // Show stop button and hide start button
+    hideElement(elements.startCalibrationBtn);
+    showElement(elements.stopCalibrationBtn);
 
     // Show loading animation on calibration control container
     showCalibrationLoading();
@@ -389,7 +620,6 @@ async function startCalibrationProcess(model, tester, serialNumber, steps) {
     const result = await window.electronAPI.gviStartCalibration(config);
     if (!result.success) {
       // Don't throw error here - let the calibration failed event handler show the proper modal
-      addLogMessage(`Calibration start failed: ${result.error}`, 'error');
       return;
     }
   } catch (error) {
@@ -417,6 +647,37 @@ function showCalibrationLoading() {
     container.style.animation = 'removing-stripes 0.8s linear infinite';
     container.style.boxShadow = 'inset 0 0 20px rgba(59, 130, 246, 0.2)';
   }
+}
+
+/**
+ * Show pressure setting message and transition to GPM input
+ */
+function showPressureSettingMessage(step, currentStep, totalSteps) {
+  const PRESSURE_MESSAGE_DELAY = 1000; // 1 second delay to show the message
+
+  // Show "Setting pressure to" message in GPM container
+  const gpmContainer = elements.gpmAtGaugeContainer;
+  if (gpmContainer) {
+    const pressure = (step.psi ? step.psi.toFixed(2) : null) || (step.psiMin ? step.psiMin.toFixed(2) : null) || 0;
+    gpmContainer.innerHTML = `
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4>Setting pressure to ${pressure} PSI</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="gpm-at-gauge">Please wait...</h1>
+        </div>
+      </div>
+    `;
+  }
+
+  // Transition to GPM input after delay
+  setTimeout(() => {
+    if (!stopRequested) {
+      hideCalibrationLoading();
+      showGPMInput(step, currentStep, totalSteps);
+    }
+  }, PRESSURE_MESSAGE_DELAY);
 }
 
 /**
@@ -448,11 +709,12 @@ function showPressureSettingDisplay() {
     console.log(`[Pressure Display] Current step: ${currentStepIndex}, Next step index: ${nextStepIndex}, Pressure: ${pressure}`);
 
     container.innerHTML = `
-      <div class="text-center">
-        <h4 class="text-lg font-medium text-gray-700 mb-4">Setting Pressure to ${pressure} PSI</h4>
-        <div class="flex justify-center items-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span class="ml-3 text-gray-600">Please wait...</span>
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4>Setting pressure to ${pressure.toFixed(2)} PSI</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="gpm-at-gauge">Please wait...</h1>
         </div>
       </div>
     `;
@@ -501,11 +763,23 @@ function showGPMInput(step, currentStep, totalSteps) {
       const failBtn = document.getElementById('fail-btn');
 
       passBtn?.addEventListener('click', () => handleCalibrationResult(true));
-      failBtn?.addEventListener('click', () => handleCalibrationResult(false));
+      failBtn?.addEventListener('click', () => {
+        // Add custom confirmation modal for FAIL
+        NotificationHelper.showConfirmationModal(
+          'Are you sure you want to mark this calibration as FAIL?',
+          () => {
+            // User confirmed - proceed with FAIL
+            handleCalibrationResult(false);
+          },
+          () => {
+            // User cancelled - do nothing
+          }
+        );
+      });
     } else {
       // Show NEXT button for intermediate steps
       buttonsContainer.innerHTML = `
-        <button id="next-step-btn" class="border-left-0 rounded-r-md bg-blue-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-blue-700 transition-colors duration-200">
+        <button id="next-step-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200">
           NEXT
         </button>
       `;
@@ -567,6 +841,9 @@ async function handleCalibrationResult(passed) {
 
     addLogMessage(`Final result sent to calibration service`);
 
+    // Complete the calibration process (don't show start button)
+    completeCalibrationProcess();
+
     // Generate PDF and show View PDF button
     const pdfResult = await generateCalibrationPDF(passed);
 
@@ -594,11 +871,12 @@ function showCalibrationCompletion(passed, pdfResult = null) {
     const model = elements.modelSelect?.value || calibrationModel || pdfResult?.model || 'Unknown';
 
     container.innerHTML = `
-      <h4>Calibration Complete</h4>
-      <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">${model}</h2>
-        <div class="text-xl">
-          Status: <span class="font-bold ${statusColor}">${statusText}</span>
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4>Calibration Complete - ${model}</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold ${statusColor}">${statusText}</h1>
         </div>
       </div>
     `;
@@ -606,8 +884,11 @@ function showCalibrationCompletion(passed, pdfResult = null) {
 
   if (buttonsContainer) {
     buttonsContainer.innerHTML = `
-      <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200">
+      <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200" style="display: block;">
         VIEW PDF
+      </button>
+      <button id="start-calibration-btn" class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" style="display: none;" disabled>
+        START CALIBRATION
       </button>
     `;
 
@@ -615,8 +896,6 @@ function showCalibrationCompletion(passed, pdfResult = null) {
     const viewPdfBtn = document.getElementById('view-pdf-btn');
     viewPdfBtn?.addEventListener('click', async () => {
       try {
-        addLogMessage('Opening PDF...');
-        // Get the PDF path from the PDF result
         const pdfPath = pdfResult?.pdfPath;
         if (pdfPath) {
           await window.electronAPI.gviOpenPDF(pdfPath);
@@ -628,10 +907,20 @@ function showCalibrationCompletion(passed, pdfResult = null) {
         addLogMessage(`Error opening PDF: ${error.message}`, 'error');
       }
     });
+
+    // Add event listener for start calibration button
+    const startBtn = document.getElementById('start-calibration-btn');
+    startBtn?.addEventListener('click', handleStartCalibration);
+
+    // Update element references
+    elements.startCalibrationBtn = startBtn;
   }
 
   // Hide loading animation
   hideCalibrationLoading();
+
+  // Update button state to show View PDF button initially
+  updateStartButtonState();
 }
 
 /**
@@ -665,14 +954,19 @@ async function generateCalibrationPDF(passed) {
   }
 }
 
-// Fluke connection error modal removed - now using standard NotificationHelper.showError()
-
 /**
  * Reset calibration UI to initial state
  */
 function resetCalibrationUI() {
   // Reset calibration state
   calibrationInProgress = false;
+  stopRequested = false;
+
+  // Enable form elements
+  enableFormElements();
+
+  // Clear form selections
+  clearCalibrationInputs();
 
   // Hide loading animation
   hideCalibrationLoading();
@@ -717,6 +1011,9 @@ function resetCalibrationUI() {
     elements.startCalibrationBtn = startBtn;
   }
 
+  // Hide stop button (it's now a separate element)
+  hideElement(elements.stopCalibrationBtn);
+
   // Reset calibration state
   calibrationModel = null;
   calibrationTester = null;
@@ -732,23 +1029,12 @@ function resetCalibrationUI() {
   console.log('resetCalibrationUI - updateStartButtonState called');
 }
 
-/**
- * Complete calibration process
- */
-function completeCalibration() {
-  addLogMessage('GVI calibration completed successfully!');
-  stopCalibrationProcess();
-
-  // Show completion message
-  const container = elements.gpmAtGaugeContainer;
-  if (container) {
-    container.innerHTML = `
-      <h4>Calibration Complete</h4>
-      <div class="flex items-end">
-        <h1 class="text-4xl font-bold text-green-600">✓</h1>
-        <span class="text-2xl font-bold text-green-600 ml-2">DONE</span>
-      </div>
-    `;
+function clearCalibrationInputs() {
+  if (elements.modelSelect) {
+    elements.modelSelect.value = '';
+  }
+  if (elements.serialNumberInput) {
+    elements.serialNumberInput.value = '';
   }
 }
 
@@ -757,12 +1043,51 @@ function completeCalibration() {
  */
 function stopCalibrationProcess() {
   calibrationInProgress = false;
+  stopRequested = false;
+  // Don't clear model data here - preserve it for completion display
+
+  // Show start button and hide stop button
+  showElement(elements.startCalibrationBtn);
+  hideElement(elements.stopCalibrationBtn);
+
+  // Enable form elements
+  enableFormElements();
+
+  // Clear form selections
+  clearCalibrationInputs();
+
+  hideCalibrationLoading();
+  updateStartButtonState();
+}
+
+/**
+ * Complete calibration process (for normal completion flow)
+ */
+function completeCalibrationProcess() {
+  calibrationInProgress = false;
+  stopRequested = false;
+  // Don't clear model data here - preserve it for completion display
+
+  // Hide stop button (don't show start button yet)
+  hideElement(elements.stopCalibrationBtn);
+
+  // Enable form elements
+  enableFormElements();
+
+  // Clear form selections
+  clearCalibrationInputs();
+
+  hideCalibrationLoading();
+}
+
+/**
+ * Clear calibration data (called after completion)
+ */
+function clearCalibrationData() {
   calibrationModel = null;
   calibrationTester = null;
   calibrationSerialNumber = null;
   calibrationSteps = [];
-  hideCalibrationLoading();
-  updateStartButtonState();
 
   // Reset calibration container background
   const calibrationContainer = elements.calibrationControlContainer;
@@ -798,5 +1123,8 @@ function stopCalibrationProcess() {
     // Re-add event listener
     const startBtn = document.getElementById('start-calibration-btn');
     startBtn?.addEventListener('click', handleStartCalibration);
+
+    // Update element reference
+    elements.startCalibrationBtn = startBtn;
   }
 }

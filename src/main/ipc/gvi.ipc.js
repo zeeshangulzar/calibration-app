@@ -96,6 +96,10 @@ const handlers = {
   async openPDF(event, pdfPath) {
     return await gviController.openPDF(pdfPath);
   },
+
+  async stopCalibration(event) {
+    return await gviController.stopCalibration();
+  },
 };
 
 /**
@@ -108,6 +112,7 @@ export function registerGVIIpcHandlers() {
 
   // Calibration handlers
   ipcMain.handle('gvi-start-calibration', createHandler('startCalibration'));
+  ipcMain.handle('gvi-stop-calibration', createHandler('stopCalibration'));
   ipcMain.handle('gvi-get-status', createHandler('getStatus'));
   ipcMain.handle('gvi-next-step', createHandler('nextStep'));
   ipcMain.handle('gvi-handle-final-result', createHandler('handleFinalResult'));
