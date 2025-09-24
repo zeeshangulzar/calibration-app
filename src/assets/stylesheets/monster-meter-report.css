@@ -20,7 +20,7 @@ body {
 
 .top-header img {
   height: 105px;
-  width: 100px;
+  width: 145px;
   object-fit: contain;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
@@ -156,6 +156,7 @@ body {
 .summary-table th {
   background-color: #ffc000ff;
   font-weight: bold;
+  text-align: center;
 }
 
 table {
@@ -203,4 +204,15 @@ th {
 
 .color-red {
   color: red;
+}
+
+.border-b-blue {
+  color: #1b55e2;
+}
+
+.blue-hr {
+  border: none; /* remove default */
+  height: 1px;
+  background-color: #1b55e2;
+  margin: 1rem 0;
 }
