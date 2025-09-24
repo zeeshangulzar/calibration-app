@@ -938,8 +938,6 @@ async function generateCalibrationPDF(passed) {
       results: [], // GVI doesn't track individual step results
     };
 
-    addLogMessage('Generating calibration PDF...');
-
     const result = await window.electronAPI.gviGeneratePDF(calibrationData);
 
     if (result.success) {

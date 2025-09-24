@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { getMainWindow } from '../windows/main.js';
 import { GVIController } from '../controllers/gvi.controller.js';
+import { gviReportsDb } from '../db/gvi-reports.db.js';
 import * as Sentry from '@sentry/electron/main';
 import path from 'path';
 
@@ -100,6 +101,31 @@ const handlers = {
   async stopCalibration(event) {
     return await gviController.stopCalibration();
   },
+
+  // GVI Reports handlers
+  async createReport(event, gaugeModel, status, pdfLocation) {
+    return gviReportsDb.createReport(gaugeModel, status, pdfLocation);
+  },
+
+  async getReportsByModel(event, model) {
+    return gviReportsDb.getReportsByModel(model);
+  },
+
+  async getAllReports(event, limit = 50, offset = 0) {
+    return gviReportsDb.getAllReports(limit, offset);
+  },
+
+  async getReportById(event, reportId) {
+    return gviReportsDb.getReportById(reportId);
+  },
+
+  async updateReportPdfLocation(event, reportId, pdfLocation) {
+    return gviReportsDb.updateReportPdfLocation(reportId, pdfLocation);
+  },
+
+  async deleteReport(event, reportId) {
+    return gviReportsDb.deleteReport(reportId);
+  },
 };
 
 /**
@@ -122,6 +148,14 @@ export function registerGVIIpcHandlers() {
   ipcMain.handle('gvi-get-calibration-steps', createHandler('getCalibrationSteps'));
   ipcMain.handle('gvi-generate-pdf', createHandler('generatePDF'));
   ipcMain.handle('gvi-open-pdf', createHandler('openPDF'));
+
+  // GVI Reports handlers
+  ipcMain.handle('gvi-create-report', createHandler('createReport', false));
+  ipcMain.handle('gvi-get-reports-by-model', createHandler('getReportsByModel', false));
+  ipcMain.handle('gvi-get-all-reports', createHandler('getAllReports', false));
+  ipcMain.handle('gvi-get-report-by-id', createHandler('getReportById', false));
+  ipcMain.handle('gvi-update-report-pdf', createHandler('updateReportPdfLocation', false));
+  ipcMain.handle('gvi-delete-report', createHandler('deleteReport', false));
 }
 
 /**

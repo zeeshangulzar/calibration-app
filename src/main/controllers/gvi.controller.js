@@ -2,6 +2,7 @@ import { GVICalibrationService } from '../services/gvi-calibration.service.js';
 import { getGVIGaugeSteps, getGVIGaugeModels } from '../db/gvi-gauge.db.js';
 import { getGVIPDFService } from '../services/gvi-pdf.service.js';
 import { getGVICalibrationState } from '../../state/gvi-calibration-state.service.js';
+import { gviReportsDb } from '../db/gvi-reports.db.js';
 import { sentryLogger } from '../loggers/sentry.logger.js';
 import { shell } from 'electron';
 
@@ -14,6 +15,7 @@ export class GVIController {
     this.calibrationService = null;
     this.pdfService = getGVIPDFService();
     this.state = getGVICalibrationState();
+    this.currentReportId = null; // Store current report ID for PDF path update
 
     this.setupEventListeners();
   }
@@ -125,6 +127,11 @@ export class GVIController {
       const result = await this.pdfService.generateGVIPDF(calibrationData);
 
       if (result.success) {
+        // Update the report with PDF path if we have a current report ID
+        if (this.currentReportId) {
+          this.updateReportWithPdfPath(result.filePath);
+        }
+
         return { success: true, pdfPath: result.filePath };
       } else {
         throw new Error(result.error);
@@ -150,6 +157,9 @@ export class GVIController {
       if (this.state.isCalibrationActive) {
         throw new Error('Calibration already in progress');
       }
+
+      // Reset current report ID for new calibration
+      this.currentReportId = null;
 
       this.validateConfig(config);
 
@@ -240,6 +250,9 @@ export class GVIController {
       if (!result.success) {
         throw new Error(result.error);
       }
+
+      // Save calibration report to database (background operation)
+      this.saveCalibrationReport(passed);
 
       this.state.updateCalibrationStatus(false);
       return { success: true };
@@ -340,6 +353,62 @@ export class GVIController {
       console.log('[Controller] GVI cleanup completed');
     } catch (error) {
       this.handleError('cleanup', error);
+    }
+  }
+
+  /**
+   * Save calibration report to database (background operation)
+   */
+  async saveCalibrationReport(passed) {
+    try {
+      const state = this.state.getState();
+      const model = state.model;
+      const status = passed ? 'PASS' : 'FAIL';
+
+      if (!model) {
+        console.warn('[GVI Controller] Cannot save report: model not available');
+        return;
+      }
+
+      // Create report without PDF location initially
+      const result = gviReportsDb.createReport(model, status);
+
+      if (result.success) {
+        this.currentReportId = result.reportId; // Store report ID for PDF path update
+        console.log(`[GVI Controller] Report saved: ID ${result.reportId}, Model: ${model}, Status: ${status}`);
+      } else {
+        console.error('[GVI Controller] Failed to save report:', result.error);
+      }
+    } catch (error) {
+      console.error('[GVI Controller] Error saving calibration report:', error);
+      sentryLogger.handleError(error, {
+        module: 'gvi',
+        service: 'gvi-controller',
+        method: 'saveCalibrationReport',
+      });
+    }
+  }
+
+  /**
+   * Update report with PDF path (background operation)
+   */
+  async updateReportWithPdfPath(pdfPath) {
+    try {
+      if (!this.currentReportId) {
+        console.warn('[GVI Controller] Cannot update report: no current report ID');
+        return;
+      }
+
+      const result = gviReportsDb.updateReportPdfLocation(this.currentReportId, pdfPath);
+
+      if (result.success) {
+        console.log(`[GVI Controller] Report updated with PDF path: ID ${this.currentReportId}, Path: ${pdfPath}`);
+      } else {
+        console.error('[GVI Controller] Failed to update report PDF path:', result.error);
+      }
+    } catch (error) {
+      console.error('[GVI Controller] Error updating report PDF path:', error);
+      // Don't throw error - this is a background operation
     }
   }
 

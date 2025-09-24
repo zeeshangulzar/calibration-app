@@ -229,6 +229,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gviGeneratePDF: calibrationData => ipcRenderer.invoke('gvi-generate-pdf', calibrationData),
   gviOpenPDF: pdfPath => ipcRenderer.invoke('gvi-open-pdf', pdfPath),
 
+  // GVI Reports APIs
+  gviCreateReport: (gaugeModel, status, pdfLocation) => ipcRenderer.invoke('gvi-create-report', gaugeModel, status, pdfLocation),
+  gviGetReportsByModel: model => ipcRenderer.invoke('gvi-get-reports-by-model', model),
+  gviGetAllReports: (limit, offset) => ipcRenderer.invoke('gvi-get-all-reports', limit, offset),
+  gviGetReportById: reportId => ipcRenderer.invoke('gvi-get-report-by-id', reportId),
+  gviUpdateReportPdfLocation: (reportId, pdfLocation) => ipcRenderer.invoke('gvi-update-report-pdf', reportId, pdfLocation),
+  gviDeleteReport: reportId => ipcRenderer.invoke('gvi-delete-report', reportId),
+
   // GVI event listeners
   onGVIInitialized: callback => ipcRenderer.on('gvi-initialized', () => callback()),
   onGVICalibrationStarted: callback => ipcRenderer.on('gvi-calibration-started', (_, data) => callback(data)),
