@@ -193,14 +193,17 @@ export class GVICalibrationService {
   }
 
   async runCalibrationSteps() {
-    this.showLogOnScreen('🔧 Starting calibration steps...');
-
     // Process the first step
     await this.processNextStep();
   }
 
   async processNextStep() {
     console.log(`GVI Service - processNextStep called, currentStep: ${this.currentStep}, totalSteps: ${this.steps.length}`);
+
+    // Check if calibration is still active
+    if (!this.isCalibrationActive) {
+      return;
+    }
 
     if (this.currentStep >= this.steps.length) {
       this.showLogOnScreen('✅ All calibration steps completed');
@@ -213,6 +216,11 @@ export class GVICalibrationService {
 
     // Set pressure for this step
     await this.setPressureForStep(step);
+
+    // Check again before sending step ready event
+    if (!this.isCalibrationActive) {
+      return;
+    }
 
     // Send step ready event to renderer
     this.sendToRenderer('gvi-step-ready', {
@@ -242,16 +250,32 @@ export class GVICalibrationService {
   }
 
   async setPressureForStep(step) {
+    // Check if calibration is still active before setting pressure
+    if (!this.isCalibrationActive) {
+      return;
+    }
+
     const pressure = step.psiMin;
     await this.fluke.setHighPressureToFluke(pressure);
+
+    // Check again before waiting for pressure
+    if (!this.isCalibrationActive) {
+      return;
+    }
+
     await this.fluke.waitForFlukeToReachTargetPressure(pressure);
+
+    // Final check before showing success message
+    if (!this.isCalibrationActive) {
+      return;
+    }
+
     this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI for ${step.gpm} GPM`);
   }
 
-  async setFlukeToZero() {
+  async setFlukeToZero(silent = false) {
     if (this.fluke) {
-      await this.fluke.setZeroPressureToFluke();
-      this.showLogOnScreen('🔧 Fluke set to zero pressure');
+      await this.fluke.setZeroPressureToFluke(silent);
     }
   }
 
@@ -333,6 +357,11 @@ export class GVICalibrationService {
 
   async stopCalibration() {
     this.isCalibrationActive = false;
+
+    // Set Fluke to zero immediately
+    if (this.fluke) {
+      this.fluke.setZeroPressureToFluke(true);
+    }
   }
 
   async cleanup() {
@@ -343,7 +372,9 @@ export class GVICalibrationService {
       }
 
       if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        this.fluke.telnetClient.disconnect();
+        await this.setFlukeToZero(true);
+
+        await this.fluke.telnetClient.disconnect();
       }
 
       this.reset();

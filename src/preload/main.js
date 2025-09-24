@@ -220,6 +220,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadGVI: () => ipcRenderer.send('load-gvi'),
   gviGoBack: () => ipcRenderer.send('gvi-go-back'),
   gviStartCalibration: config => ipcRenderer.invoke('gvi-start-calibration', config),
+  gviStopCalibration: () => ipcRenderer.invoke('gvi-stop-calibration'),
   gviGetStatus: () => ipcRenderer.invoke('gvi-get-status'),
   gviNextStep: () => ipcRenderer.invoke('gvi-next-step'),
   gviHandleFinalResult: passed => ipcRenderer.invoke('gvi-handle-final-result', passed),
@@ -227,6 +228,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gviGetCalibrationSteps: model => ipcRenderer.invoke('gvi-get-calibration-steps', model),
   gviGeneratePDF: calibrationData => ipcRenderer.invoke('gvi-generate-pdf', calibrationData),
   gviOpenPDF: pdfPath => ipcRenderer.invoke('gvi-open-pdf', pdfPath),
+
+  // GVI Reports APIs
+  gviCreateReport: (gaugeModel, status, pdfLocation) => ipcRenderer.invoke('gvi-create-report', gaugeModel, status, pdfLocation),
+  gviGetReportsByModel: model => ipcRenderer.invoke('gvi-get-reports-by-model', model),
+  gviGetAllReports: (limit, offset) => ipcRenderer.invoke('gvi-get-all-reports', limit, offset),
+  gviGetReportById: reportId => ipcRenderer.invoke('gvi-get-report-by-id', reportId),
+  gviUpdateReportPdfLocation: (reportId, pdfLocation) => ipcRenderer.invoke('gvi-update-report-pdf', reportId, pdfLocation),
+  gviDeleteReport: reportId => ipcRenderer.invoke('gvi-delete-report', reportId),
 
   // GVI event listeners
   onGVIInitialized: callback => ipcRenderer.on('gvi-initialized', () => callback()),

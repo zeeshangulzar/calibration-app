@@ -613,21 +613,21 @@ export async function seed(db) {
     return { inserted: 0, skipped: gviRanges.length };
   }
 
-  // Prepare statements once
-  const insertStmt = db.prepare('INSERT INTO gvi_gauges (model, ranges) VALUES (?, ?)');
+  // Insert data one gauge at a time to preserve order
+  let inserted = 0;
+  for (const gauge of gviRanges) {
+    const ranges = JSON.stringify(gauge.readings.map(([gpm, psi_min, psi_max]) => ({ gpm, psi_min, psi_max })));
 
-  // Use transaction for batch insert - much faster
-  const insertMany = db.transaction(() => {
-    let inserted = 0;
-    for (const gauge of gviRanges) {
-      const ranges = JSON.stringify(gauge.readings.map(([gpm, psi_min, psi_max]) => ({ gpm, psi_min, psi_max })));
+    // Create individual transaction for each gauge to preserve order
+    const insertGauge = db.transaction(() => {
+      const insertStmt = db.prepare('INSERT INTO gvi_gauges (model, ranges) VALUES (?, ?)');
       insertStmt.run(gauge.name, ranges);
-      inserted++;
-    }
-    return inserted;
-  });
+    });
 
-  const inserted = insertMany();
+    insertGauge();
+    inserted++;
+  }
+
   return { inserted, skipped: 0 };
 }
 

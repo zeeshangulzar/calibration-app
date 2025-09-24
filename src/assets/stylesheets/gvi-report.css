@@ -38,7 +38,7 @@ body {
 
 .info-section {
   border-bottom: 3px solid black;
-  padding: 15px 20px;
+  padding: 20px 20px;
   display: flex;
   justify-content: space-between;
   font-size: 16px;
@@ -71,7 +71,7 @@ body {
 }
 
 .instructions ol {
-  line-height: 1.6;
+  line-height: 1;
   font-size: 14px;
 }
 
