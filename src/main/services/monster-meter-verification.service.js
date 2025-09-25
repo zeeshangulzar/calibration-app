@@ -396,7 +396,9 @@ class MonsterMeterVerificationService {
       };
 
       let temperature = this.monsterMeterState.getFlukeTemperature();
-      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber, temperature);
+      // Sort verification data by pressure value (ascending order) for PDF
+      const sortedVerificationData = [...this.dbDataVerification].sort((a, b) => a.referencePressure - b.referencePressure);
+      const result = await this.pdfService.generateMonsterMeterPDF(device, sortedVerificationData, summary, this.testerName, this.model, this.serialNumber, temperature);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
@@ -435,14 +437,11 @@ class MonsterMeterVerificationService {
 
       const result = await monsterMeterReportsDb.storeReport(reportData);
 
-      if (result.success) {
-        this.showLogOnScreen(`📊 Report stored in database with ID: ${result.id}`);
-      } else {
-        this.showLogOnScreen(`⚠️ Warning: Failed to store report in database: ${result.error}`);
+      if (!result.success) {
+        throw new Error('Failed to save Monster Meter report in database');
       }
     } catch (error) {
       this.handleError('storeReportInDatabase', error);
-      this.showLogOnScreen(`⚠️ Warning: Database storage failed: ${error.message}`);
     }
   }
 
