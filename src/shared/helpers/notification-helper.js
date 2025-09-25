@@ -10,31 +10,31 @@ function showCustomAlertModal(message) {
 }
 
 function showConfirmationModal(message, onConfirm = null, onCancel = null) {
-  const alertBox = document.getElementById("custom-alert");
-  const alertMessage = document.getElementById("custom-alert-message");
-  const alertOkBtn = document.getElementById("custom-alert-ok");
-  const alertCancelBtn = document.getElementById("custom-alert-cancel");
+  const alertBox = document.getElementById('custom-alert');
+  const alertMessage = document.getElementById('custom-alert-message');
+  const alertOkBtn = document.getElementById('custom-alert-ok');
+  const alertCancelBtn = document.getElementById('custom-alert-cancel');
 
   alertMessage.textContent = message;
-  alertBox.classList.remove("hidden");
+  alertBox.classList.remove('hidden');
 
   // Show or hide Cancel button
-  if (typeof onCancel === "function") {
-    alertCancelBtn.classList.remove("hidden");
+  if (typeof onCancel === 'function') {
+    alertCancelBtn.classList.remove('hidden');
   } else {
-    alertCancelBtn.classList.add("hidden");
+    alertCancelBtn.classList.add('hidden');
   }
 
   alertOkBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onConfirm === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onConfirm === 'function') {
       onConfirm();
     }
   };
 
   alertCancelBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onCancel === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onCancel === 'function') {
       onCancel();
     }
   };
@@ -46,10 +46,8 @@ function showError(message) {
 
   if (errorAlert && errorMessage) {
     // Ensure we never show undefined, null, or empty messages
-    const displayMessage = message && typeof message === 'string' && message.trim() 
-      ? message.trim() 
-      : 'An unexpected error occurred. Please try again.';
-    
+    const displayMessage = message && typeof message === 'string' && message.trim() ? message.trim() : 'An unexpected error occurred. Please try again.';
+
     errorMessage.textContent = displayMessage;
     errorAlert.classList.remove('hidden');
   }
@@ -68,6 +66,7 @@ function showSuccess(message) {
 function showNotification(message, type = 'info') {
   // Ensure notification container exists
   let container = document.getElementById('notification-container');
+
   if (!container) {
     container = document.createElement('div');
     container.id = 'notification-container';
@@ -75,10 +74,7 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(container);
   }
 
-  // Create notification element
-  const notification = document.createElement('div');
-
-  // Determine colors and icon based on type
+  // Determine colors and icon based on type first
   let bgColor = '';
   let borderColor = '';
   let textColor = '';
@@ -110,7 +106,13 @@ function showNotification(message, type = 'info') {
       icon = 'fas fa-info-circle text-gray-600';
   }
 
-  notification.className = `${bgColor} ${borderColor} ${textColor} border-l-4 p-4 rounded-r-lg shadow-lg max-w-sm transform transition-all duration-300 ease-in-out translate-x-full opacity-0`;
+  // Create notification element with all styles applied from the start
+  const notification = document.createElement('div');
+  notification.className = `${bgColor} ${borderColor} ${textColor} border-l-4 p-4 rounded-r-lg shadow-lg max-w-sm transform transition-all duration-300 ease-in-out`;
+
+  // Set initial state with inline styles to ensure immediate application
+  notification.style.transform = 'translateX(100%)';
+  notification.style.opacity = '0';
 
   notification.innerHTML = `
     <div class="flex items-start">
@@ -126,18 +128,19 @@ function showNotification(message, type = 'info') {
     </div>
   `;
 
+  // Add to container after all styling is complete
   container.appendChild(notification);
 
-  // Trigger entrance animation
-  setTimeout(() => {
-    notification.classList.remove('translate-x-full', 'opacity-0');
-    notification.classList.add('translate-x-0', 'opacity-100');
-  }, 50);
+  // Use requestAnimationFrame for smooth animation
+  requestAnimationFrame(() => {
+    notification.style.transform = 'translateX(0)';
+    notification.style.opacity = '1';
+  });
 
   // Auto-remove after timeout
   setTimeout(() => {
-    notification.classList.remove('translate-x-0', 'opacity-100');
-    notification.classList.add('translate-x-full', 'opacity-0');
+    notification.style.transform = 'translateX(100%)';
+    notification.style.opacity = '0';
     setTimeout(() => {
       if (notification.parentNode) {
         notification.parentNode.removeChild(notification);

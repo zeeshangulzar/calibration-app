@@ -26,11 +26,7 @@ export class FlukeManager {
 
   async connect() {
     let log = '';
-    log = 'Connecting to Telnet server...';
-    this.showLogOnScreen(log);
     if (this.telnetClient.isConnected) {
-      log = 'Telnet already connected.';
-      this.showLogOnScreen(log);
       return { success: true, message: log };
     }
 
@@ -62,6 +58,7 @@ export class FlukeManager {
   }
 
   async runPreReqs() {
+    this.showLogOnScreen('Starting Fluke prerequisites...');
     const commands = [
       {
         check: FlukeUtil.flukeCheckOutputStateCommand,
@@ -134,8 +131,7 @@ export class FlukeManager {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
       }
     }
-
-    this.showLogOnScreen('All commands executed.');
+    this.showLogOnScreen('✅ Fluke prerequisites completed.');
   }
 
   async checkZeroPressure() {
@@ -161,7 +157,7 @@ export class FlukeManager {
 
   setZeroPressureToFluke(silent = false) {
     if (!silent) {
-      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
+      this.showLogOnScreen('🔄 Setting Fluke to 0 PSI pressure...');
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} 0`);
   }
@@ -206,7 +202,7 @@ export class FlukeManager {
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke...`);
+      this.showLogOnScreen(`🔄 Setting Fluke to ${sweepValue} PSI pressure...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }
@@ -246,7 +242,7 @@ export class FlukeManager {
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           if (!silent) {
-            this.showLogOnScreen('✅ Fluke reached zero pressure');
+            this.showLogOnScreen('✅ Pressure set to 0 PSI.');
           }
           clearInterval(check);
           resolve();

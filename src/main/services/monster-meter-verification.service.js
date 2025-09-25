@@ -13,6 +13,7 @@ import { FlukeFactoryService } from './fluke-factory.service.js';
 import { generateReverseStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
+import { monsterMeterReportsDb } from '../db/monster-meter-reports.db.js';
 import * as Sentry from '@sentry/electron/main';
 
 class MonsterMeterVerificationService {
@@ -161,17 +162,14 @@ class MonsterMeterVerificationService {
       // Step 1: Connect to Fluke
       await this.connectToFluke();
 
-      // Step 2: Set Fluke to zero pressure first
-      // await this.setFlukeToZero(); // not required now due to reverse sweep
-
-      // Step 3: Send VERIFY_ME command to Monster Meter
+      // Step 2: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
       await this.delay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
 
-      // Step 4: Run the pressure sweep
-      this.showLogOnScreen('Verification sweep starting...');
+      // Step 3: Run the pressure sweep
+      this.showLogOnScreen('|------ Verification Process Started ------|');
       await this.runVerificationSweep();
-      this.showLogOnScreen('Verification sweep completed');
+      this.showLogOnScreen('✅ Verification process completed successfully.!');
 
       // Keep Fluke connected - will be disconnected when user leaves Monster Meter screen
     } catch (error) {
@@ -215,7 +213,6 @@ class MonsterMeterVerificationService {
       const pressureValue = this.sweepIntervals[i];
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
-      this.showLogOnScreen('Waiting for 2 seconds');
       await this.delay(2000);
       this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
@@ -353,6 +350,7 @@ class MonsterMeterVerificationService {
 
       // Generate PDF report
       this.showLogOnScreen('📄 Generating PDF report...');
+      this.showLogOnScreen('✅ PDF report generated sucessfully!, click above button to view pdf.');
       await this.generatePDFReport(summary);
 
       // Send final results to UI
@@ -366,7 +364,7 @@ class MonsterMeterVerificationService {
         console.log('Background Fluke vent command failed:', error.message);
       }
 
-      this.showLogOnScreen('✅ Verification completed successfully');
+      // this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
       throw error;
@@ -407,10 +405,44 @@ class MonsterMeterVerificationService {
           filePath: result.filePath,
           filename: result.filename,
         });
+
+        // Store report in database
+        await this.storeReportInDatabase(summary, result.filePath);
+      } else {
+        this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
       }
     } catch (error) {
       this.handleError('generatePDFReport', error);
       this.showLogOnScreen(`⚠️ Warning: PDF generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Store verification report in database
+   * @param {Object} summary - Verification summary
+   * @param {string} pdfPath - Path to the generated PDF file
+   * @private
+   */
+  async storeReportInDatabase(summary, pdfPath) {
+    try {
+      const reportData = {
+        serialNumber: this.serialNumber,
+        status: summary.status,
+        pdfLocation: pdfPath,
+        testerName: this.testerName,
+        model: this.model,
+      };
+
+      const result = await monsterMeterReportsDb.storeReport(reportData);
+
+      if (result.success) {
+        this.showLogOnScreen(`📊 Report stored in database with ID: ${result.id}`);
+      } else {
+        this.showLogOnScreen(`⚠️ Warning: Failed to store report in database: ${result.error}`);
+      }
+    } catch (error) {
+      this.handleError('storeReportInDatabase', error);
+      this.showLogOnScreen(`⚠️ Warning: Database storage failed: ${error.message}`);
     }
   }
 
