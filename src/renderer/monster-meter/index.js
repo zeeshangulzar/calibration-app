@@ -3,6 +3,7 @@
  */
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
+import { setElementState } from '../view_helpers/index.js';
 
 const getLocalTimestamp = () => new Date().toLocaleTimeString();
 
@@ -364,6 +365,8 @@ const ipcHandlers = {
     isCalibrationActive = true;
     updateCalibrationButtons();
     updateBackButton();
+    // Disable form fields during calibration
+    disableFormFields();
     // Clear previous calibration data when starting new calibration
     clearCalibrationData();
     showCalibrationResultsSection();
@@ -375,6 +378,8 @@ const ipcHandlers = {
     isCalibrationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when calibration stops
+    enableFormFields();
     addLogMessage(`🛑 Calibration stopped: ${data.reason}`);
     NotificationHelper.showInfo(`Calibration stopped: ${data.reason}`);
     // Keep calibration table visible - don't clear data when stopping
@@ -384,6 +389,8 @@ const ipcHandlers = {
     isCalibrationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when calibration fails
+    enableFormFields();
     addLogMessage(`❌ Calibration failed: ${data.error}`, 'error');
     NotificationHelper.showError(`Calibration failed: ${data.error}`);
   },
@@ -393,6 +400,8 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when calibration completes
+    enableFormFields();
     addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
@@ -418,6 +427,8 @@ const ipcHandlers = {
     isCalibrationCompleted = false; // Reset when verification starts
     updateCalibrationButtons();
     updateBackButton();
+    // Disable form fields during verification
+    disableFormFields();
     showVerificationResultsSection();
     // Don't clear calibration data - keep it visible
     NotificationHelper.showSuccess('Verification started successfully!');
@@ -427,6 +438,8 @@ const ipcHandlers = {
     isVerificationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification stops
+    enableFormFields();
     NotificationHelper.showInfo(`Verification stopped: ${data.reason}`);
   },
 
@@ -434,6 +447,8 @@ const ipcHandlers = {
     isVerificationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification fails
+    enableFormFields();
     NotificationHelper.showError(`Verification failed: ${data.error}`);
   },
 
@@ -442,6 +457,8 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification completes
+    enableFormFields();
     enableVerificationTab();
     hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
@@ -561,18 +578,18 @@ function showMonsterMeterWidget(deviceInfo) {
   card.innerHTML = `
     <div class="flex items-center gap-3">
       <div class="w-full">
-        <h3>Monster Meter</h3>
+        <h3 class="font-semibold text-base">Monster Meter</h3>
         <div class="flex items-center gap-2">
-          <p class="text-sm text-neutral-600 font-bold">Name:</p>
-          <p class="text-sm text-neutral-600"><span id="nameText">${deviceName}</span></p>
+          <p class="text-base text-neutral-600 font-semibold">Name:</p>
+          <p class="text-base text-neutral-600"><span id="nameText">${deviceName}</span></p>
         </div>
         <div class="flex items-center gap-2">
-          <p class="text-sm text-neutral-600 font-bold">Port:</p>
-          <p class="text-sm text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+          <p class="text-base text-neutral-600 font-semibold">Port:</p>
+          <p class="text-base text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+          <p>
+            <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
+          </p>
         </div>
-        <p>
-          <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
-        </p>
         <div id="pdf-button-container" class="mt-2 inline-flex w-full"></div>
       </div>
     </div>
@@ -624,6 +641,22 @@ function resetLiveDataDisplays() {
     const element = document.getElementById(id);
     if (element) element.textContent = 'N/A';
   });
+}
+
+// Function to disable form fields during calibration/verification
+function disableFormFields() {
+  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
+  setElementState(testerNameSelect, true);
+  setElementState(modelSelect, true);
+  setElementState(serialNumberInput, true);
+}
+
+// Function to enable form fields after calibration/verification
+function enableFormFields() {
+  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
+  setElementState(testerNameSelect, false);
+  setElementState(modelSelect, false);
+  setElementState(serialNumberInput, false);
 }
 
 // Auto-scroll functions
@@ -714,7 +747,6 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
     if (isComplete && point) {
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = point.inRange ? createPassSvg() : createFailSvg();
 
       row.innerHTML = `
         <td class="py-2 pr-6">Point ${i + 1}</td>
@@ -724,10 +756,7 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
         <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
         <td class="py-2 pr-6">${point.pressureLo.toFixed(1)}</td>
         <td class="py-2 pr-6 font-semibold ${statusClass}">
-          <span class="inline-flex items-center">
-            <span class="mr-1">${statusIcon}</span>
-            ${statusText}
-          </span>
+          ${statusText}
         </td>
       `;
     } else {
@@ -768,14 +797,12 @@ function showVerificationSummary(summary) {
   if (!summaryDiv || !summary) return;
 
   const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
-  const statusIcon = summary.status === 'PASSED' ? createPassSvg() : createFailSvg();
   // const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
 
   summaryDiv.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
       <div class="flex items-center ${statusClass} font-semibold">
-        <span class="mr-2">${statusIcon}</span>
         ${summary.status}
       </div>
     </div>
