@@ -88,7 +88,6 @@ class MonsterMeterCalibrationService {
       { fn: this.writeDateViaComService, name: 'Write date to Monster Meter' },
       { fn: this.connectToFluke, name: 'Connect to Fluke' },
       { fn: this.runFlukePreReqs, name: 'Fluke prerequisites' },
-      { fn: this.checkZeroPressure, name: 'Zero pressure check' },
       { fn: this.zeroMonsterMeter, name: 'Zero Monster Meter' },
       { fn: this.sendStartCalibrationCommandToMM, name: 'Start calibration' },
       { fn: this.runCalibrationSweep, name: 'Calibration sweep' },
@@ -123,11 +122,12 @@ class MonsterMeterCalibrationService {
     await this.fluke.waitForFlukeToReachTargetPressure(pressureValue);
     if (this.isCalibrationStopped) return;
 
-    this.showLogOnScreen(`✅ Pressure reached ${pressureValue} PSI. Stabilizing...`);
+    // this.showLogOnScreen(`✅ Pressure reached ${pressureValue} PSI. Stabilizing...`);
     await this.addDelay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
     if (this.isCalibrationStopped) return;
 
-    this.showLogOnScreen('📸 Capturing Monster Meter readings...');
+    // this.showLogOnScreen('📸 Capturing Monster Meter readings...');
+    this.showLogOnScreen(`📸 Capturing Monster Meter readings at ${pressureValue} PSI...`);
     const data = await this.monsterMeterCommunication.readData();
 
     if (this.isCalibrationStopped) return;
@@ -219,7 +219,7 @@ class MonsterMeterCalibrationService {
     try {
       await this.fluke.setZeroPressureToFluke();
       await this.fluke.waitForFlukeToReachZeroPressure(true); // silent
-      this.showLogOnScreen('✅ Fluke reached zero pressure');
+      this.showLogOnScreen('✅ Pressure set to 0 PSI.');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -247,7 +247,7 @@ class MonsterMeterCalibrationService {
   async sendStartCalibrationCommandToMM() {
     await this.monsterMeterCommunication.sendCommand(MONSTER_METER_CONSTANTS.COMMANDS.START_CAL);
     await this.addDelay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
-    this.showLogOnScreen('✅ Calibration command sent');
+    this.showLogOnScreen('✅ Calibration command sent.');
   }
 
   async executeWithLogging(action, fn) {
@@ -469,7 +469,7 @@ class MonsterMeterCalibrationService {
     const buffer = this.buildCoefficientBuffer();
     // Write buffer directly (like old app) - no separate command needed
     await this.monsterMeterCommunication.writeBuffer(buffer);
-    this.showLogOnScreen('✅ Coefficients written successfully!');
+    this.showLogOnScreen('✅ Coefficients written, calibration completed successfully.');
   }
 
   buildCoefficientBuffer() {

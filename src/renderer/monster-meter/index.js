@@ -160,12 +160,9 @@ const handleConnectPort = async () => {
       portSelect.disabled = true;
       portSelect.classList.add('opacity-50', 'cursor-not-allowed');
     }
-    addLogMessage(`Attempting to connect to ${selectedPort}...`);
-
     const result = await window.electronAPI.monsterMeterConnectPort(selectedPort);
 
     if (result.success) {
-      addLogMessage(`Successfully connected to ${selectedPort}`);
       // Keep port dropdown disabled after successful connection
       // Don't re-enable it in the finally block
     } else {
@@ -296,7 +293,8 @@ const ipcHandlers = {
 
   onMonsterMeterConnected: data => {
     isMonsterMeterConnected = true;
-    addLogMessage('Monster Meter connected successfully');
+    const port = data?.port || 'unknown port';
+    addLogMessage(`Monster Meter connected successfully at ${port} port.`);
     NotificationHelper.showSuccess('Monster Meter connected successfully');
     updateCalibrationButtons();
   },
@@ -370,7 +368,7 @@ const ipcHandlers = {
     // Clear previous calibration data when starting new calibration
     clearCalibrationData();
     showCalibrationResultsSection();
-    addLogMessage('🚀 Calibration started');
+    addLogMessage('|------ Calibration Process Started ------|');
     NotificationHelper.showSuccess('Calibration started successfully!');
   },
 
@@ -402,7 +400,6 @@ const ipcHandlers = {
     updateBackButton();
     // Re-enable form fields when calibration completes
     enableFormFields();
-    addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
     // Auto scroll to top when calibration completes
@@ -720,7 +717,6 @@ function showVerificationResults(data) {
     console.log('Verification completed with data:', data.verificationData);
     console.log('Verification summary:', data.summary);
     updateVerificationResultsTable(data.verificationData, data.pressureArr);
-    showVerificationSummary(data.summary);
   }
 }
 
@@ -790,48 +786,6 @@ function updateVerificationProgress(data) {
     const total = data.total || 0;
     progressText.textContent = `Progress: ${completed}/${total} points completed`;
   }
-}
-
-function showVerificationSummary(summary) {
-  const summaryDiv = document.getElementById('verification-summary');
-  if (!summaryDiv || !summary) return;
-
-  const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
-  // const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-
-  summaryDiv.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
-      <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
-      <div class="flex items-center ${statusClass} font-semibold">
-        ${summary.status}
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-4 text-sm">
-      <div class="flex justify-between">
-        <span class="text-gray-600">Total Points:</span>
-        <span class="font-semibold text-gray-900">${summary.totalPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Passed:</span>
-        <span class="font-semibold text-green-600">${summary.passedPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Failed:</span>
-        <span class="font-semibold text-red-600">${summary.failedPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Pass Rate:</span>
-        <span class="font-semibold text-gray-900">${summary.passRate}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Tolerance Range:</span>
-        <span class="font-semibold text-gray-900">±${summary.toleranceRange} PSI</span>
-      </div>
-    </div>
-  `;
-
-  summaryDiv.className = `mt-4 p-4 rounded-lg border bg-neutral-50`;
-  summaryDiv.classList.remove('hidden');
 }
 
 // Calibration handlers
@@ -1013,9 +967,6 @@ function initializeVerificationResultsTable() {
       </div>
       <div class="text-sm text-neutral-500">
         <span id="verification-progress-text">Waiting for verification data...</span>
-      </div>
-      <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
-        <!-- Verification summary will be populated here -->
       </div>
     `;
   }

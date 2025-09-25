@@ -161,17 +161,14 @@ class MonsterMeterVerificationService {
       // Step 1: Connect to Fluke
       await this.connectToFluke();
 
-      // Step 2: Set Fluke to zero pressure first
-      await this.setFlukeToZero();
-
-      // Step 3: Send VERIFY_ME command to Monster Meter
+      // Step 2: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
       await this.delay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
 
-      // Step 4: Run the pressure sweep
-      this.showLogOnScreen('Verification sweep starting...');
+      // Step 3: Run the pressure sweep
+      this.showLogOnScreen('|------ Verification Process Started ------|');
       await this.runVerificationSweep();
-      this.showLogOnScreen('Verification sweep completed');
+      this.showLogOnScreen('✅ Verification process completed successfully.!');
 
       // Keep Fluke connected - will be disconnected when user leaves Monster Meter screen
     } catch (error) {
@@ -215,7 +212,6 @@ class MonsterMeterVerificationService {
       const pressureValue = this.sweepIntervals[i];
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
-      this.showLogOnScreen('Waiting for 2 seconds');
       await this.delay(2000);
       this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
@@ -345,6 +341,7 @@ class MonsterMeterVerificationService {
 
       // Generate PDF report
       this.showLogOnScreen('📄 Generating PDF report...');
+      this.showLogOnScreen('✅ PDF report generated sucessfully!, click above button to view pdf.');
       await this.generatePDFReport(summary);
 
       // Send final results to UI
@@ -357,7 +354,7 @@ class MonsterMeterVerificationService {
         console.log('Background Fluke zero setting failed:', error.message);
       }
 
-      this.showLogOnScreen('Verification completed successfully');
+      // this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
       throw error;
