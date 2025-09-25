@@ -13,6 +13,7 @@ import { FlukeFactoryService } from './fluke-factory.service.js';
 import { generateStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
+import { monsterMeterReportsDb } from '../db/monster-meter-reports.db.js';
 import * as Sentry from '@sentry/electron/main';
 
 class MonsterMeterVerificationService {
@@ -394,12 +395,44 @@ class MonsterMeterVerificationService {
           filePath: result.filePath,
           filename: result.filename,
         });
+
+        // Store report in database
+        await this.storeReportInDatabase(summary, result.filePath);
       } else {
         this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
       }
     } catch (error) {
       this.handleError('generatePDFReport', error);
       this.showLogOnScreen(`⚠️ Warning: PDF generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Store verification report in database
+   * @param {Object} summary - Verification summary
+   * @param {string} pdfPath - Path to the generated PDF file
+   * @private
+   */
+  async storeReportInDatabase(summary, pdfPath) {
+    try {
+      const reportData = {
+        serialNumber: this.serialNumber,
+        status: summary.status,
+        pdfLocation: pdfPath,
+        testerName: this.testerName,
+        model: this.model,
+      };
+
+      const result = await monsterMeterReportsDb.storeReport(reportData);
+
+      if (result.success) {
+        this.showLogOnScreen(`📊 Report stored in database with ID: ${result.id}`);
+      } else {
+        this.showLogOnScreen(`⚠️ Warning: Failed to store report in database: ${result.error}`);
+      }
+    } catch (error) {
+      this.handleError('storeReportInDatabase', error);
+      this.showLogOnScreen(`⚠️ Warning: Database storage failed: ${error.message}`);
     }
   }
 
