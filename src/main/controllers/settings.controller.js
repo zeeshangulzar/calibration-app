@@ -1,5 +1,6 @@
 import { getTelnetClient } from '../services/telnet-client.service.js';
 import { COMMAND_HELPERS } from '../constants/fluke-commands.js';
+import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addCommandToHistory } from '../db/index.js';
 import * as Sentry from '@sentry/electron/main';
 
@@ -236,7 +237,25 @@ class SettingsController {
   async cleanup() {
     // Clear UI event listeners and disconnect
     this.telnetClient.clearUIListeners();
-    await this.telnetClient.disconnect();
+
+    // Vent and disconnect Fluke if connected
+
+    if (this.telnetClient.isConnected) {
+      try {
+        // Vent Fluke before disconnecting
+        this.telnetClient.sendCommandWithoutWaitingForResponse(FlukeUtil.flukeSetOutputPressureModeVentCommand);
+        console.log('SettingsController: Fluke vented before disconnect');
+      } catch (error) {
+        console.warn('SettingsController: Fluke venting failed:', error);
+        Sentry.captureException(error, {
+          tags: { service: 'settings-controller', method: 'cleanup' },
+        });
+      } finally {
+        await this.telnetClient.disconnect();
+        console.log('SettingsController: Fluke disconnected');
+      }
+    }
+
     console.log('SettingsController: Cleanup completed');
   }
 

@@ -27,6 +27,7 @@ export class GVICalibrationService {
     this.testerName = '';
     this.model = '';
     this.serialNumber = '';
+    this.fluke = null;
   }
 
   /**
@@ -273,6 +274,33 @@ export class GVICalibrationService {
     }
   }
 
+  ventFluke() {
+    this.fluke.ventFluke();
+  }
+
+  /**
+   * Stop calibration process and vent Fluke
+   */
+  async stopCalibration(reason = 'Calibration stopped by user') {
+    try {
+      // Stop the calibration process
+      this.isCalibrationActive = false;
+      this.isRunning = false;
+
+      // Vent Fluke before stopping calibration
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+        this.fluke.ventFluke();
+      }
+
+      // Send stop event to renderer
+      this.sendToRenderer('gvi-calibration-stopped', { reason });
+      return { success: true };
+    } catch (error) {
+      this.handleError(error, 'stopCalibration');
+      return { success: false, error: error.message };
+    }
+  }
+
   // Utility methods
   initializeCalibrationState(testerName, model, serialNumber, steps) {
     this.testerName = testerName;
@@ -361,28 +389,14 @@ export class GVICalibrationService {
         this.isCalibrationActive = false;
       }
 
-      // Set Fluke to zero and disconnect if connected
       if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        await this.setFlukeToZero(true);
-
-        await this.fluke.telnetClient.disconnect();
+        this.fluke.telnetClient.disconnect();
       }
 
       this.reset();
     } catch (error) {
       this.handleError(error, 'cleanup');
     }
-  }
-
-  reset() {
-    this.isCalibrationActive = false;
-    this.testerName = '';
-    this.model = '';
-    this.serialNumber = '';
-    this.currentStep = 0;
-    this.steps = [];
-    this.results = null;
-    this.fluke = null;
   }
 
   destroy = async () => {

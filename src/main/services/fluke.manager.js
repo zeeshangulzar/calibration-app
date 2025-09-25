@@ -69,6 +69,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetOutputStateCommand,
         name: 'Output State',
         expectedValue: '1',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckOutputPressureModeCommand,
@@ -76,6 +77,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetOutputPressureModeControlCommand,
         name: 'Output Mode',
         expectedValue: 'CONTROL',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckStaticModeCommand,
@@ -83,6 +85,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetStaticModeCommand,
         name: 'Static Mode',
         expectedValue: '0',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckToleranceCommand,
@@ -90,6 +93,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetToleranceCommand,
         name: 'Tolerance',
         expectedValue: FlukeUtil.flukeTolerance.toString(),
+        responseExpectedInAction: true,
       },
     ];
 
@@ -107,7 +111,11 @@ export class FlukeManager {
         if (!this.isProcessActive()) return;
 
         // Send the setting command
-        await this.telnetClient.sendCommand(command.action);
+        if (command.responseExpectedInAction) {
+          await this.telnetClient.sendCommand(command.action);
+        } else {
+          this.telnetClient.sendCommandWithoutWaitingForResponse(command.action);
+        }
         await addDelay(1000);
 
         if (!this.isProcessActive()) return;
@@ -279,9 +287,22 @@ export class FlukeManager {
     }
   }
 
+  async ventFluke() {
+    try {
+      this.telnetClient.sendCommandWithoutWaitingForResponse(FlukeUtil.flukeSetOutputPressureModeVentCommand);
+      console.log('Fluke vent command sent');
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ventFluke' },
+      });
+      console.warn('Fluke vent command failed:', error);
+    }
+  }
+
   async disconnect() {
     if (this.telnetClient && this.telnetClient.isConnected) {
-      await this.telnetClient.disconnect();
+      this.ventFluke();
+      this.telnetClient.disconnect();
       console.log('Fluke disconnected successfully');
     }
   }

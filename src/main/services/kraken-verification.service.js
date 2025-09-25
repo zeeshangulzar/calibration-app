@@ -77,12 +77,11 @@ class KrakenVerificationService {
 
     // Restore Fluke manager to use calibration active check
     if (this.fluke && this.fluke.updateProcessActiveFunction) {
+      // Vent Fluke stopping verification
+      this.fluke.ventFluke();
       this.fluke.updateProcessActiveFunction(() => this.globalState.isCalibrationActive);
       console.log('KrakenVerification: Restored Fluke process active function to calibration check');
     }
-
-    // Set Fluke to zero pressure in background without waiting or logging
-    this.fluke.setZeroPressureToFluke(true);
   }
 
   /**
@@ -162,8 +161,7 @@ class KrakenVerificationService {
         console.log('KrakenVerification: Restored Fluke process active function to calibration check');
       }
 
-      // Always set Fluke to zero pressure after verification completes or fails (silently)
-      this.fluke.setZeroPressureToFluke(true);
+      this.fluke.ventFluke();
     }
   }
 

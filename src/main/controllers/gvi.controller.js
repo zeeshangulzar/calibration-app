@@ -67,16 +67,13 @@ export class GVIController {
 
   async stopCalibration() {
     try {
-      // Stop the calibration process
+      // If calibration is in progress, stop it properly and vent Fluke
       if (this.calibrationService) {
-        await this.calibrationService.stopCalibration();
-        // Set Fluke to zero
-        await this.calibrationService.fluke.setZeroPressureToFluke();
-      }
-
-      // Update state
-      if (this.state) {
+        await this.calibrationService.stopCalibration('User navigated away from GVI page');
         this.state.updateCalibrationStatus(false);
+      } else {
+        // If not in calibration, just vent the Fluke
+        this.calibrationService.ventFluke();
       }
 
       // Send notification to renderer
@@ -112,6 +109,9 @@ export class GVIController {
         this.state.reset();
       }
 
+      // Reset calibration state
+      this.state.setCurrentConfig(null);
+      this.calibrationService.cleanup();
       // Send back navigation to renderer
       this.sendToRenderer('gvi-go-back');
       return { success: true };
