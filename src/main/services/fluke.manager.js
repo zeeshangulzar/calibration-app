@@ -131,7 +131,7 @@ export class FlukeManager {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
       }
     }
-    this.showLogOnScreen('✅ Fluke prerequisites completed.');
+    // this.showLogOnScreen('✅ Fluke prerequisites completed.');
   }
 
   async checkZeroPressure() {
