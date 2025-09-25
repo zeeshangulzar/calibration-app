@@ -28,8 +28,9 @@ import { migration as migration004 } from './004_migration_table_structure.js';
 import { migration as migration005 } from './005_add_mock_fluke_enabled.js';
 import { migration as migration006 } from './006_gvi_gauges.js';
 import { migration as migration007 } from './007_gvi_reports.js';
+import { migration as migration009 } from './009_monster_meter_reports.js';
 // Central registry of all migrations
-const importedMigrations = [migration001, migration002, migration003, migration004, migration005, migration006, migration007];
+const importedMigrations = [migration001, migration002, migration003, migration004, migration005, migration006, migration007, migration009];
 
 /**
  * Comprehensive migration validation system

@@ -10,9 +10,10 @@
  * - Generating pass/fail summary
  */
 import { FlukeFactoryService } from './fluke-factory.service.js';
-import { generateStepArray } from '../utils/kraken-calibration.utils.js';
+import { generateReverseStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
+import { monsterMeterReportsDb } from '../db/monster-meter-reports.db.js';
 import * as Sentry from '@sentry/electron/main';
 
 class MonsterMeterVerificationService {
@@ -145,7 +146,7 @@ class MonsterMeterVerificationService {
   }
 
   generateSweepIntervals() {
-    this.sweepIntervals = generateStepArray(this.maxPressure);
+    this.sweepIntervals = generateReverseStepArray(this.maxPressure);
     this.logDebugInfo('generateSweepIntervals', {
       intervals: this.sweepIntervals,
       count: this.sweepIntervals.length,
@@ -161,17 +162,14 @@ class MonsterMeterVerificationService {
       // Step 1: Connect to Fluke
       await this.connectToFluke();
 
-      // Step 2: Set Fluke to zero pressure first
-      await this.setFlukeToZero();
-
-      // Step 3: Send VERIFY_ME command to Monster Meter
+      // Step 2: Send VERIFY_ME command to Monster Meter
       await this.sendVerifyMeCommand();
       await this.delay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
 
-      // Step 4: Run the pressure sweep
-      this.showLogOnScreen('Verification sweep starting...');
+      // Step 3: Run the pressure sweep
+      this.showLogOnScreen('|------ Verification Process Started ------|');
       await this.runVerificationSweep();
-      this.showLogOnScreen('Verification sweep completed');
+      this.showLogOnScreen('✅ Verification process completed successfully.!');
 
       // Keep Fluke connected - will be disconnected when user leaves Monster Meter screen
     } catch (error) {
@@ -215,7 +213,6 @@ class MonsterMeterVerificationService {
       const pressureValue = this.sweepIntervals[i];
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
-      this.showLogOnScreen('Waiting for 2 seconds');
       await this.delay(2000);
       this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
@@ -278,8 +275,11 @@ class MonsterMeterVerificationService {
     const pressureLo = data['SensorLo.psiAVG'];
 
     // Check if readings are within tolerance range
-    const toleranceMin = pressureValue - this.toleranceRange;
-    const toleranceMax = pressureValue + this.toleranceRange;
+    // Calculate tolerance based on 1% of the maximum sweep value (250 PSI)
+    const maxSweepValue = MONSTER_METER_CONSTANTS.SWEEP_VALUE; // 250 PSI
+    const toleranceValue = maxSweepValue * (this.toleranceRange / 100); // 1% of 250 PSI = 2.5 PSI
+    const toleranceMin = pressureValue - toleranceValue;
+    const toleranceMax = pressureValue + toleranceValue;
     const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && pressureLo >= toleranceMin && pressureLo <= toleranceMax;
 
     const verificationPoint = {
@@ -289,6 +289,11 @@ class MonsterMeterVerificationService {
       voltageLo,
       pressureLo,
       inRange,
+      // Add calculated tolerance limits for PDF display
+      toleranceMin: toleranceMin,
+      toleranceMax: toleranceMax,
+      upperLimit: toleranceMax,
+      lowerLimit: toleranceMin,
     };
 
     this.updateVerificationArrays(voltageHi, pressureHi, voltageLo, pressureLo, pressureValue);
@@ -335,7 +340,7 @@ class MonsterMeterVerificationService {
 
   async completeVerification() {
     try {
-      this.showLogOnScreen('✅ Verification sweep completed successfully');
+      // this.showLogOnScreen('✅ Verification sweep completed successfully');
 
       // Set verification as complete (not active, not stopped)
       this.updateVerificationFlags(false, false);
@@ -345,6 +350,7 @@ class MonsterMeterVerificationService {
 
       // Generate PDF report
       this.showLogOnScreen('📄 Generating PDF report...');
+      this.showLogOnScreen('✅ PDF report generated sucessfully!, click above button to view pdf.');
       await this.generatePDFReport(summary);
 
       // Send final results to UI
@@ -389,7 +395,10 @@ class MonsterMeterVerificationService {
         model: this.model,
       };
 
-      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification, summary, this.testerName, this.model, this.serialNumber);
+      // Sort verification data by pressure value (ascending order) for PDF
+      const sortedVerificationData = [...this.dbDataVerification].sort((a, b) => a.referencePressure - b.referencePressure);
+      let temperature = this.monsterMeterState.getFlukeTemperature();
+      const result = await this.pdfService.generateMonsterMeterPDF(device, sortedVerificationData, summary, this.testerName, this.model, this.serialNumber, temperature);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
@@ -398,12 +407,42 @@ class MonsterMeterVerificationService {
           filePath: result.filePath,
           filename: result.filename,
         });
+
+        // Store report in database
+        await this.storeReportInDatabase(summary, result.filePath);
       } else {
         this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
+        throw new Error(result.error);
       }
     } catch (error) {
       this.handleError('generatePDFReport', error);
       this.showLogOnScreen(`⚠️ Warning: PDF generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Store verification report in database
+   * @param {Object} summary - Verification summary
+   * @param {string} pdfPath - Path to the generated PDF file
+   * @private
+   */
+  async storeReportInDatabase(summary, pdfPath) {
+    try {
+      const reportData = {
+        serialNumber: this.serialNumber,
+        status: summary.status,
+        pdfLocation: pdfPath,
+        testerName: this.testerName,
+        model: this.model,
+      };
+
+      const result = await monsterMeterReportsDb.storeReport(reportData);
+
+      if (!result.success) {
+        throw new Error('Failed to save Monster Meter report in database');
+      }
+    } catch (error) {
+      this.handleError('storeReportInDatabase', error);
     }
   }
 

@@ -4,6 +4,28 @@
  */
 
 /**
+ * Generic function to enable/disable HTML elements
+ * @param {HTMLElement} element - The HTML element to modify
+ * @param {boolean} disabled - Whether to disable the element
+ * @param {string} className - Optional custom CSS class to apply
+ */
+export function setElementState(element, disabled, className = '') {
+  if (!element) return;
+
+  element.disabled = disabled;
+
+  if (disabled) {
+    element.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    element.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  if (className) {
+    element.className = className;
+  }
+}
+
+/**
  * Populate a select dropdown with options
  * @param {string} selectId - The ID of the select element
  * @param {Object} options - Object containing key-value pairs for options

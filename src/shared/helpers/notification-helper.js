@@ -66,6 +66,7 @@ function showSuccess(message) {
 function showNotification(message, type = 'info') {
   // Ensure notification container exists
   let container = document.getElementById('notification-container');
+
   if (!container) {
     container = document.createElement('div');
     container.id = 'notification-container';
@@ -73,10 +74,7 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(container);
   }
 
-  // Create notification element
-  const notification = document.createElement('div');
-
-  // Determine colors and icon based on type
+  // Determine colors and icon based on type first
   let bgColor = '';
   let borderColor = '';
   let textColor = '';
@@ -108,7 +106,13 @@ function showNotification(message, type = 'info') {
       icon = 'fas fa-info-circle text-gray-600';
   }
 
-  notification.className = `${bgColor} ${borderColor} ${textColor} border-l-4 p-4 rounded-r-lg shadow-lg max-w-sm transform transition-all duration-300 ease-in-out translate-x-full opacity-0`;
+  // Create notification element with all styles applied from the start
+  const notification = document.createElement('div');
+  notification.className = `${bgColor} ${borderColor} ${textColor} border-l-4 p-4 rounded-r-lg shadow-lg max-w-sm transform transition-all duration-300 ease-in-out`;
+
+  // Set initial state with inline styles to ensure immediate application
+  notification.style.transform = 'translateX(100%)';
+  notification.style.opacity = '0';
 
   notification.innerHTML = `
     <div class="flex items-start">
@@ -124,18 +128,19 @@ function showNotification(message, type = 'info') {
     </div>
   `;
 
+  // Add to container after all styling is complete
   container.appendChild(notification);
 
-  // Trigger entrance animation
-  setTimeout(() => {
-    notification.classList.remove('translate-x-full', 'opacity-0');
-    notification.classList.add('translate-x-0', 'opacity-100');
-  }, 50);
+  // Use requestAnimationFrame for smooth animation
+  requestAnimationFrame(() => {
+    notification.style.transform = 'translateX(0)';
+    notification.style.opacity = '1';
+  });
 
   // Auto-remove after timeout
   setTimeout(() => {
-    notification.classList.remove('translate-x-0', 'opacity-100');
-    notification.classList.add('translate-x-full', 'opacity-0');
+    notification.style.transform = 'translateX(100%)';
+    notification.style.opacity = '0';
     setTimeout(() => {
       if (notification.parentNode) {
         notification.parentNode.removeChild(notification);
