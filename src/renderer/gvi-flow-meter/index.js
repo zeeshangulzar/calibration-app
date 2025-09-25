@@ -78,6 +78,7 @@ function setupEventListeners() {
     }
 
     // Allow going back when not in calibration
+    // Allow going back during calibration - controller will handle stopping calibration and venting Fluke pressure
     if (window.electronAPI && window.electronAPI.gviGoBack) {
       window.electronAPI.gviGoBack();
     }
