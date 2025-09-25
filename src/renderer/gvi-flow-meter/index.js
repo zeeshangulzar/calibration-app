@@ -989,7 +989,7 @@ function resetCalibrationUI() {
     buttonsContainer.innerHTML = `
       <button
         id="start-calibration-btn"
-        class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
         START CALIBRATION
@@ -1106,7 +1106,7 @@ function clearCalibrationData() {
     buttonsContainer.innerHTML = `
       <button
         id="start-calibration-btn"
-        class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
         START CALIBRATION

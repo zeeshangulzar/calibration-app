@@ -58,7 +58,6 @@ export class FlukeManager {
   }
 
   async runPreReqs() {
-    this.showLogOnScreen('Starting Fluke prerequisites...');
     const commands = [
       {
         check: FlukeUtil.flukeCheckOutputStateCommand,
@@ -131,7 +130,6 @@ export class FlukeManager {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
       }
     }
-    // this.showLogOnScreen('✅ Fluke prerequisites completed.');
   }
 
   async checkZeroPressure() {

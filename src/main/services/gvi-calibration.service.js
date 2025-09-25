@@ -289,7 +289,7 @@ export class GVICalibrationService {
       this.isRunning = false;
 
       // Vent Fluke before stopping calibration
-      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+      if (this.fluke && this.fluke.telnetClient) {
         this.fluke.ventFluke();
       }
 
