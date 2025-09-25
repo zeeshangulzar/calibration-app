@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { BrowserWindow } from 'electron';
 import Handlebars from 'handlebars';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
+import { GLOBAL_CONSTANTS } from '../../config/constants/global.constants.js';
 import * as Sentry from '@sentry/electron/main';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,9 +15,6 @@ const __dirname = path.dirname(__filename);
 class MonsterMeterPDFService {
   constructor() {
     // Get current directory for ES modules
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
     // Set output directory to Desktop/Monster Meter PDF (like old app)
     this.baseOutputDir = path.join(os.homedir(), 'Desktop', 'Monster Meter PDF');
   }
@@ -31,7 +29,7 @@ class MonsterMeterPDFService {
    * @param {string} serialNumber - Device serial number
    * @returns {Promise<Object>} Result object with success status and file path
    */
-  async generateMonsterMeterPDF(device, verificationData, summary, testerName, model, serialNumber) {
+  async generateMonsterMeterPDF(device, verificationData, summary, testerName, model, serialNumber, temperature) {
     try {
       // Generate report ID like old app
       const reportId = this.generateReportId(serialNumber);
@@ -66,7 +64,7 @@ class MonsterMeterPDFService {
       const filePath = path.join(dateFolderPath, filename);
 
       // Generate report content using Handlebars template
-      const reportContent = await this.generateReportContent(device, verificationData, summary, testerName, model, serialNumber, reportId);
+      const reportContent = await this.generateReportContent(device, verificationData, summary, testerName, model, serialNumber, reportId, temperature);
 
       // Generate actual PDF using Electron's BrowserWindow
       const pdfBuffer = await this.generatePDFFromHTML(reportContent);
@@ -125,7 +123,7 @@ class MonsterMeterPDFService {
    * @param {string} reportId - Report ID
    * @returns {Promise<string>} HTML content
    */
-  async generateReportContent(device, verificationData, summary, testerName, model, serialNumber, reportId) {
+  async generateReportContent(device, verificationData, summary, testerName, model, serialNumber, reportId, temperature) {
     const now = new Date();
     const calDate = now.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -139,17 +137,21 @@ class MonsterMeterPDFService {
     });
 
     // Prepare certification data for template
-    const certificationData = verificationData.map((point, index) => ({
-      target: point.referencePressure.toFixed(1),
-      upper: (point.referencePressure + summary.toleranceRange).toFixed(1),
-      lower: (point.referencePressure - summary.toleranceRange).toFixed(1),
-      voltageHi: point.voltageHi.toFixed(7),
-      pressureHi: point.pressureHi.toFixed(1),
-      voltageLo: point.voltageLo.toFixed(7),
-      pressureLo: point.pressureLo.toFixed(1),
-      result: point.inRange ? 'PASS' : 'FAIL',
-      resultColor: point.inRange ? 'green' : 'red',
-    }));
+    const certificationData = verificationData.map((point, index) => {
+      const data = {
+        target: point.referencePressure.toFixed(1),
+        upper: point.upperLimit.toFixed(1),
+        lower: point.lowerLimit.toFixed(1),
+        voltageHi: point.voltageHi.toFixed(7),
+        pressureHi: point.pressureHi.toFixed(1),
+        voltageLo: point.voltageLo.toFixed(7),
+        pressureLo: point.pressureLo.toFixed(1),
+        result: point.inRange ? 'PASS' : 'FAIL',
+        resultColor: point.inRange ? 'green' : 'red',
+      };
+
+      return data;
+    });
 
     const templateData = {
       reportId: reportId,
@@ -166,6 +168,11 @@ class MonsterMeterPDFService {
       sweepValue: MONSTER_METER_CONSTANTS.SWEEP_VALUE,
       toleranceRange: MONSTER_METER_CONSTANTS.TOLERANCE_RANGE,
       calibrationTemperature: MONSTER_METER_CONSTANTS.CALIBRATION_TEMPERATURE,
+      companyAddress: GLOBAL_CONSTANTS.COMPANY_ADDRESS,
+      companyCityStateZip: GLOBAL_CONSTANTS.COMPANY_CITY_STATE_ZIP,
+      companyPhone: GLOBAL_CONSTANTS.COMPANY_PHONE,
+      companyEmail: GLOBAL_CONSTANTS.COMPANY_EMAIL,
+      temperature: temperature,
     };
 
     return this.generateHTMLFromTemplate(templateData);
@@ -207,7 +214,7 @@ class MonsterMeterPDFService {
    */
   getLogoPath() {
     try {
-      const logoPath = path.join(__dirname, '../../assets/images/hm_logo.jpg');
+      const logoPath = path.join(__dirname, '../../assets/images/hm_logo.svg');
 
       // Check if logo exists, if not return empty string
       if (!fsSync.existsSync(logoPath)) {
@@ -216,7 +223,7 @@ class MonsterMeterPDFService {
       }
 
       const logoBase64 = fsSync.readFileSync(logoPath, { encoding: 'base64' });
-      return `data:image/jpeg;base64,${logoBase64}`;
+      return `data:image/svg+xml;base64,${logoBase64}`;
     } catch (error) {
       console.error('Error loading logo:', error);
       Sentry.captureException(error);

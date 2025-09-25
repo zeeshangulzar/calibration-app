@@ -275,8 +275,11 @@ class MonsterMeterVerificationService {
     const pressureLo = data['SensorLo.psiAVG'];
 
     // Check if readings are within tolerance range
-    const toleranceMin = pressureValue - this.toleranceRange;
-    const toleranceMax = pressureValue + this.toleranceRange;
+    // Calculate tolerance based on 1% of the maximum sweep value (250 PSI)
+    const maxSweepValue = MONSTER_METER_CONSTANTS.SWEEP_VALUE; // 250 PSI
+    const toleranceValue = maxSweepValue * (this.toleranceRange / 100); // 1% of 250 PSI = 2.5 PSI
+    const toleranceMin = pressureValue - toleranceValue;
+    const toleranceMax = pressureValue + toleranceValue;
     const inRange = pressureHi >= toleranceMin && pressureHi <= toleranceMax && pressureLo >= toleranceMin && pressureLo <= toleranceMax;
 
     const verificationPoint = {
@@ -286,6 +289,11 @@ class MonsterMeterVerificationService {
       voltageLo,
       pressureLo,
       inRange,
+      // Add calculated tolerance limits for PDF display
+      toleranceMin: toleranceMin,
+      toleranceMax: toleranceMax,
+      upperLimit: toleranceMax,
+      lowerLimit: toleranceMin,
     };
 
     this.updateVerificationArrays(voltageHi, pressureHi, voltageLo, pressureLo, pressureValue);
@@ -379,7 +387,8 @@ class MonsterMeterVerificationService {
 
       // Sort verification data by pressure value (ascending order) for PDF
       const sortedVerificationData = [...this.dbDataVerification].sort((a, b) => a.referencePressure - b.referencePressure);
-      const result = await this.pdfService.generateMonsterMeterPDF(device, sortedVerificationData, summary, this.testerName, this.model, this.serialNumber);
+      let temperature = this.monsterMeterState.getFlukeTemperature();
+      const result = await this.pdfService.generateMonsterMeterPDF(device, sortedVerificationData, summary, this.testerName, this.model, this.serialNumber, temperature);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
@@ -393,6 +402,7 @@ class MonsterMeterVerificationService {
         await this.storeReportInDatabase(summary, result.filePath);
       } else {
         this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF: ${result.error}`);
+        throw new Error(result.error);
       }
     } catch (error) {
       this.handleError('generatePDFReport', error);

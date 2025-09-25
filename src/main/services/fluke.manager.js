@@ -276,6 +276,21 @@ export class FlukeManager {
     }
   }
 
+  async getTemperature() {
+    try {
+      const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetTemperatureCommand);
+      if (response) {
+        return parseFloat(response).toFixed(2);
+      }
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'getTemperature' },
+      });
+      console.warn('Fluke get temperature failed:', error.message);
+      return null;
+    }
+  }
+
   async disconnect() {
     if (this.telnetClient && this.telnetClient.isConnected) {
       await this.telnetClient.disconnect();

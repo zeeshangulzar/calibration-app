@@ -117,6 +117,11 @@ class FlukeMockService {
     return true;
   }
 
+  async getTemperature() {
+    console.log('🔧 [MOCK] Getting Fluke temperature (no-op)');
+    return 28.3; // Return a mock temperature in Celsius
+  }
+
   /**
    * Mock method - disconnects from Fluke (no-op)
    */
