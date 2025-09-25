@@ -94,8 +94,6 @@ export class GVICalibrationService {
    */
   async completeCalibrationWithResult(passed) {
     try {
-      this.showLogOnScreen(`🎯 Completing calibration - Result: ${passed ? 'PASS' : 'FAIL'}`);
-
       const results = {
         config: this.config,
         model: this.model,
@@ -176,7 +174,6 @@ export class GVICalibrationService {
     try {
       await this.fluke.setZeroPressureToFluke();
       await this.fluke.waitForFlukeToReachZeroPressure(true);
-      this.showLogOnScreen('✅ Zero pressure confirmed');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -269,8 +266,6 @@ export class GVICalibrationService {
     if (!this.isCalibrationActive) {
       return;
     }
-
-    this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI for ${step.gpm} GPM`);
   }
 
   async setFlukeToZero(silent = false) {

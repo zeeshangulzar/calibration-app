@@ -15,7 +15,7 @@ function showConfirmationModal(message, onConfirm = null, onCancel = null) {
   const alertOkBtn = document.getElementById('custom-alert-ok');
   const alertCancelBtn = document.getElementById('custom-alert-cancel');
 
-  alertMessage.textContent = message;
+  alertMessage.innerHTML = message;
   alertBox.classList.remove('hidden');
 
   // Show or hide Cancel button
