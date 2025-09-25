@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await cleanupMonsterMeterModule();
     window.electronAPI.monsterMeterGoBack();
   });
-  refreshPortsButton?.addEventListener('click', () => window.electronAPI.monsterMeterRefreshPorts());
+  // refreshPortsButton?.addEventListener('click', () => window.electronAPI.monsterMeterRefreshPorts());
   portSelect?.addEventListener('change', updateConnectButton);
   connectPortButton?.addEventListener('click', handleConnectPort);
 
@@ -396,11 +396,15 @@ const ipcHandlers = {
     addLogMessage('✅ Calibration completed successfully!');
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
+    // Auto scroll to top when calibration completes
+    scrollToTop();
   },
 
   onMonsterMeterCalibrationData: data => {
     updateCalibrationProgress(data);
     updateCalibrationResultsTable(data);
+    // Auto scroll to calibration table when reading is captured
+    scrollToCalibrationTable();
   },
 
   // Live sensor data updates during calibration
@@ -442,11 +446,15 @@ const ipcHandlers = {
     hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
     showVerificationResults(data);
+    // Auto scroll to top when verification completes
+    scrollToTop();
   },
 
   onMonsterMeterVerificationData: data => {
     updateVerificationProgress(data);
     updateVerificationResultsTable(data.verificationData || [], data.pressureArr);
+    // Auto scroll to verification table when reading is captured
+    scrollToVerificationTable();
     // Add log message for each verification point
     if (data.verificationData && data.verificationData.length > 0) {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
@@ -616,6 +624,25 @@ function resetLiveDataDisplays() {
     const element = document.getElementById(id);
     if (element) element.textContent = 'N/A';
   });
+}
+
+// Auto-scroll functions
+function scrollToCalibrationTable() {
+  const calibrationResults = document.getElementById('monster-meter-calibration-results');
+  if (calibrationResults) {
+    calibrationResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function scrollToVerificationTable() {
+  const verificationResults = document.getElementById('monster-meter-calibration-results');
+  if (verificationResults) {
+    verificationResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Logging
@@ -796,19 +823,26 @@ async function handleStartCalibration() {
   console.log('🔍 Debug - serialNumberInput element:', serialNumberInput);
   console.log('🔍 Debug - serialNumberInput.value:', serialNumberInput?.value);
 
-  if (!testerName) {
-    NotificationHelper.showError('Please select a tester name before starting calibration.');
+  // Check if all required fields are filled
+  const hasTesterName = testerName && testerName !== '';
+  const hasModel = model && model !== '';
+  const hasSerialNumber = serialNumber && serialNumber.trim() !== '';
+
+  if (!hasTesterName || !hasModel || !hasSerialNumber) {
+    // Show red alert text
+    const subText = document.getElementById('calibration-sub-text');
+    if (subText) {
+      subText.classList.remove('text-black');
+      subText.classList.add('text-red-600');
+    }
     return;
   }
 
-  if (!model) {
-    NotificationHelper.showError('Please select a model before starting calibration.');
-    return;
-  }
-
-  if (!serialNumber || serialNumber.trim() === '') {
-    NotificationHelper.showError('Please enter a serial number before starting calibration.');
-    return;
+  // Reset text color to black if all fields are filled
+  const subText = document.getElementById('calibration-sub-text');
+  if (subText) {
+    subText.classList.remove('text-red-600');
+    subText.classList.add('text-black');
   }
 
   try {
@@ -862,6 +896,18 @@ function updateCalibrationButtons() {
 
   if (stopVerificationBtn) {
     stopVerificationBtn.classList.toggle('hidden', !isVerificationActive);
+  }
+
+  // Update sub-text color based on field completion
+  const subText = document.getElementById('calibration-sub-text');
+  if (subText) {
+    if (hasTesterName && hasModel && hasSerialNumber) {
+      subText.classList.remove('text-red-600');
+      subText.classList.add('text-black');
+    } else {
+      subText.classList.remove('text-black');
+      subText.classList.add('text-red-600');
+    }
   }
 }
 

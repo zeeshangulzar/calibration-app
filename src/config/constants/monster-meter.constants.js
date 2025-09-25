@@ -37,7 +37,7 @@ export const MONSTER_METER_CONSTANTS = {
   // Auto-Update Timeouts
   USB_ATTACH_DELAY: 2000, // Delay after USB device attach before refreshing ports
   USB_DETACH_DELAY: 1000, // Delay after USB device detach before refreshing ports
-  POLLING_INTERVAL: 5000, // Port polling interval in milliseconds
+  POLLING_INTERVAL: 2000, // Port polling interval in milliseconds
   UI_UPDATE_DELAY: 100, // Brief delay for UI updates (UX enhancement)
 
   // Data Keys (from monster meter response)
