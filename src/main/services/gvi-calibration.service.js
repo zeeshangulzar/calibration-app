@@ -258,6 +258,29 @@ export class GVICalibrationService {
     this.fluke.ventFluke();
   }
 
+  /**
+   * Stop calibration process and vent Fluke
+   */
+  async stopCalibration(reason = 'Calibration stopped by user') {
+    try {
+      // Stop the calibration process
+      this.isCalibrationActive = false;
+      this.isRunning = false;
+
+      // Vent Fluke before stopping calibration
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+        this.fluke.ventFluke();
+      }
+
+      // Send stop event to renderer
+      this.sendToRenderer('gvi-calibration-stopped', { reason });
+      return { success: true };
+    } catch (error) {
+      this.handleError(error, 'stopCalibration');
+      return { success: false, error: error.message };
+    }
+  }
+
   // Utility methods
   initializeCalibrationState(testerName, model, serialNumber, steps) {
     this.testerName = testerName;

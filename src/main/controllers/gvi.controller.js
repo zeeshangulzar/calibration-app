@@ -65,11 +65,13 @@ export class GVIController {
 
   async goBack() {
     try {
-      // vent the fluke
-      this.calibrationService.ventFluke();
-      // If calibration is in progress, just reset state (no stop functionality yet)
+      // If calibration is in progress, stop it properly and vent Fluke
       if (this.state.isCalibrationActive) {
+        await this.calibrationService.stopCalibration('User navigated away from GVI page');
         this.state.updateCalibrationStatus(false);
+      } else {
+        // If not in calibration, just vent the Fluke
+        this.calibrationService.ventFluke();
       }
 
       // Reset calibration state

@@ -69,11 +69,8 @@ function setupEventListeners() {
 
   // DOM event listeners
   elements.backBtn?.addEventListener('click', () => {
-    // Allow going back during calibration - controller will handle stopping calibration and setting Fluke to zero
+    // Allow going back during calibration - controller will handle stopping calibration and venting Fluke pressure
     if (window.electronAPI && window.electronAPI.gviGoBack) {
-      if (calibrationInProgress) {
-        NotificationHelper.showInfo('Stopping calibration and setting Fluke to zero...');
-      }
       window.electronAPI.gviGoBack();
     }
   });
