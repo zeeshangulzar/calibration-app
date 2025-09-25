@@ -131,7 +131,7 @@ body {
   display: flex;
   align-items: center;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: normal;
   width: 50%;
 }
 

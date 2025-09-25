@@ -264,7 +264,7 @@ function updateCalibrationTable() {
   elements.calibrationTable.innerHTML = calibrationSteps
     .map((step, index) => {
       return `
-      <tr id="step-${index}" class="border-b ${step.status === 'current' ? 'bg-blue-50' : ''}">
+      <tr id="step-${index}" class="border-b ${step.status === 'current' ? 'bg-gray-50' : ''}">
         <td class="px-3 py-2 font-medium">${step.gpm}</td>
         <td class="px-3 py-2">${parseFloat(step.psiMin).toFixed(2)}</td>
         <td class="px-3 py-2">${parseFloat(step.psiMax).toFixed(2)}</td>
@@ -370,7 +370,7 @@ function resetGPMContainer() {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Please note this GPM at Gauge</h4>
+          <h4>Current flow rate at Gauge</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
@@ -642,10 +642,10 @@ function showCalibrationLoading() {
     container.style.transition = 'all 0.3s ease';
 
     // Add striped loading animation (more prominent)
-    container.style.background = 'linear-gradient(45deg, transparent 25%, rgba(59, 130, 246, 0.15) 25%, rgba(59, 130, 246, 0.15) 50%, transparent 50%, transparent 75%, rgba(59, 130, 246, 0.15) 75%)';
+    container.style.background = 'linear-gradient(45deg, transparent 25%, rgba(75, 85, 99, 0.15) 25%, rgba(75, 85, 99, 0.15) 50%, transparent 50%, transparent 75%, rgba(75, 85, 99, 0.15) 75%)';
     container.style.backgroundSize = '15px 15px';
     container.style.animation = 'removing-stripes 0.8s linear infinite';
-    container.style.boxShadow = 'inset 0 0 20px rgba(59, 130, 246, 0.2)';
+    container.style.boxShadow = 'inset 0 0 20px rgba(75, 85, 99, 0.2)';
   }
 }
 
@@ -662,7 +662,7 @@ function showPressureSettingMessage(step, currentStep, totalSteps) {
     gpmContainer.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Setting pressure to ${pressure} PSI</h4>
+          <h4 class="font-bold">Setting pressure to ${pressure} PSI</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold" id="gpm-at-gauge">Please wait...</h1>
@@ -711,7 +711,7 @@ function showPressureSettingDisplay() {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Setting pressure to ${pressure.toFixed(2)} PSI</h4>
+          <h4 class="font-bold">Setting pressure to ${pressure.toFixed(2)} PSI</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold" id="gpm-at-gauge">Please wait...</h1>
@@ -733,7 +733,7 @@ function showGPMInput(step, currentStep, totalSteps) {
     container.innerHTML = `
     <div class="flex flex-row text-center justify-center">
       <div class="flex items-center">
-        <h4>Please note this GPM at Gauge</h4>
+        <h4 class="font-bold">Current flow rate at Gauge</h4>
       </div>
       <div class="ml-5 flex">
         <h1 class="text-4xl font-bold" id="gpm-at-gauge">${step.gpm}</h1>
@@ -766,7 +766,7 @@ function showGPMInput(step, currentStep, totalSteps) {
       failBtn?.addEventListener('click', () => {
         // Add custom confirmation modal for FAIL
         NotificationHelper.showConfirmationModal(
-          'Are you sure you want to mark this calibration as FAIL?',
+          'Are you sure you want to mark this calibration as <strong>FAIL</strong>?',
           () => {
             // User confirmed - proceed with FAIL
             handleCalibrationResult(false);
@@ -873,7 +873,7 @@ function showCalibrationCompletion(passed, pdfResult = null) {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Calibration Complete - ${model}</h4>
+          <h4>Gauge: ${model}, Calibration completed</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold ${statusColor}">${statusText}</h1>
@@ -885,10 +885,10 @@ function showCalibrationCompletion(passed, pdfResult = null) {
   if (buttonsContainer) {
     buttonsContainer.innerHTML = `
       <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200" style="display: block;">
-        VIEW PDF
+        <i class="fa-solid fa-eye mr-2"></i>VIEW PDF
       </button>
-      <button id="start-calibration-btn" class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" style="display: none;" disabled>
-        START CALIBRATION
+      <button id="start-calibration-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" style="display: none;" disabled>
+        <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
       </button>
     `;
 

@@ -10,31 +10,31 @@ function showCustomAlertModal(message) {
 }
 
 function showConfirmationModal(message, onConfirm = null, onCancel = null) {
-  const alertBox = document.getElementById("custom-alert");
-  const alertMessage = document.getElementById("custom-alert-message");
-  const alertOkBtn = document.getElementById("custom-alert-ok");
-  const alertCancelBtn = document.getElementById("custom-alert-cancel");
+  const alertBox = document.getElementById('custom-alert');
+  const alertMessage = document.getElementById('custom-alert-message');
+  const alertOkBtn = document.getElementById('custom-alert-ok');
+  const alertCancelBtn = document.getElementById('custom-alert-cancel');
 
-  alertMessage.textContent = message;
-  alertBox.classList.remove("hidden");
+  alertMessage.innerHTML = message;
+  alertBox.classList.remove('hidden');
 
   // Show or hide Cancel button
-  if (typeof onCancel === "function") {
-    alertCancelBtn.classList.remove("hidden");
+  if (typeof onCancel === 'function') {
+    alertCancelBtn.classList.remove('hidden');
   } else {
-    alertCancelBtn.classList.add("hidden");
+    alertCancelBtn.classList.add('hidden');
   }
 
   alertOkBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onConfirm === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onConfirm === 'function') {
       onConfirm();
     }
   };
 
   alertCancelBtn.onclick = () => {
-    alertBox.classList.add("hidden");
-    if (typeof onCancel === "function") {
+    alertBox.classList.add('hidden');
+    if (typeof onCancel === 'function') {
       onCancel();
     }
   };
@@ -46,10 +46,8 @@ function showError(message) {
 
   if (errorAlert && errorMessage) {
     // Ensure we never show undefined, null, or empty messages
-    const displayMessage = message && typeof message === 'string' && message.trim() 
-      ? message.trim() 
-      : 'An unexpected error occurred. Please try again.';
-    
+    const displayMessage = message && typeof message === 'string' && message.trim() ? message.trim() : 'An unexpected error occurred. Please try again.';
+
     errorMessage.textContent = displayMessage;
     errorAlert.classList.remove('hidden');
   }
