@@ -11,7 +11,7 @@ export const GVI_CONSTANTS = {
   
   // Tester names
   TESTER_NAMES: {
-    'Gabriel': 'Gabriel',
+    'Gabriel': 'Gabriel Nunez',
     'Tester 1': 'Tester 1',
     'Tester 2': 'Tester 2',
   },

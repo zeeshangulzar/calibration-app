@@ -60,7 +60,7 @@ class GVIPDFService {
         .replace(/:/g, '-')
         .replace(/\s/g, '');
 
-      const filename = `GVI_${calibrationData.model}_${calibrationData.serialNumber}_${dateStr}_${timeStr}.pdf`;
+      const filename = `${calibrationData.serialNumber}_${dateStr}_${timeStr}.pdf`;
       const sanitizedFilename = this.sanitizeFilename(filename);
       const filePath = path.join(dateFolderPath, sanitizedFilename);
 
@@ -154,6 +154,7 @@ class GVIPDFService {
 
       // Prepare data for template
       const now = new Date();
+
       const templateData = {
         reportId: reportId,
         model: calibrationData.model,
@@ -199,7 +200,7 @@ class GVIPDFService {
    */
   getLogoPath() {
     try {
-      const logoPath = path.join(__dirname, '../../assets/images/hm_logo.jpg');
+      const logoPath = path.join(__dirname, '../../assets/images/gvi_logo.png');
       console.log('Logo path:', logoPath);
       if (!fsSync.existsSync(logoPath)) {
         console.warn('Logo file not found at:', logoPath);

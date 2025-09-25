@@ -134,8 +134,7 @@ export class FlukeManager {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
       }
     }
-
-    this.showLogOnScreen('All commands executed.');
+    // this.showLogOnScreen('✅ Fluke prerequisites completed.');
   }
 
   async checkZeroPressure() {
@@ -266,7 +265,6 @@ export class FlukeManager {
 
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
-          this.showLogOnScreen(`Pressure set to ${targetPressure}`);
           clearInterval(check);
           resolve();
         }

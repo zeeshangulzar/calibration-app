@@ -6,126 +6,73 @@
     <link rel="stylesheet" href="gvi-report.css" />
   </head>
   <body>
-    <div class="top-header">
-      <div class="logo-and-address">
-        <img src="{{logoUrl}}" alt="Company Logo" />
-        <div class="company-details">
-          <div>{{companyAddress}}</div>
-          <div>{{companyCityStateZip}}</div>
-          <div>Phone: {{companyPhone}}</div>
-          <div>Email: {{companyEmail}}</div>
+    <div class="document-wrapper">
+      <div class="document">
+        <div class="header">
+          <div>
+            <img src="{{logoUrl}}" alt="Company Logo" class="logo" />
+          </div>
+          <div class="company-name">Global Vision Inc.</div>
         </div>
-      </div>
-      <div class="report-box">
-        <div>Report #</div>
-        <div class="report-number">{{reportId}}</div>
-      </div>
-    </div>
 
-    <div class="header">
-      <h1>{{reportTitle}}</h1>
-    </div>
-
-    <div class="info-boxes">
-      <div class="info-box">
-        <div class="info-label">Model:</div>
-        <div class="info-value">{{model}}</div>
-      </div>
-      <div class="info-box">
-        <div class="info-label">Serial Number:</div>
-        <div class="info-value">{{serialNumber}}</div>
-      </div>
-      <div class="info-box">
-        <div class="info-label">Tester:</div>
-        <div class="info-value">{{tester}}</div>
-      </div>
-      <div class="info-box">
-        <div class="info-label">Date:</div>
-        <div class="info-value">{{testDate}}</div>
-      </div>
-      <div class="info-box">
-        <div class="info-label">Time:</div>
-        <div class="info-value">{{testTime}}</div>
-      </div>
-      <div class="info-box">
-        <div class="info-label">Result:</div>
-        <div class="info-value result-{{result}}">{{result}}</div>
-      </div>
-    </div>
-
-    <table class="summary-table">
-      <tr>
-        <th>Reference Standard</th>
-        <th>GVI Flow Meter Accuracy</th>
-        <th>Condition</th>
-      </tr>
-      <tr>
-        <td>
-          Automated Pressure Calibrator: 2271A<br />
-          Serial #: {{serialNumber}}
-        </td>
-        <td>
-          Flow range as per model specifications<br />
-          Pressure accuracy: ±1.0 PSI
-        </td>
-        <td>Calibration Temp: {{calibrationTemperature}}</td>
-      </tr>
-    </table>
-
-    <h3 style="color: #000">Calibration Steps</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Step</th>
-          <th>GPM</th>
-          <th>Pressure Min (PSI)</th>
-          <th>Pressure Max (PSI)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each calibrationSteps}}
-        <tr>
-          <td>{{@index}}</td>
-          <td>{{gpm}}</td>
-          <td>{{psiMin}}</td>
-          <td>{{psiMax}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-    {{#if testResults.length}}
-    <h3 style="color: #000">Test Results</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Step</th>
-          <th>GPM Reading</th>
-          <th>Result</th>
-          <th>Timestamp</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each testResults}}
-        <tr>
-          <td>{{@index}}</td>
-          <td>{{gpm}}</td>
-          <td style="color: {{#if passed}}green{{else}}red{{/if}}">{{#if passed}}PASS{{else}}FAIL{{/if}}</td>
-          <td>{{timestamp}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-    {{/if}}
-
-    <div class="footer">
-      <div class="footer-row">
-        <div class="footer-item">
-          <p><strong>Inspected By:</strong> {{tester}}</p>
+        <div class="info-section">
+          <div class="left-info">
+            <div class="flex">GVI Model: <div class="normal-font ml-8">{{model}}</div></div>
+          </div>
+          <div class="right-info">
+            <div class="flex">Date: <div class="normal-font ml-8">{{testDate}}</div></div>
+            <div class="flex">Serial Number: <div class="normal-font ml-8">{{serialNumber}}</div></div>
+          </div>
         </div>
-        <div class="footer-item">
-          <p><strong>Tested At:</strong> {{testDate}} {{testTime}}</p>
-        </div>
+
+          <div class="main-content">
+            <div class="title">Instrument Calibration Report</div>
+
+            <div class="instructions">
+              <ol>
+                <li>Apply the minimum differential pressure for the first test point.</li>
+                <li>Confirm the Gauge pointer is at or below the desired dial test point.</li>
+                <li>Apply the maximum differential pressure for the first test point.</li>
+                <li>Confirm the gauge pointer is at or above the desired dial test point.</li>
+                <li>If step 2 and 4 are true, then enter "Pass"</li>
+                <li>Repeat steps 1-5 for the remaining test points.</li>
+              </ol>
+            </div>
+              
+              <div class="table-container">
+                  <table class="calibration-table">
+                      <thead>
+                          <tr>
+                              <th rowspan="2">Dial Test Point<br>USGPM</th>
+                              <th colspan="2">Differential Pressure (PSI)</th>
+                              <th rowspan="2">Pass / Fail</th>
+                          </tr>
+                          <tr>
+                              <th>Min</th>
+                              <th>Max</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                        {{#each calibrationSteps}}
+                          <tr>
+                            <td>{{gpm}}</td>
+                            <td>{{psiMin}}</td>
+                            <td>{{psiMax}}</td>
+                            <td>{{../result}}</td>
+                          </tr>
+                        {{/each}}
+                      </tbody>
+                  </table>
+              </div>
+              
+              <div class="note">
+                  All test instruments (standards) used in the calibration of this instrument conform to ASME B40.100 and are traceable to N.I.S.T.
+              </div>
+          </div>
+          
+          <div class="signature-section">
+            <div class="signature-line">Tested By: <span style="border-bottom: 2px solid black; margin-left: 10px; width: 200px;">{{tester}}</span></div>
+          </div>
       </div>
     </div>
   </body>
