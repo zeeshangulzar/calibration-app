@@ -347,15 +347,6 @@ class MonsterMeterVerificationService {
 
       // Send final results to UI
       this.sendFinalResults();
-
-      // Set Fluke to zero in background silently
-      // try {
-      //   // await this.setFlukeToZeroSilent(); // Fluke is already set to zero in reverse sweep
-      // } catch (error) {
-      //   console.log('Background Fluke zero setting failed:', error.message);
-      // }
-
-      this.showLogOnScreen('✅ Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
       throw error;
@@ -386,7 +377,9 @@ class MonsterMeterVerificationService {
         model: this.model,
       };
 
-      const result = await this.pdfService.generateMonsterMeterPDF(device, this.dbDataVerification.reverse(), summary, this.testerName, this.model, this.serialNumber);
+      // Sort verification data by pressure value (ascending order) for PDF
+      const sortedVerificationData = [...this.dbDataVerification].sort((a, b) => a.referencePressure - b.referencePressure);
+      const result = await this.pdfService.generateMonsterMeterPDF(device, sortedVerificationData, summary, this.testerName, this.model, this.serialNumber);
 
       if (result.success) {
         // this.showLogOnScreen(`📄 PDF report generated: ${result.filename}`);
@@ -425,14 +418,11 @@ class MonsterMeterVerificationService {
 
       const result = await monsterMeterReportsDb.storeReport(reportData);
 
-      if (result.success) {
-        this.showLogOnScreen(`📊 Report stored in database with ID: ${result.id}`);
-      } else {
-        this.showLogOnScreen(`⚠️ Warning: Failed to store report in database: ${result.error}`);
+      if (!result.success) {
+        throw new Error('Failed to save Monster Meter report in database');
       }
     } catch (error) {
       this.handleError('storeReportInDatabase', error);
-      this.showLogOnScreen(`⚠️ Warning: Database storage failed: ${error.message}`);
     }
   }
 
