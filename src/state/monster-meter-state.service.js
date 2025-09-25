@@ -12,6 +12,7 @@ class MonsterMeterStateService extends EventEmitter {
     this.isConnected = false;
     this.deviceData = null;
     this.oldCoefficients = null;
+    this.flukeTemperature = 'N/A';
   }
 
   /**
@@ -75,6 +76,15 @@ class MonsterMeterStateService extends EventEmitter {
   clearOldCoefficients() {
     this.oldCoefficients = null;
     this.emit('coefficientsCleared');
+  }
+
+  setFlukeTemperature(temperature) {
+    this.flukeTemperature = temperature;
+    this.emit('flukeTemperatureUpdated', temperature);
+  }
+
+  getFlukeTemperature() {
+    return this.flukeTemperature;
   }
 
   /**

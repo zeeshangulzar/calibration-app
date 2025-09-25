@@ -118,7 +118,7 @@ class KrakenVerificationService {
 
     try {
       // First step: Set Fluke to zero pressure
-      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
+      this.showLogOnScreen('🔄 Setting Fluke to 0 PSI pressure...');
       await this.fluke.setZeroPressureToFluke(true); // Silent to avoid duplicate log
       await this.fluke.waitForFlukeToReachZeroPressure();
 
@@ -175,7 +175,7 @@ class KrakenVerificationService {
 
       // Only log and set pressure if not zero (zero was already set at start)
       if (targetPressure !== 0) {
-        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
+        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI pressure...`);
         await this.fluke.setHighPressureToFluke(targetPressure);
         if (this.shouldStopVerification()) return;
 
