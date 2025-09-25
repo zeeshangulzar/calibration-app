@@ -166,7 +166,8 @@ export class GVICalibrationService {
   }
 
   async runFlukePreReqs() {
-    await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
+    await this.fluke.runPreReqs();
+    // await this.executeWithoutLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
   }
 
   async checkZeroPressure() {
@@ -208,7 +209,7 @@ export class GVICalibrationService {
 
     const step = this.steps[this.currentStep];
     console.log(`GVI Service - processing step:`, step);
-    this.showLogOnScreen(`Step ${this.currentStep + 1}/${this.steps.length}: ${step.gpm} GPM`);
+    // this.showLogOnScreen(`Step ${this.currentStep + 1}/${this.steps.length}: ${step.gpm} GPM`);
 
     // Set pressure for this step
     await this.setPressureForStep(step);

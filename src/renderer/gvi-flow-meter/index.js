@@ -122,7 +122,7 @@ function setupEventListeners() {
   });
 
   window.electronAPI.onGVIStepUpdated?.(data => {
-    addLogMessage(`Step ${data.stepIndex + 1} completed: ${data.stepData.status.toUpperCase()}`);
+    // addLogMessage(`Step ${data.stepIndex + 1} completed: ${data.stepData.status.toUpperCase()}`);
 
     if (data.completed) {
       calibrationInProgress = false;
