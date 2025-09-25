@@ -258,7 +258,6 @@ export class FlukeManager {
 
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
-          this.showLogOnScreen(`Pressure set to ${targetPressure}`);
           clearInterval(check);
           resolve();
         }

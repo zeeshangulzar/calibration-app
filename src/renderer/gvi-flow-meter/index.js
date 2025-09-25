@@ -148,8 +148,7 @@ function setupCalibrationEventListeners() {
       return;
     }
 
-    addLogMessage(`Step ${data.currentStep}/${data.totalSteps}: ${data.step.gpm} GPM`);
-    addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI`);
+    addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI.`);
 
     // Store current step data for pressure setting display
     currentStepData = data;
@@ -178,7 +177,6 @@ function setupCalibrationEventListeners() {
 
   // Listen for calibration completed events
   window.electronAPI.onGVICalibrationCompleted?.(data => {
-    addLogMessage('Calibration completed successfully');
     NotificationHelper.showSuccess('Calibration completed successfully');
     // Don't call completeCalibration() here - let the user make their PASS/FAIL decision first
   });
@@ -607,7 +605,6 @@ async function startCalibrationProcess(model, tester, serialNumber, steps) {
     showCalibrationLoading();
 
     addLogMessage(`Starting GVI calibration for model: ${model}`);
-    addLogMessage(`Tester: ${tester}, Serial: ${serialNumber}`);
 
     // Start calibration using the service (handles Fluke prerequisites and all steps)
     const config = {
@@ -790,7 +787,7 @@ function showGPMInput(step, currentStep, totalSteps) {
     }
   }
 
-  addLogMessage(`Please note the GPM reading for ${step.gpm} GPM at ${step.psiMin} PSI`);
+  addLogMessage(`Checking Gauge reading for ${step.gpm} GPM at ${step.psiMin} PSI`);
 }
 
 /**
@@ -831,7 +828,6 @@ async function handleCalibrationResult(passed) {
     showCalibrationLoading();
 
     const result = passed ? 'PASS' : 'FAIL';
-    addLogMessage(`Final calibration result: ${result}`);
 
     // Send final result to calibration service
     const result_response = await window.electronAPI.gviHandleFinalResult(passed);
@@ -839,19 +835,18 @@ async function handleCalibrationResult(passed) {
       throw new Error(`Failed to handle final result: ${result_response.error}`);
     }
 
-    addLogMessage(`Final result sent to calibration service`);
-
     // Complete the calibration process (don't show start button)
     completeCalibrationProcess();
 
     // Generate PDF and show View PDF button
+    addLogMessage('Generating PDF report...');
     const pdfResult = await generateCalibrationPDF(passed);
+    addLogMessage('PDF report generated successfully');
 
     // Show completion UI with View PDF button
     showCalibrationCompletion(passed, pdfResult);
   } catch (error) {
     console.error('Error handling final calibration result:', error);
-    addLogMessage(`Error handling final calibration result: ${error.message}`, 'error');
     stopCalibrationProcess();
   }
 }
