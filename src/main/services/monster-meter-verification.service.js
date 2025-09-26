@@ -214,7 +214,7 @@ class MonsterMeterVerificationService {
       await this.setFlukePressure(pressureValue);
       await this.waitForFlukePressure(pressureValue);
       await this.delay(2000);
-      this.showLogOnScreen(`📸 Capturing data at ${pressureValue} PSI...`);
+      this.showLogOnScreen(`📸 Capturing Monster Meter readings at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
       await this.delay(1000);
     }
@@ -365,7 +365,7 @@ class MonsterMeterVerificationService {
         console.log('Background Fluke vent command failed:', error.message);
       }
 
-      this.showLogOnScreen('Verification completed successfully');
+      // this.showLogOnScreen('Verification completed successfully');
     } catch (error) {
       this.handleError('completeVerification', error);
       throw error;

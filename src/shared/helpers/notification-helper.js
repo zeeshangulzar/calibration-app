@@ -70,7 +70,7 @@ function showNotification(message, type = 'info') {
   if (!container) {
     container = document.createElement('div');
     container.id = 'notification-container';
-    container.className = 'fixed top-4 right-4 z-50 space-y-2';
+    container.className = 'fixed top-4 right-4 z-[9999] space-y-2';
     document.body.appendChild(container);
   }
 

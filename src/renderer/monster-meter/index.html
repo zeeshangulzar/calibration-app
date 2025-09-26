@@ -40,19 +40,19 @@
 
       <main id="main" class="pt-16 container mx-auto px-4">
         <!-- Back Button -->
-        <div class="mb-4 pt-4">
+        <div class="mb-4 mt-4">
           <button
             id="back-button-monster-meter-calibration"
-            class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black"
+            class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200"
           >
             <i class="fa-solid fa-arrow-left mr-2"></i> Back
           </button>
 
           <!-- Back Button Status Message (beneath button) -->
-          <div id="back-button-status-message" class="mt-2">
-            <div class="bg-neutral-100 border border-neutral-300 rounded-md px-3 py-2 flex items-center">
-              <i class="fa-solid fa-info-circle text-neutral-600 mr-2"></i>
-              <span id="back-button-message-text" class="text-neutral-800 text-sm font-medium"></span>
+          <div id="back-button-status-message" class="mt-4">
+            <div class="bg-[#f4f4f4] border border-gray-200 rounded-md px-3 py-2 flex items-center">
+              <i class="fa-solid fa-info-circle text-gray-600 mr-2"></i>
+              <span id="back-button-message-text" class="text-gray-800 text-sm font-medium"></span>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@
           </div>
         </div>
 
-        <section id="monster-meter-calibration-control" class="mb-2">
+        <section id="monster-meter-calibration-control" class="mb-4">
           <h2 class="text-xl font-semibold">Calibration Settings</h2>
           <p id="calibration-sub-text" class="text-sm italic text-gray-500 mb-0 mt-2">Please fill in all required fields ( * ) to start calibration.</p>
           <div class="flex items-center justify-between">
@@ -130,8 +130,10 @@
               </div>
             </div>
           </div>
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold">Calibration Control</h2>
+          <div class="flex justify-between">
+            <div class="flex flex-col justify-end">
+              <h2 class="text-xl font-semibold">Calibration Control</h2>
+            </div>
             <div class="flex gap-3">
               <button id="start-calibration-btn" class="rounded-md bg-black hover:bg-gray-800 px-4 py-2 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-black">
                 <i class="fa-solid fa-play mr-2"></i>Start Calibration

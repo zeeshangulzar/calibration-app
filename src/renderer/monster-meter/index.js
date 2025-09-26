@@ -399,8 +399,8 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
     updateBackButton();
-    // Re-enable form fields when calibration completes
-    enableFormFields();
+    // Keep form fields disabled when calibration completes (don't re-enable them)
+    // enableFormFields(); // Removed - fields should stay disabled for verification
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
     // Auto scroll to top when calibration completes
@@ -455,7 +455,7 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
     updateBackButton();
-    // Re-enable form fields when verification completes
+    // Re-enable form fields when verification completes (user can start new calibration)
     enableFormFields();
     enableVerificationTab();
     hideStartVerificationButton(); // Hide start verification button
@@ -475,7 +475,7 @@ const ipcHandlers = {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
       const status = latestPoint.inRange ? 'PASS' : 'FAIL';
       const statusIcon = latestPoint.inRange ? createPassSvg() : createFailSvg();
-      addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+      // addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
     }
   },
 
@@ -702,6 +702,13 @@ function addLogMessage(message, type = 'info') {
   }
 }
 
+function clearCalibrationLogs() {
+  const { logContainer } = elements;
+  if (logContainer) {
+    logContainer.innerHTML = '';
+  }
+}
+
 // Verification table management functions
 function showVerificationResults(data) {
   // Show verification results section
@@ -796,6 +803,9 @@ async function handleStartCalibration() {
   const testerName = testerNameSelect?.value;
   const model = modelSelect?.value;
   const serialNumber = serialNumberInput?.value;
+
+  // Clear calibration logs when starting calibration
+  clearCalibrationLogs();
 
   // Debug logging
   console.log('🔍 Debug - handleStartCalibration values:');
