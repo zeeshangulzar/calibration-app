@@ -2,6 +2,7 @@ import { GVICalibrationService } from '../services/gvi-calibration.service.js';
 import { getGVIGaugeSteps, getGVIGaugeModels } from '../db/gvi-gauge.db.js';
 import { getGVIPDFService } from '../services/gvi-pdf.service.js';
 import { getGVICalibrationState } from '../../state/gvi-calibration-state.service.js';
+import { gviReportsDb } from '../db/gvi-reports.db.js';
 import { sentryLogger } from '../loggers/sentry.logger.js';
 import { shell } from 'electron';
 
@@ -14,6 +15,7 @@ export class GVIController {
     this.calibrationService = null;
     this.pdfService = getGVIPDFService();
     this.state = getGVICalibrationState();
+    this.currentReportId = null; // Store current report ID for PDF path update
 
     this.setupEventListeners();
   }
@@ -63,16 +65,50 @@ export class GVIController {
     }
   }
 
-  async goBack() {
+  async stopCalibration() {
     try {
-      // If calibration is in progress, just reset state (no stop functionality yet)
-      if (this.state.isCalibrationActive) {
+      // Stop the calibration process and vent Fluke
+      if (this.calibrationService) {
+        await this.calibrationService.stopCalibration();
+      }
+
+      // Update state
+      if (this.state) {
         this.state.updateCalibrationStatus(false);
       }
 
-      // Reset calibration state
-      this.state.setCurrentConfig(null);
-      this.state.reset();
+      // Send notification to renderer
+      this.sendToRenderer('gvi-calibration-stopped');
+
+      return { success: true };
+    } catch (error) {
+      this.handleError('stopCalibration', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async goBack() {
+    try {
+      // If calibration is in progress, stop it and disconnect Fluke
+      if (this.state && this.state.isCalibrationActive) {
+        this.state.updateCalibrationStatus(false);
+
+        // Stop the calibration process first
+        if (this.calibrationService) {
+          await this.calibrationService.stopCalibration();
+
+          // Clean up calibration service and disconnect Fluke
+          await this.calibrationService.cleanup();
+          // Reset FlukeFactory instance to ensure clean state for next use
+          this.calibrationService.flukeFactory.resetInstance();
+        }
+      }
+
+      // Reset calibration state (but don't destroy the state service)
+      if (this.state) {
+        this.state.setCurrentConfig(null);
+        this.state.reset();
+      }
 
       // Send back navigation to renderer
       this.sendToRenderer('gvi-go-back');
@@ -85,13 +121,15 @@ export class GVIController {
 
   async generatePDF(calibrationData) {
     try {
-      this.showLogOnScreen('Generating GVI calibration PDF...');
-
       // Use the dedicated GVI PDF service
       const result = await this.pdfService.generateGVIPDF(calibrationData);
 
       if (result.success) {
-        this.showLogOnScreen(`PDF generated successfully: ${result.filePath}`);
+        // Update the report with PDF path if we have a current report ID
+        if (this.currentReportId) {
+          this.updateReportWithPdfPath(result.filePath);
+        }
+
         return { success: true, pdfPath: result.filePath };
       } else {
         throw new Error(result.error);
@@ -118,6 +156,9 @@ export class GVIController {
         throw new Error('Calibration already in progress');
       }
 
+      // Reset current report ID for new calibration
+      this.currentReportId = null;
+
       this.validateConfig(config);
 
       const stepsResult = await this.getCalibrationSteps(config.model);
@@ -129,7 +170,14 @@ export class GVIController {
       this.state.setCurrentConfig(config);
       this.state.startCalibration(config.model, config.tester, config.serialNumber, stepsResult.steps);
 
-      const result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
+      let result;
+      try {
+        result = await this.calibrationService.startCalibration(config.tester, config.model, config.serialNumber, stepsResult.steps);
+      } catch (error) {
+        this.state.updateCalibrationStatus(false);
+        this.handleError('startCalibration', error);
+        return { success: false, error: error.message };
+      }
 
       if (!result.success) {
         this.state.updateCalibrationStatus(false);
@@ -140,6 +188,14 @@ export class GVIController {
             error: 'Calibration failed: Fluke connection failed - calibration cannot proceed',
           });
           return { success: false, error: 'Calibration failed: Fluke connection failed - calibration cannot proceed' };
+        }
+
+        // Check if it's a Fluke timeout error
+        if (result.error && result.error.includes('Fluke is Busy: Response timed out')) {
+          this.sendToRenderer('gvi-calibration-failed', {
+            error: 'Calibration failed: Fluke device is busy or not responding - please try again',
+          });
+          return { success: false, error: 'Calibration failed: Fluke device is busy or not responding - please try again' };
         }
 
         throw new Error(result.error);
@@ -192,6 +248,9 @@ export class GVIController {
       if (!result.success) {
         throw new Error(result.error);
       }
+
+      // Save calibration report to database (background operation)
+      this.saveCalibrationReport(passed);
 
       this.state.updateCalibrationStatus(false);
       return { success: true };
@@ -295,6 +354,62 @@ export class GVIController {
     }
   }
 
+  /**
+   * Save calibration report to database (background operation)
+   */
+  async saveCalibrationReport(passed) {
+    try {
+      const state = this.state.getState();
+      const model = state.model;
+      const status = passed ? 'PASS' : 'FAIL';
+
+      if (!model) {
+        console.warn('[GVI Controller] Cannot save report: model not available');
+        return;
+      }
+
+      // Create report without PDF location initially
+      const result = gviReportsDb.createReport(model, status);
+
+      if (result.success) {
+        this.currentReportId = result.reportId; // Store report ID for PDF path update
+        console.log(`[GVI Controller] Report saved: ID ${result.reportId}, Model: ${model}, Status: ${status}`);
+      } else {
+        console.error('[GVI Controller] Failed to save report:', result.error);
+      }
+    } catch (error) {
+      console.error('[GVI Controller] Error saving calibration report:', error);
+      sentryLogger.handleError(error, {
+        module: 'gvi',
+        service: 'gvi-controller',
+        method: 'saveCalibrationReport',
+      });
+    }
+  }
+
+  /**
+   * Update report with PDF path (background operation)
+   */
+  async updateReportWithPdfPath(pdfPath) {
+    try {
+      if (!this.currentReportId) {
+        console.warn('[GVI Controller] Cannot update report: no current report ID');
+        return;
+      }
+
+      const result = gviReportsDb.updateReportPdfLocation(this.currentReportId, pdfPath);
+
+      if (result.success) {
+        console.log(`[GVI Controller] Report updated with PDF path: ID ${this.currentReportId}, Path: ${pdfPath}`);
+      } else {
+        console.error('[GVI Controller] Failed to update report PDF path:', result.error);
+      }
+    } catch (error) {
+      console.error('[GVI Controller] Error updating report PDF path:', error);
+      // Don't throw error - this is a background operation
+    }
+  }
+
   handleError(method, error, userMessage = null, extra = {}) {
     sentryLogger.handleError(error, {
       module: 'gvi',
@@ -306,6 +421,30 @@ export class GVIController {
 
     if (userMessage) {
       this.sendToRenderer('gvi-error', { message: userMessage });
+    }
+  }
+
+  /**
+   * Cleanup controller resources
+   */
+  async cleanup() {
+    try {
+      console.log('GVI Controller: Starting cleanup...');
+
+      // Stop calibration if active and vent Fluke
+      if (this.calibrationService) {
+        await this.calibrationService.cleanup();
+        this.calibrationService = null;
+      }
+
+      console.log('GVI Controller: Cleanup completed');
+    } catch (error) {
+      console.error('GVI Controller: Error during cleanup:', error);
+      sentryLogger.handleError(error, {
+        module: 'gvi',
+        service: 'gvi-controller',
+        method: 'cleanup',
+      });
     }
   }
 }

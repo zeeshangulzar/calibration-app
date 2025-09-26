@@ -26,12 +26,10 @@ export class FlukeManager {
 
   async connect() {
     let log = '';
-    log = 'Connecting to Telnet server...';
-    this.showLogOnScreen(log);
     if (this.telnetClient.isConnected) {
-      log = 'Telnet already connected.';
-      this.showLogOnScreen(log);
-      return { success: true, message: log };
+      const message = `✅ Fluke already connected at ${this.telnetClient.host}:${this.telnetClient.port}`;
+      this.showLogOnScreen(message);
+      return { success: true, message };
     }
 
     try {
@@ -69,6 +67,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetOutputStateCommand,
         name: 'Output State',
         expectedValue: '1',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckOutputPressureModeCommand,
@@ -76,6 +75,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetOutputPressureModeControlCommand,
         name: 'Output Mode',
         expectedValue: 'CONTROL',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckStaticModeCommand,
@@ -83,6 +83,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetStaticModeCommand,
         name: 'Static Mode',
         expectedValue: '0',
+        responseExpectedInAction: false,
       },
       {
         check: FlukeUtil.flukeCheckToleranceCommand,
@@ -90,6 +91,7 @@ export class FlukeManager {
         action: FlukeUtil.flukeSetToleranceCommand,
         name: 'Tolerance',
         expectedValue: FlukeUtil.flukeTolerance.toString(),
+        responseExpectedInAction: true,
       },
     ];
 
@@ -107,7 +109,12 @@ export class FlukeManager {
         if (!this.isProcessActive()) return;
 
         // Send the setting command
-        await this.telnetClient.sendCommand(command.action);
+        this.showLogOnScreen(`🔄 Setting ${command.name}...`);
+        if (command.responseExpectedInAction) {
+          await this.telnetClient.sendCommand(command.action);
+        } else {
+          this.telnetClient.sendCommandWithoutWaitingForResponse(command.action);
+        }
         await addDelay(1000);
 
         if (!this.isProcessActive()) return;
@@ -120,14 +127,12 @@ export class FlukeManager {
           this.showLogOnScreen(errorMessage);
           throw new Error(`Fluke calibrator setup failed: ${errorMessage}`);
         } else {
-          this.showLogOnScreen(`✅ ${command.name} configured`);
+          this.showLogOnScreen(`✅ ${command.name} configured.`);
         }
       } else {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
       }
     }
-
-    this.showLogOnScreen('All commands executed.');
   }
 
   async checkZeroPressure() {
@@ -153,7 +158,7 @@ export class FlukeManager {
 
   setZeroPressureToFluke(silent = false) {
     if (!silent) {
-      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
+      this.showLogOnScreen('🔄 Setting Fluke to 0 PSI pressure...');
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} 0`);
   }
@@ -198,7 +203,7 @@ export class FlukeManager {
 
   setHighPressureToFluke(sweepValue, silent = false) {
     if (!silent) {
-      this.showLogOnScreen(`Setting pressure (${sweepValue}) to fluke...`);
+      this.showLogOnScreen(`🔄 Setting Fluke to ${sweepValue} PSI pressure...`);
     }
     this.telnetClient.sendCommand(`${FlukeUtil.flukeSetPressureCommand} ${sweepValue}`);
   }
@@ -238,7 +243,7 @@ export class FlukeManager {
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
           if (!silent) {
-            this.showLogOnScreen('✅ Fluke reached zero pressure');
+            this.showLogOnScreen('✅ Pressure set to 0 PSI.');
           }
           clearInterval(check);
           resolve();
@@ -258,7 +263,6 @@ export class FlukeManager {
 
         const response = await this.telnetClient.sendCommand(FlukeUtil.flukeStatusOperationCommand);
         if (response === '16') {
-          this.showLogOnScreen(`Pressure set to ${targetPressure}`);
           clearInterval(check);
           resolve();
         }
@@ -280,9 +284,37 @@ export class FlukeManager {
     }
   }
 
+  async ventFluke() {
+    try {
+      this.telnetClient.sendCommandWithoutWaitingForResponse(FlukeUtil.flukeSetOutputPressureModeVentCommand);
+      console.log('Fluke vent command sent');
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'ventFluke' },
+      });
+      console.warn('Fluke vent command failed:', error);
+    }
+  }
+
+  async getTemperature() {
+    try {
+      const response = await this.telnetClient.sendCommand(FlukeUtil.flukeGetTemperatureCommand);
+      if (response) {
+        return parseFloat(response).toFixed(2);
+      }
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { service: 'fluke-manager', method: 'getTemperature' },
+      });
+      console.warn('Fluke get temperature failed:', error.message);
+      return null;
+    }
+  }
+
   async disconnect() {
     if (this.telnetClient && this.telnetClient.isConnected) {
-      await this.telnetClient.disconnect();
+      this.ventFluke();
+      this.telnetClient.disconnect();
       console.log('Fluke disconnected successfully');
     }
   }

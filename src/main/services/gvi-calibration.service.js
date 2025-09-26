@@ -27,6 +27,7 @@ export class GVICalibrationService {
     this.testerName = '';
     this.model = '';
     this.serialNumber = '';
+    this.fluke = null;
   }
 
   /**
@@ -35,6 +36,7 @@ export class GVICalibrationService {
   async initialize() {
     try {
       this.fluke = this.flukeFactory.getFlukeService(this.showLogOnScreen, () => this.gviState.isCalibrationActive);
+
       return { success: true };
     } catch (error) {
       this.handleError(error, 'initialize');
@@ -92,8 +94,6 @@ export class GVICalibrationService {
    */
   async completeCalibrationWithResult(passed) {
     try {
-      this.showLogOnScreen(`🎯 Completing calibration - Result: ${passed ? 'PASS' : 'FAIL'}`);
-
       const results = {
         config: this.config,
         model: this.model,
@@ -110,8 +110,8 @@ export class GVICalibrationService {
 
       this.results = results;
 
-      // Set Fluke to zero after calibration completion
-      this.fluke.setZeroPressureToFluke();
+      // Vent Fluke pressure after calibration completion
+      this.fluke.ventFluke();
 
       this.showLogOnScreen(`✅ Calibration completed - Result: ${passed ? 'PASS' : 'FAIL'}`);
       this.sendToRenderer('gvi-calibration-completed', results);
@@ -157,24 +157,28 @@ export class GVICalibrationService {
 
   // Calibration process steps
   async connectToFluke() {
-    await this.executeWithLogging('Connecting to Fluke device', async () => {
+    this.showLogOnScreen('🔧 Connecting to Fluke device...');
+    try {
       const result = await this.fluke.connect();
       if (!result.success) {
         throw new Error(result.error || 'Failed to connect to Fluke device');
       }
       return result;
-    });
+    } catch (error) {
+      this.showLogOnScreen(`❌ Connecting to Fluke device failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async runFlukePreReqs() {
-    await this.executeWithLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
+    await this.fluke.runPreReqs();
+    // await this.executeWithoutLogging('Fluke prerequisites', () => this.fluke.runPreReqs());
   }
 
   async checkZeroPressure() {
     try {
       await this.fluke.setZeroPressureToFluke();
       await this.fluke.waitForFlukeToReachZeroPressure(true);
-      this.showLogOnScreen('✅ Zero pressure confirmed');
     } catch (error) {
       this.showLogOnScreen(`❌ Zero pressure check failed: ${error.message || error.error || 'Unknown error'}`);
       throw error;
@@ -191,14 +195,17 @@ export class GVICalibrationService {
   }
 
   async runCalibrationSteps() {
-    this.showLogOnScreen('🔧 Starting calibration steps...');
-
     // Process the first step
     await this.processNextStep();
   }
 
   async processNextStep() {
     console.log(`GVI Service - processNextStep called, currentStep: ${this.currentStep}, totalSteps: ${this.steps.length}`);
+
+    // Check if calibration is still active
+    if (!this.isCalibrationActive) {
+      return;
+    }
 
     if (this.currentStep >= this.steps.length) {
       this.showLogOnScreen('✅ All calibration steps completed');
@@ -207,10 +214,15 @@ export class GVICalibrationService {
 
     const step = this.steps[this.currentStep];
     console.log(`GVI Service - processing step:`, step);
-    this.showLogOnScreen(`Step ${this.currentStep + 1}/${this.steps.length}: ${step.gpm} GPM`);
+    // this.showLogOnScreen(`Step ${this.currentStep + 1}/${this.steps.length}: ${step.gpm} GPM`);
 
     // Set pressure for this step
     await this.setPressureForStep(step);
+
+    // Check again before sending step ready event
+    if (!this.isCalibrationActive) {
+      return;
+    }
 
     // Send step ready event to renderer
     this.sendToRenderer('gvi-step-ready', {
@@ -240,16 +252,57 @@ export class GVICalibrationService {
   }
 
   async setPressureForStep(step) {
+    // Check if calibration is still active before setting pressure
+    if (!this.isCalibrationActive) {
+      return;
+    }
+
     const pressure = step.psiMin;
     await this.fluke.setHighPressureToFluke(pressure);
+
+    // Check again before waiting for pressure
+    if (!this.isCalibrationActive) {
+      return;
+    }
+
     await this.fluke.waitForFlukeToReachTargetPressure(pressure);
-    this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI for ${step.gpm} GPM`);
+
+    // Final check before showing success message
+    if (!this.isCalibrationActive) {
+      return;
+    }
   }
 
-  async setFlukeToZero() {
+  async setFlukeToZero(silent = false) {
     if (this.fluke) {
-      await this.fluke.setZeroPressureToFluke();
-      this.showLogOnScreen('🔧 Fluke set to zero pressure');
+      await this.fluke.setZeroPressureToFluke(silent);
+    }
+  }
+
+  ventFluke() {
+    this.fluke.ventFluke();
+  }
+
+  /**
+   * Stop calibration process and vent Fluke
+   */
+  async stopCalibration(reason = 'Calibration stopped by user') {
+    try {
+      // Stop the calibration process
+      this.isCalibrationActive = false;
+      this.isRunning = false;
+
+      // Vent Fluke before stopping calibration
+      if (this.fluke && this.fluke.telnetClient) {
+        this.fluke.ventFluke();
+      }
+
+      // Send stop event to renderer
+      this.sendToRenderer('gvi-calibration-stopped', { reason });
+      return { success: true };
+    } catch (error) {
+      this.handleError(error, 'stopCalibration');
+      return { success: false, error: error.message };
     }
   }
 
@@ -325,29 +378,39 @@ export class GVICalibrationService {
     console.error(`GVICalibrationService.${method}:`, error);
   }
 
-  async cleanup() {
-    try {
-      this.showLogOnScreen('🧹 Cleaning up GVI calibration service...');
-      // Reset state (no stop functionality yet)
-      if (this.isCalibrationActive) {
-        this.isCalibrationActive = false;
-      }
-      this.reset();
-      this.showLogOnScreen('✅ GVI calibration service cleanup completed');
-    } catch (error) {
-      this.handleError(error, 'cleanup');
+  async stopCalibration() {
+    this.isCalibrationActive = false;
+
+    // Vent Fluke pressure instead of setting to zero
+    if (this.fluke) {
+      this.fluke.ventFluke();
     }
   }
 
-  reset() {
-    this.isCalibrationActive = false;
-    this.testerName = '';
-    this.model = '';
-    this.serialNumber = '';
-    this.currentStep = 0;
-    this.steps = [];
-    this.results = null;
-    this.fluke = null;
+  async cleanup() {
+    try {
+      // Stop calibration if active
+      if (this.isCalibrationActive) {
+        this.isCalibrationActive = false;
+      }
+
+      // Vent Fluke and disconnect properly
+      if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
+        try {
+          // Explicitly vent Fluke before disconnecting
+          this.fluke.ventFluke();
+          await this.fluke.disconnect();
+        } catch (ventError) {
+          console.error('Error during Fluke venting/disconnect in cleanup:', ventError);
+          // Try to vent again as a fallback
+          this.handleError(ventError, 'GVI cleanup');
+        }
+      }
+
+      this.reset();
+    } catch (error) {
+      this.handleError(error, 'cleanup');
+    }
   }
 
   destroy = async () => {

@@ -304,3 +304,20 @@ export function registerMonsterMeterIpcHandlers() {
     ipcMain[method](event, createHandler(handler, requiresController));
   });
 }
+
+/**
+ * Cleanup Monster Meter resources (called on app quit)
+ */
+export async function cleanupMonsterMeter() {
+  if (monsterMeterController) {
+    try {
+      console.log('Cleaning up Monster Meter on app quit...');
+      await monsterMeterController.cleanup();
+      monsterMeterController = null;
+      console.log('Monster Meter cleanup completed');
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error during Monster Meter cleanup on app quit:', error);
+    }
+  }
+}

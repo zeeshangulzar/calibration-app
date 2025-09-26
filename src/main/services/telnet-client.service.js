@@ -115,7 +115,7 @@ class TelnetClientService extends EventEmitter {
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
-        const message = `Connected to Fluke at ${this.host}:${this.port}`;
+        const message = `✅ Connected to Fluke at ${this.host}:${this.port}`;
         console.log(message);
 
         this.emit('connected', { host: this.host, port: this.port });
@@ -261,6 +261,11 @@ class TelnetClientService extends EventEmitter {
         reject({ success: false, error: `Failed to send command: ${error.message}` });
       }
     });
+  }
+
+  sendCommandWithoutWaitingForResponse(command) {
+    this.client.write(command + '\n');
+    this.emit('commandSent', { command });
   }
 
   /**

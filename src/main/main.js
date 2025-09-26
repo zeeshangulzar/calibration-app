@@ -114,6 +114,12 @@ app.on('before-quit', async event => {
   // Prevent immediate quit to allow async cleanup
   event.preventDefault();
 
+  // Set a timeout to force quit if cleanup takes too long
+  const cleanupTimeout = setTimeout(() => {
+    console.log('Cleanup timeout reached, forcing quit...');
+    app.exit(0);
+  }, 5000); // 5 second timeout
+
   try {
     // Cleanup IPC resources (includes Fluke disconnection)
     await cleanupIpcResources();
@@ -126,7 +132,29 @@ app.on('before-quit', async event => {
     Sentry.captureException(error);
     console.error('Error during app cleanup:', error);
   } finally {
+    clearTimeout(cleanupTimeout);
     // Force quit after cleanup (or timeout)
     app.exit(0);
   }
+});
+
+// Handle process termination signals for immediate cleanup
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, performing immediate cleanup...');
+  try {
+    await cleanupIpcResources();
+  } catch (error) {
+    console.error('Error during SIGTERM cleanup:', error);
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, performing immediate cleanup...');
+  try {
+    await cleanupIpcResources();
+  } catch (error) {
+    console.error('Error during SIGINT cleanup:', error);
+  }
+  process.exit(0);
 });

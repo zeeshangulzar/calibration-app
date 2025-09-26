@@ -77,12 +77,11 @@ class KrakenVerificationService {
 
     // Restore Fluke manager to use calibration active check
     if (this.fluke && this.fluke.updateProcessActiveFunction) {
+      // Vent Fluke stopping verification
+      this.fluke.ventFluke();
       this.fluke.updateProcessActiveFunction(() => this.globalState.isCalibrationActive);
       console.log('KrakenVerification: Restored Fluke process active function to calibration check');
     }
-
-    // Set Fluke to zero pressure in background without waiting or logging
-    this.fluke.setZeroPressureToFluke(true);
   }
 
   /**
@@ -119,7 +118,7 @@ class KrakenVerificationService {
 
     try {
       // First step: Set Fluke to zero pressure
-      this.showLogOnScreen('🔄 Setting Fluke to zero pressure...');
+      this.showLogOnScreen('🔄 Setting Fluke to 0 PSI pressure...');
       await this.fluke.setZeroPressureToFluke(true); // Silent to avoid duplicate log
       await this.fluke.waitForFlukeToReachZeroPressure();
 
@@ -162,8 +161,7 @@ class KrakenVerificationService {
         console.log('KrakenVerification: Restored Fluke process active function to calibration check');
       }
 
-      // Always set Fluke to zero pressure after verification completes or fails (silently)
-      this.fluke.setZeroPressureToFluke(true);
+      this.fluke.ventFluke();
     }
   }
 
@@ -177,7 +175,7 @@ class KrakenVerificationService {
 
       // Only log and set pressure if not zero (zero was already set at start)
       if (targetPressure !== 0) {
-        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI...`);
+        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI pressure...`);
         await this.fluke.setHighPressureToFluke(targetPressure);
         if (this.shouldStopVerification()) return;
 

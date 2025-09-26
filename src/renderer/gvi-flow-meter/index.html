@@ -2,19 +2,20 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>GVI Flow Meter Calibration</title>
+    <title>GVI Manual Calibration</title>
     <script type="module" src="./index.js"></script>
     <script src="../../assets/js/tailwind.min.js"></script>
     <script src="../../assets/js/font-awesome.min.js"></script>
+    <link rel="stylesheet" href="../styles/index_styles.css" />
     <style>
       /* GVI calibration loading animations (more prominent) */
       .removing {
         user-select: none;
         cursor: not-allowed;
-        background: linear-gradient(45deg, transparent 25%, rgba(59, 130, 246, 0.15) 25%, rgba(59, 130, 246, 0.15) 50%, transparent 50%, transparent 75%, rgba(59, 130, 246, 0.15) 75%);
+        background: linear-gradient(45deg, transparent 25%, rgba(75, 85, 99, 0.15) 25%, rgba(75, 85, 99, 0.15) 50%, transparent 50%, transparent 75%, rgba(75, 85, 99, 0.15) 75%);
         background-size: 15px 15px;
         animation: removing-stripes 0.8s linear infinite;
-        box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.2);
+        box-shadow: inset 0 0 20px rgba(75, 85, 99, 0.2);
       }
 
       @keyframes removing-stripes {
@@ -35,65 +36,79 @@
   <body class="h-full text-base-content bg-neutral-50">
     <div id="app-container" class="min-h-screen">
       <!-- Header -->
-      <header class="bg-white border-b border-neutral-200 fixed w-full z-50">
+      <header class="bg-white border-b border-neutral-200 fixed w-full z-50 h-[65px] max-h-[65px]">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between">
           <div class="flex items-center space-x-4">
-            <h1 class="text-xl font-medium">GVI Flow Meter</h1>
+            <h1 class="text-2xl font-semibold">GVI Manual Calibration</h1>
           </div>
         </div>
       </header>
 
       <!-- Main Content -->
       <main class="pt-16 container mx-auto px-4 py-6">
-        <div class="flex items-center space-x-4 mb-8">
-          <button id="back-btn" class="flex items-center px-3 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-100 transition-colors duration-200">
-            <i class="fa-solid fa-arrow-left mr-2"></i> Back
-          </button>
+        <div class="mb-4 mt-4">
+          <div class="flex items-center space-x-4">
+            <button
+              id="back-btn"
+              class="flex items-center px-4 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i class="fa-solid fa-arrow-left mr-2"></i> Back
+            </button>
+          </div>
 
-          <div class="text-neutral-500 text-sm hidden">
-            <i class="fa-solid fa-circle mr-1" id="back-status-indicator"></i>
-            <span id="back-status-text">Back button is disabled during calibration process.</span>
+          <!-- Back Button Status Message (below back button) -->
+          <div id="back-button-status-message" class="hidden mt-4">
+            <div class="bg-[#f4f4f4] border border-gray-200 rounded-md px-3 py-2 flex items-center">
+              <i class="fa-solid fa-info-circle text-gray-600 mr-2"></i>
+              <span id="back-button-message-text" class="text-gray-800 text-sm font-medium"></span>
+            </div>
           </div>
         </div>
         <!-- Configuration Section -->
-        <div class="bg-white rounded-lg border border-neutral-200 p-3 mb-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-lg border border-neutral-200 p-6 mb-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
             <!-- Model Selection -->
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-2"> Model<span class="text-red-500">*</span> </label>
-              <select id="model-select" class="w-full px-3 py-1 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <label class="block text-md mb-2 font-semibold"> Model<span class="text-red-500">*</span> </label>
+              <select
+                id="model-select"
+                class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent custom-select-arrow-left text-left"
+              >
                 <option value="">Loading models...</option>
               </select>
             </div>
 
             <!-- Tester Selection -->
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-2"> Select Tester<span class="text-red-500">*</span> </label>
-              <select id="tester-select" class="w-full px-3 py-1 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">Select Tester</option>
+              <label class="block text-md mb-2 font-semibold">Tester Name<span class="text-red-500">*</span> </label>
+              <select
+                id="tester-select"
+                class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent custom-select-arrow-left text-left"
+              >
+                <option value="">Select Tester Name</option>
                 <!-- Options populated dynamically from GVI constants -->
               </select>
             </div>
 
             <!-- Serial Number -->
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-2"> Serial Number<span class="text-red-500">*</span> </label>
+              <label class="block text-md mb-2 font-semibold"> Serial Number<span class="text-red-500">*</span> </label>
               <input
                 type="text"
                 id="serial-number"
                 placeholder="Enter Serial Number"
-                class="w-full px-3 py-1 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent"
               />
             </div>
           </div>
         </div>
 
         <!-- calibration control div -->
-        <div class="flex w-full flex-row justify-between border border-neutral-200 rounded-md mb-6" id="gvi-calibration-control-container">
+        <div class="flex w-full flex-row justify-between border border-neutral-200 rounded-md mb-4" id="gvi-calibration-control-container">
           <div class="flex-1 flex-col p-6" id="gpm-at-gauge-container">
             <div class="flex flex-row text-center justify-center">
               <div class="flex items-center">
-                <h4>Please note this GPM at Gauge</h4>
+                <h4 class="font-bold">Current flow rate at Gauge</h4>
               </div>
               <div class="ml-5 flex">
                 <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
@@ -105,12 +120,19 @@
             <!-- this button should be rounded from right -->
             <button
               id="start-calibration-btn"
-              class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled
             >
-              START CALIBRATION
+              <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
             </button>
           </div>
+        </div>
+
+        <!-- Stop Calibration Button (visible during calibration) -->
+        <div class="flex justify-end">
+          <button id="stop-calibration-btn" class="rounded-md mb-4 bg-red-600 hover:bg-red-700 px-6 py-3 text-white transition-colors font-bold text-xl w-[180px] hidden">
+            <i class="fa-solid fa-stop mr-2"></i>STOP
+          </button>
         </div>
 
         <!-- Calibration Control Section -->
@@ -118,14 +140,14 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Manual Calibration Setup -->
             <div class="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-              <h3 class="text-lg font-medium mb-4">Manual Calibration Setup</h3>
+              <h3 class="text-xl font-semibold mb-4">Manual Calibration Setup</h3>
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="border-b">
-                      <th class="px-3 py-2 text-left">GPM</th>
-                      <th class="px-3 py-2 text-left">PSI (min)</th>
-                      <th class="px-3 py-2 text-left">PSI (max)</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">GPM</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">PSI (min)</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">PSI (max)</th>
                     </tr>
                   </thead>
                   <tbody id="calibration-table">
@@ -137,7 +159,7 @@
 
             <!-- Calibration Logs -->
             <div class="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-              <h2 class="mb-4 text-lg">Calibration Logs</h2>
+              <h2 class="mb-4 text-xl font-semibold">Calibration Logs</h2>
               <div id="calibration-log-content" class="h-[450px] overflow-y-auto rounded-md bg-neutral-900 p-4 text-sm text-white">
                 <div id="log-messages" class="space-y-2">
                   <!-- Log messages will be appended here -->
@@ -152,7 +174,7 @@
     <!-- Loading Overlay -->
     <div id="page-loader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
       <div class="bg-white p-6 rounded-lg shadow-lg flex items-center space-x-4">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
         <span class="text-lg">Loading GVI Flow Meter...</span>
       </div>
     </div>
@@ -166,6 +188,17 @@
         </div>
         <p id="error-message" class="mb-4 text-neutral-700"></p>
         <button id="error-ok-btn" class="px-6 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700">OK</button>
+      </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center">
+        <p id="custom-alert-message" class="mb-4 text-neutral-700"></p>
+        <div class="flex gap-6 justify-center">
+          <button id="custom-alert-ok" class="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800">Confirm</button>
+          <button id="custom-alert-cancel" class="px-6 py-2 bg-gray-300 text-black rounded-lg hover:bg-gray-400 hidden">Cancel</button>
+        </div>
       </div>
     </div>
   </body>

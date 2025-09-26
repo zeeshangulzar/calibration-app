@@ -54,16 +54,9 @@ export class GVIGaugeDb {
    */
   getGaugeModels() {
     try {
-      const models = this.getDb().prepare('SELECT DISTINCT model FROM gvi_gauges').all();
-      // sort models by name, names having "Old" in them should come to last
-      const modelsReordered = [
-        // Keep all non-old first
-        ...models.filter(item => !item.model.toLowerCase().includes('old')),
-        // Then add old ones
-        ...models.filter(item => item.model.toLowerCase().includes('old')),
-      ];
-      const result = modelsReordered.map(row => row.model);
-      return result;
+      const models = this.getDb().prepare('SELECT * FROM gvi_gauges').all();
+      // Extract just the model names from the database objects
+      return models.map(row => row.model);
     } catch (error) {
       console.error('[GVI DB] Error getting gauge models:', error);
       sentryLogger.handleError(error, {

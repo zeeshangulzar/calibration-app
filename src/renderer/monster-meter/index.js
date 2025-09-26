@@ -3,6 +3,7 @@
  */
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
+import { setElementState } from '../view_helpers/index.js';
 
 const getLocalTimestamp = () => new Date().toLocaleTimeString();
 
@@ -159,12 +160,9 @@ const handleConnectPort = async () => {
       portSelect.disabled = true;
       portSelect.classList.add('opacity-50', 'cursor-not-allowed');
     }
-    addLogMessage(`Attempting to connect to ${selectedPort}...`);
-
     const result = await window.electronAPI.monsterMeterConnectPort(selectedPort);
 
     if (result.success) {
-      addLogMessage(`Successfully connected to ${selectedPort}`);
       // Keep port dropdown disabled after successful connection
       // Don't re-enable it in the finally block
     } else {
@@ -249,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await cleanupMonsterMeterModule();
     window.electronAPI.monsterMeterGoBack();
   });
-  refreshPortsButton?.addEventListener('click', () => window.electronAPI.monsterMeterRefreshPorts());
+  // refreshPortsButton?.addEventListener('click', () => window.electronAPI.monsterMeterRefreshPorts());
   portSelect?.addEventListener('change', updateConnectButton);
   connectPortButton?.addEventListener('click', handleConnectPort);
 
@@ -295,7 +293,8 @@ const ipcHandlers = {
 
   onMonsterMeterConnected: data => {
     isMonsterMeterConnected = true;
-    addLogMessage('Monster Meter connected successfully');
+    const port = data?.port || 'unknown port';
+    addLogMessage(`Monster Meter connected successfully at ${port} port.`);
     NotificationHelper.showSuccess('Monster Meter connected successfully');
     updateCalibrationButtons();
   },
@@ -364,10 +363,12 @@ const ipcHandlers = {
     isCalibrationActive = true;
     updateCalibrationButtons();
     updateBackButton();
+    // Disable form fields during calibration
+    disableFormFields();
     // Clear previous calibration data when starting new calibration
     clearCalibrationData();
     showCalibrationResultsSection();
-    addLogMessage('🚀 Calibration started');
+    addLogMessage('|------ Calibration Process Started ------|');
     NotificationHelper.showSuccess('Calibration started successfully!');
   },
 
@@ -375,6 +376,9 @@ const ipcHandlers = {
     isCalibrationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when calibration stops
+    enableFormFields();
+
     addLogMessage(`🛑 Calibration stopped: ${data.reason}`);
     NotificationHelper.showInfo(`Calibration stopped: ${data.reason}`);
     // Keep calibration table visible - don't clear data when stopping
@@ -384,6 +388,8 @@ const ipcHandlers = {
     isCalibrationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when calibration fails
+    enableFormFields();
     addLogMessage(`❌ Calibration failed: ${data.error}`, 'error');
     NotificationHelper.showError(`Calibration failed: ${data.error}`);
   },
@@ -393,14 +399,19 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark calibration as completed
     updateCalibrationButtons();
     updateBackButton();
-    addLogMessage('✅ Calibration completed successfully!');
+    // Keep form fields disabled when calibration completes (don't re-enable them)
+    // enableFormFields(); // Removed - fields should stay disabled for verification
     NotificationHelper.showSuccess('Calibration completed successfully!');
     showCalibrationResults(data);
+    // Auto scroll to top when calibration completes
+    scrollToTop();
   },
 
   onMonsterMeterCalibrationData: data => {
     updateCalibrationProgress(data);
     updateCalibrationResultsTable(data);
+    // Auto scroll to calibration table when reading is captured
+    scrollToCalibrationTable();
   },
 
   // Live sensor data updates during calibration
@@ -414,6 +425,8 @@ const ipcHandlers = {
     isCalibrationCompleted = false; // Reset when verification starts
     updateCalibrationButtons();
     updateBackButton();
+    // Disable form fields during verification
+    disableFormFields();
     showVerificationResultsSection();
     // Don't clear calibration data - keep it visible
     NotificationHelper.showSuccess('Verification started successfully!');
@@ -423,6 +436,8 @@ const ipcHandlers = {
     isVerificationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification stops
+    enableFormFields();
     NotificationHelper.showInfo(`Verification stopped: ${data.reason}`);
   },
 
@@ -430,6 +445,8 @@ const ipcHandlers = {
     isVerificationActive = false;
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification fails
+    enableFormFields();
     NotificationHelper.showError(`Verification failed: ${data.error}`);
   },
 
@@ -438,21 +455,27 @@ const ipcHandlers = {
     isCalibrationCompleted = true; // Mark as completed after verification
     updateCalibrationButtons();
     updateBackButton();
+    // Re-enable form fields when verification completes (user can start new calibration)
+    enableFormFields();
     enableVerificationTab();
     hideStartVerificationButton(); // Hide start verification button
     NotificationHelper.showSuccess('Verification completed successfully!');
     showVerificationResults(data);
+    // Auto scroll to top when verification completes
+    scrollToTop();
   },
 
   onMonsterMeterVerificationData: data => {
     updateVerificationProgress(data);
     updateVerificationResultsTable(data.verificationData || [], data.pressureArr);
+    // Auto scroll to verification table when reading is captured
+    scrollToVerificationTable();
     // Add log message for each verification point
     if (data.verificationData && data.verificationData.length > 0) {
       const latestPoint = data.verificationData[data.verificationData.length - 1];
       const status = latestPoint.inRange ? 'PASS' : 'FAIL';
       const statusIcon = latestPoint.inRange ? createPassSvg() : createFailSvg();
-      addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
+      // addLogMessage(`Verification Point ${data.verificationData.length}: ${latestPoint.referencePressure.toFixed(1)} PSI - ${status}`);
     }
   },
 
@@ -524,7 +547,7 @@ function populateModelOptions() {
   if (!modelSelect) return;
 
   // Clear existing options except the first one
-  modelSelect.innerHTML = '<option value="">Select Model</option>';
+  modelSelect.innerHTML = '<option value="">Choose Model</option>';
 
   // Add model options from constants
   Object.entries(MONSTER_METER_CONSTANTS.MODEL_OPTIONS).forEach(([key, value]) => {
@@ -545,26 +568,26 @@ function showMonsterMeterWidget(deviceInfo) {
   grid.innerHTML = '';
 
   const card = document.createElement('div');
-  card.className = 'rounded-lg border bg-white p-4 shadow-sm';
+  card.className = 'rounded-lg border bg-white px-4 py-2 shadow-sm';
   card.id = 'monster-meter-widget';
 
   const deviceName = deviceInfo.name || deviceInfo.swVersion || 'N/A';
 
   card.innerHTML = `
     <div class="flex items-center gap-3">
-      <div class="w-full">
-        <h3>Monster Meter</h3>
+      <div class="w-full flex flex-col">
+        <h3 class="font-semibold text-base">Monster Meter</h3>
         <div class="flex items-center gap-2">
-          <p class="text-sm text-neutral-600 font-bold">Name:</p>
-          <p class="text-sm text-neutral-600"><span id="nameText">${deviceName}</span></p>
+          <p class="text-base text-neutral-600 font-semibold">Name:</p>
+          <p class="text-base text-neutral-600"><span id="nameText">${deviceName}</span></p>
         </div>
         <div class="flex items-center gap-2">
-          <p class="text-sm text-neutral-600 font-bold">Port:</p>
-          <p class="text-sm text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+          <p class="text-base text-neutral-600 font-semibold">Port:</p>
+          <p class="text-base text-neutral-600">${deviceInfo.port || 'Unknown'}</p>
+          <p>
+            <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
+          </p>
         </div>
-        <p>
-          <span id="portStatus" class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Opened</span>
-        </p>
         <div id="pdf-button-container" class="mt-2 inline-flex w-full"></div>
       </div>
     </div>
@@ -618,6 +641,41 @@ function resetLiveDataDisplays() {
   });
 }
 
+// Function to disable form fields during calibration/verification
+function disableFormFields() {
+  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
+  setElementState(testerNameSelect, true);
+  setElementState(modelSelect, true);
+  setElementState(serialNumberInput, true);
+}
+
+// Function to enable form fields after calibration/verification
+function enableFormFields() {
+  const { testerNameSelect, modelSelect, serialNumberInput } = elements;
+  setElementState(testerNameSelect, false);
+  setElementState(modelSelect, false);
+  setElementState(serialNumberInput, false);
+}
+
+// Auto-scroll functions
+function scrollToCalibrationTable() {
+  const calibrationResults = document.getElementById('monster-meter-calibration-results');
+  if (calibrationResults) {
+    calibrationResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function scrollToVerificationTable() {
+  const verificationResults = document.getElementById('monster-meter-calibration-results');
+  if (verificationResults) {
+    verificationResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // Logging
 function addLogMessage(message, type = 'info') {
   const { logContainer, scrollContainer } = elements;
@@ -644,6 +702,13 @@ function addLogMessage(message, type = 'info') {
   }
 }
 
+function clearCalibrationLogs() {
+  const { logContainer } = elements;
+  if (logContainer) {
+    logContainer.innerHTML = '';
+  }
+}
+
 // Verification table management functions
 function showVerificationResults(data) {
   // Show verification results section
@@ -660,7 +725,6 @@ function showVerificationResults(data) {
     console.log('Verification completed with data:', data.verificationData);
     console.log('Verification summary:', data.summary);
     updateVerificationResultsTable(data.verificationData, data.pressureArr);
-    showVerificationSummary(data.summary);
   }
 }
 
@@ -687,7 +751,6 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
     if (isComplete && point) {
       const statusClass = point.inRange ? 'text-green-600' : 'text-red-600';
       const statusText = point.inRange ? 'PASS' : 'FAIL';
-      const statusIcon = point.inRange ? createPassSvg() : createFailSvg();
 
       row.innerHTML = `
         <td class="py-2 pr-6">Point ${i + 1}</td>
@@ -697,10 +760,7 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
         <td class="py-2 pr-6">${point.voltageLo.toFixed(7)}</td>
         <td class="py-2 pr-6">${point.pressureLo.toFixed(1)}</td>
         <td class="py-2 pr-6 font-semibold ${statusClass}">
-          <span class="inline-flex items-center">
-            <span class="mr-1">${statusIcon}</span>
-            ${statusText}
-          </span>
+          ${statusText}
         </td>
       `;
     } else {
@@ -723,7 +783,7 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
   if (progressText) {
     const completed = verificationData ? verificationData.length : 0;
     const total = expectedPressures.length;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
 }
 
@@ -732,52 +792,8 @@ function updateVerificationProgress(data) {
   if (progressText && data) {
     const completed = data.completed || 0;
     const total = data.total || 0;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
-}
-
-function showVerificationSummary(summary) {
-  const summaryDiv = document.getElementById('verification-summary');
-  if (!summaryDiv || !summary) return;
-
-  const statusClass = summary.status === 'PASSED' ? 'text-green-600' : 'text-red-600';
-  const statusIcon = summary.status === 'PASSED' ? createPassSvg() : createFailSvg();
-  // const bgClass = summary.status === 'PASSED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-
-  summaryDiv.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
-      <h4 class="text-lg font-semibold text-gray-800">Verification Summary</h4>
-      <div class="flex items-center ${statusClass} font-semibold">
-        <span class="mr-2">${statusIcon}</span>
-        ${summary.status}
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-4 text-sm">
-      <div class="flex justify-between">
-        <span class="text-gray-600">Total Points:</span>
-        <span class="font-semibold text-gray-900">${summary.totalPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Passed:</span>
-        <span class="font-semibold text-green-600">${summary.passedPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Failed:</span>
-        <span class="font-semibold text-red-600">${summary.failedPoints}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Pass Rate:</span>
-        <span class="font-semibold text-gray-900">${summary.passRate}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Tolerance Range:</span>
-        <span class="font-semibold text-gray-900">±${summary.toleranceRange} PSI</span>
-      </div>
-    </div>
-  `;
-
-  summaryDiv.className = `mt-4 p-4 rounded-lg border bg-neutral-50`;
-  summaryDiv.classList.remove('hidden');
 }
 
 // Calibration handlers
@@ -788,6 +804,9 @@ async function handleStartCalibration() {
   const model = modelSelect?.value;
   const serialNumber = serialNumberInput?.value;
 
+  // Clear calibration logs when starting calibration
+  clearCalibrationLogs();
+
   // Debug logging
   console.log('🔍 Debug - handleStartCalibration values:');
   console.log('🔍 Debug - testerName:', testerName);
@@ -796,19 +815,33 @@ async function handleStartCalibration() {
   console.log('🔍 Debug - serialNumberInput element:', serialNumberInput);
   console.log('🔍 Debug - serialNumberInput.value:', serialNumberInput?.value);
 
-  if (!testerName) {
-    NotificationHelper.showError('Please select a tester name before starting calibration.');
+  // Check if all required fields are filled
+  const hasTesterName = testerName && testerName !== '';
+  const hasModel = model && model !== '';
+  const hasSerialNumber = serialNumber && serialNumber.trim() !== '';
+
+  if (!hasTesterName || !hasModel || !hasSerialNumber) {
+    // Show red alert text when fields are empty with highlight animation
+    const subText = document.getElementById('calibration-sub-text');
+    if (subText) {
+      subText.classList.remove('text-gray-500');
+      subText.classList.add('text-red-600');
+
+      // Add highlight animation to grab attention
+      subText.classList.add('font-bold', 'rounded-md', 'transition-all', 'duration-300');
+
+      // Remove highlight after 1 second
+      setTimeout(() => {
+        subText.classList.remove('font-bold', 'rounded-md');
+      }, 1000);
+    }
     return;
   }
 
-  if (!model) {
-    NotificationHelper.showError('Please select a model before starting calibration.');
-    return;
-  }
-
-  if (!serialNumber || serialNumber.trim() === '') {
-    NotificationHelper.showError('Please enter a serial number before starting calibration.');
-    return;
+  // Hide the sub-text when starting calibration
+  const subText = document.getElementById('calibration-sub-text');
+  if (subText) {
+    subText.classList.add('hidden');
   }
 
   try {
@@ -816,6 +849,12 @@ async function handleStartCalibration() {
     const result = await window.electronAPI.monsterMeterStartCalibration(testerName, model, serialNumber.trim());
     if (!result.success) {
       NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
+      // Show the sub-text again if calibration fails
+      if (subText) {
+        subText.classList.remove('hidden');
+        subText.classList.remove('text-red-600');
+        subText.classList.add('text-gray-500');
+      }
     }
   } catch (error) {
     NotificationHelper.showError(`Error starting calibration: ${error.message}`);
@@ -841,11 +880,10 @@ function updateCalibrationButtons() {
   const hasSerialNumber = serialNumberInput?.value && serialNumberInput.value.trim() !== '';
   const canStart = isMonsterMeterConnected && hasTesterName && hasModel && hasSerialNumber;
 
-  // Calibration buttons
+  // Calibration buttons - start button is always enabled, only hide when calibration/verification is active
   if (startCalibrationBtn) {
-    const canStartCalibration = canStart && !isCalibrationActive && !isVerificationActive;
     const shouldHideCalibrationBtn = isCalibrationActive || isVerificationActive || isCalibrationCompleted;
-    startCalibrationBtn.disabled = !canStartCalibration;
+    startCalibrationBtn.disabled = false; // Always enabled
     startCalibrationBtn.classList.toggle('hidden', shouldHideCalibrationBtn);
   }
 
@@ -863,6 +901,8 @@ function updateCalibrationButtons() {
   if (stopVerificationBtn) {
     stopVerificationBtn.classList.toggle('hidden', !isVerificationActive);
   }
+
+  // Don't change sub-text color here - only change it when start button is clicked
 }
 
 function updateCalibrationProgress(data) {
@@ -941,9 +981,6 @@ function initializeVerificationResultsTable() {
       <div class="text-sm text-neutral-500">
         <span id="verification-progress-text">Waiting for verification data...</span>
       </div>
-      <div id="verification-summary" class="mt-4 p-4 bg-neutral-50 rounded-md hidden">
-        <!-- Verification summary will be populated here -->
-      </div>
     `;
   }
 }
@@ -979,7 +1016,7 @@ function updateCalibrationResultsTable(data) {
   if (progressText) {
     const completed = data.voltagesHiArray.length;
     const total = data.pressureArr.length;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
 }
 
@@ -1212,9 +1249,9 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full';
-  viewPDFBtn.innerHTML =
-    '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
+  viewPDFBtn.className =
+    'px-4 py-2 bg-neutral-800 text-white font-semibold rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-black';
+  viewPDFBtn.innerHTML = '<i class="fa-solid fa-eye mr-2"></i>  View PDF';
 
   // Add click handler to open PDF
   viewPDFBtn.addEventListener('click', () => {
