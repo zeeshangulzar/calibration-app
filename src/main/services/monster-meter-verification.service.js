@@ -211,8 +211,13 @@ class MonsterMeterVerificationService {
       if (this.isVerificationStopped) break;
 
       const pressureValue = this.sweepIntervals[i];
-      await this.setFlukePressure(pressureValue);
-      await this.waitForFlukePressure(pressureValue);
+      await this.fluke.setHighPressureToFluke(pressureValue);
+      if (this.isVerificationStopped) return;
+
+      await this.fluke.waitForFlukeToReachTargetPressure(pressureValue);
+      if (this.isVerificationStopped) return;
+
+      this.showLogOnScreen(`✅ Pressure set to ${pressureValue} PSI.`);
       await this.delay(2000);
       this.showLogOnScreen(`📸 Capturing Monster Meter readings at ${pressureValue} PSI...`);
       await this.captureMonsterMeterData(pressureValue);
@@ -236,11 +241,12 @@ class MonsterMeterVerificationService {
 
   async waitForFlukePressure(pressure) {
     try {
-      if (pressure === 0) {
-        await this.fluke.waitForFlukeToReachZeroPressure();
-      } else {
-        await this.fluke.waitForFlukeToReachTargetPressure(pressure);
-      }
+      await this.fluke.waitForFlukeToReachTargetPressure(pressure);
+      // if (pressure === 0) {
+      //   await this.fluke.waitForFlukeToReachZeroPressure(true); // silent = true to avoid duplicate log
+      // } else {
+      //   await this.fluke.waitForFlukeToReachTargetPressure(pressure);
+      // }
     } catch (error) {
       this.handleError('waitForFlukePressure', error, { pressure });
       throw error;
