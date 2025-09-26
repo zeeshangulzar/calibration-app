@@ -227,6 +227,7 @@ class MonsterMeterVerificationService {
       } else {
         await this.fluke.setHighPressureToFluke(pressure);
       }
+      this.showLogOnScreen(`✅ Pressure set to ${pressure} PSI.`);
     } catch (error) {
       this.handleError('setFlukePressure', error, { pressure });
       throw error;

@@ -128,7 +128,7 @@ class MonsterMeterCalibrationService {
     await this.fluke.waitForFlukeToReachTargetPressure(pressureValue);
     if (this.isCalibrationStopped) return;
 
-    // this.showLogOnScreen(`✅ Pressure reached ${pressureValue} PSI. Stabilizing...`);
+    this.showLogOnScreen(`✅ Pressure set to ${pressureValue} PSI.`);
     await this.addDelay(MONSTER_METER_CONSTANTS.DELAY_AFTER_COMMAND);
     if (this.isCalibrationStopped) return;
 

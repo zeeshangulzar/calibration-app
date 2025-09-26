@@ -378,6 +378,7 @@ const ipcHandlers = {
     updateBackButton();
     // Re-enable form fields when calibration stops
     enableFormFields();
+
     addLogMessage(`🛑 Calibration stopped: ${data.reason}`);
     NotificationHelper.showInfo(`Calibration stopped: ${data.reason}`);
     // Keep calibration table visible - don't clear data when stopping
@@ -546,7 +547,7 @@ function populateModelOptions() {
   if (!modelSelect) return;
 
   // Clear existing options except the first one
-  modelSelect.innerHTML = '<option value="">Select Model</option>';
+  modelSelect.innerHTML = '<option value="">Choose Model</option>';
 
   // Add model options from constants
   Object.entries(MONSTER_METER_CONSTANTS.MODEL_OPTIONS).forEach(([key, value]) => {
@@ -567,14 +568,14 @@ function showMonsterMeterWidget(deviceInfo) {
   grid.innerHTML = '';
 
   const card = document.createElement('div');
-  card.className = 'rounded-lg border bg-white p-4 shadow-sm';
+  card.className = 'rounded-lg border bg-white px-4 py-2 shadow-sm';
   card.id = 'monster-meter-widget';
 
   const deviceName = deviceInfo.name || deviceInfo.swVersion || 'N/A';
 
   card.innerHTML = `
     <div class="flex items-center gap-3">
-      <div class="w-full">
+      <div class="w-full flex flex-col">
         <h3 class="font-semibold text-base">Monster Meter</h3>
         <div class="flex items-center gap-2">
           <p class="text-base text-neutral-600 font-semibold">Name:</p>
@@ -775,7 +776,7 @@ function updateVerificationResultsTable(verificationData, pressureArr) {
   if (progressText) {
     const completed = verificationData ? verificationData.length : 0;
     const total = expectedPressures.length;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
 }
 
@@ -784,7 +785,7 @@ function updateVerificationProgress(data) {
   if (progressText && data) {
     const completed = data.completed || 0;
     const total = data.total || 0;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
 }
 
@@ -810,20 +811,27 @@ async function handleStartCalibration() {
   const hasSerialNumber = serialNumber && serialNumber.trim() !== '';
 
   if (!hasTesterName || !hasModel || !hasSerialNumber) {
-    // Show red alert text
+    // Show red alert text when fields are empty with highlight animation
     const subText = document.getElementById('calibration-sub-text');
     if (subText) {
-      subText.classList.remove('text-black');
+      subText.classList.remove('text-gray-500');
       subText.classList.add('text-red-600');
+
+      // Add highlight animation to grab attention
+      subText.classList.add('font-bold', 'rounded-md', 'transition-all', 'duration-300');
+
+      // Remove highlight after 1 second
+      setTimeout(() => {
+        subText.classList.remove('font-bold', 'rounded-md');
+      }, 1000);
     }
     return;
   }
 
-  // Reset text color to black if all fields are filled
+  // Hide the sub-text when starting calibration
   const subText = document.getElementById('calibration-sub-text');
   if (subText) {
-    subText.classList.remove('text-red-600');
-    subText.classList.add('text-black');
+    subText.classList.add('hidden');
   }
 
   try {
@@ -831,6 +839,12 @@ async function handleStartCalibration() {
     const result = await window.electronAPI.monsterMeterStartCalibration(testerName, model, serialNumber.trim());
     if (!result.success) {
       NotificationHelper.showError(`Failed to start calibration: ${result.error}`);
+      // Show the sub-text again if calibration fails
+      if (subText) {
+        subText.classList.remove('hidden');
+        subText.classList.remove('text-red-600');
+        subText.classList.add('text-gray-500');
+      }
     }
   } catch (error) {
     NotificationHelper.showError(`Error starting calibration: ${error.message}`);
@@ -856,11 +870,10 @@ function updateCalibrationButtons() {
   const hasSerialNumber = serialNumberInput?.value && serialNumberInput.value.trim() !== '';
   const canStart = isMonsterMeterConnected && hasTesterName && hasModel && hasSerialNumber;
 
-  // Calibration buttons
+  // Calibration buttons - start button is always enabled, only hide when calibration/verification is active
   if (startCalibrationBtn) {
-    const canStartCalibration = canStart && !isCalibrationActive && !isVerificationActive;
     const shouldHideCalibrationBtn = isCalibrationActive || isVerificationActive || isCalibrationCompleted;
-    startCalibrationBtn.disabled = !canStartCalibration;
+    startCalibrationBtn.disabled = false; // Always enabled
     startCalibrationBtn.classList.toggle('hidden', shouldHideCalibrationBtn);
   }
 
@@ -879,17 +892,7 @@ function updateCalibrationButtons() {
     stopVerificationBtn.classList.toggle('hidden', !isVerificationActive);
   }
 
-  // Update sub-text color based on field completion
-  const subText = document.getElementById('calibration-sub-text');
-  if (subText) {
-    if (hasTesterName && hasModel && hasSerialNumber) {
-      subText.classList.remove('text-red-600');
-      subText.classList.add('text-black');
-    } else {
-      subText.classList.remove('text-black');
-      subText.classList.add('text-red-600');
-    }
-  }
+  // Don't change sub-text color here - only change it when start button is clicked
 }
 
 function updateCalibrationProgress(data) {
@@ -1003,7 +1006,7 @@ function updateCalibrationResultsTable(data) {
   if (progressText) {
     const completed = data.voltagesHiArray.length;
     const total = data.pressureArr.length;
-    progressText.textContent = `Progress: ${completed}/${total} points completed`;
+    progressText.innerHTML = `<span class="font-bold">Progress:</span> ${completed}/${total} points completed`;
   }
 }
 
@@ -1236,9 +1239,9 @@ function showViewPDFButton(filePath, filename) {
   // Create view PDF button
   const viewPDFBtn = document.createElement('button');
   viewPDFBtn.id = 'view-pdf-btn';
-  viewPDFBtn.className = 'px-4 py-2 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full';
-  viewPDFBtn.innerHTML =
-    '<svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> View PDF';
+  viewPDFBtn.className =
+    'px-4 py-2 bg-neutral-800 text-white font-semibold rounded-md hover:bg-neutral-700 transition-colors duration-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-black';
+  viewPDFBtn.innerHTML = '<i class="fa-solid fa-eye mr-2"></i>  View PDF';
 
   // Add click handler to open PDF
   viewPDFBtn.addEventListener('click', () => {
