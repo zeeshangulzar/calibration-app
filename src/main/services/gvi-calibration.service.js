@@ -110,8 +110,8 @@ export class GVICalibrationService {
 
       this.results = results;
 
-      // Set Fluke to zero after calibration completion
-      this.fluke.setZeroPressureToFluke();
+      // Vent Fluke pressure after calibration completion
+      this.fluke.ventFluke();
 
       this.showLogOnScreen(`✅ Calibration completed - Result: ${passed ? 'PASS' : 'FAIL'}`);
       this.sendToRenderer('gvi-calibration-completed', results);
@@ -157,13 +157,17 @@ export class GVICalibrationService {
 
   // Calibration process steps
   async connectToFluke() {
-    await this.executeWithLogging('Connecting to Fluke device', async () => {
+    this.showLogOnScreen('🔧 Connecting to Fluke device...');
+    try {
       const result = await this.fluke.connect();
       if (!result.success) {
         throw new Error(result.error || 'Failed to connect to Fluke device');
       }
       return result;
-    });
+    } catch (error) {
+      this.showLogOnScreen(`❌ Connecting to Fluke device failed: ${error.message || error.error || 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async runFlukePreReqs() {
@@ -377,9 +381,9 @@ export class GVICalibrationService {
   async stopCalibration() {
     this.isCalibrationActive = false;
 
-    // Set Fluke to zero immediately
+    // Vent Fluke pressure instead of setting to zero
     if (this.fluke) {
-      this.fluke.setZeroPressureToFluke(true);
+      this.fluke.ventFluke();
     }
   }
 

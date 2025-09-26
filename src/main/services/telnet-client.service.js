@@ -115,7 +115,7 @@ class TelnetClientService extends EventEmitter {
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
-        const message = `Connected to Fluke at ${this.host}:${this.port}`;
+        const message = `✅ Connected to Fluke at ${this.host}:${this.port}`;
         console.log(message);
 
         this.emit('connected', { host: this.host, port: this.port });

@@ -148,7 +148,7 @@ function setupCalibrationEventListeners() {
       return;
     }
 
-    addLogMessage(`Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI.`);
+    addLogMessage(`✅ Set pressure to ${data.step.psi || data.step.psiMin || 0} PSI.`);
 
     // Store current step data for pressure setting display
     currentStepData = data;
@@ -171,7 +171,6 @@ function setupCalibrationEventListeners() {
       addLogMessage('All calibration steps completed');
     } else {
       // Continue to next step
-      addLogMessage('Proceeding to next step...');
     }
   });
 
@@ -263,9 +262,9 @@ function updateCalibrationTable() {
     .map((step, index) => {
       return `
       <tr id="step-${index}" class="border-b ${step.status === 'current' ? 'bg-gray-50' : ''}">
-        <td class="px-3 py-2 font-medium">${step.gpm}</td>
-        <td class="px-3 py-2">${parseFloat(step.psiMin).toFixed(2)}</td>
-        <td class="px-3 py-2">${parseFloat(step.psiMax).toFixed(2)}</td>
+        <td class="px-3 py-2 font-medium text-base">${step.gpm}</td>
+        <td class="px-3 py-2 text-base">${parseFloat(step.psiMin).toFixed(2)}</td>
+        <td class="px-3 py-2 text-base">${parseFloat(step.psiMax).toFixed(2)}</td>
       </tr>
     `;
     })
@@ -368,7 +367,7 @@ function resetGPMContainer() {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Current flow rate at Gauge</h4>
+          <h4 class="font-bold">Current flow rate at Gauge</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
@@ -530,7 +529,7 @@ async function handleStopCalibration() {
       container.innerHTML = `
         <div class="flex flex-row text-center justify-center">
           <div class="flex items-center">
-            <h4>Please note this GPM at Gauge</h4>
+            <h4 class="font-bold">Current flow rate at Gauge</h4>
           </div>
           <div class="ml-5 flex">
             <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
@@ -546,10 +545,10 @@ async function handleStopCalibration() {
       buttonsContainer.innerHTML = `
         <button
           id="start-calibration-btn"
-          class="border-left-0 rounded-r-md bg-green-600 w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled
         >
-          START CALIBRATION
+          <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
         </button>
       `;
 
@@ -776,8 +775,8 @@ function showGPMInput(step, currentStep, totalSteps) {
     } else {
       // Show NEXT button for intermediate steps
       buttonsContainer.innerHTML = `
-        <button id="next-step-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200">
-          NEXT
+        <button id="next-step-btn" class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200">
+          <i class="fa-solid fa-arrow-right mr-2"></i>NEXT
         </button>
       `;
 
@@ -787,7 +786,7 @@ function showGPMInput(step, currentStep, totalSteps) {
     }
   }
 
-  addLogMessage(`Checking Gauge reading for ${step.gpm} GPM at ${step.psiMin} PSI`);
+  addLogMessage(`📸 Checking Gauge reading for ${step.gpm} GPM at ${step.psiMin} PSI`);
 }
 
 /**
@@ -811,7 +810,7 @@ async function handleNextStep() {
       addLogMessage('All calibration steps completed - waiting for final result');
       // Don't complete yet - wait for user to provide final PASS/FAIL result
     } else {
-      addLogMessage('Proceeding to next step...');
+      // Proceeding to next step
     }
   } catch (error) {
     console.error('Error in next step:', error);
@@ -839,9 +838,9 @@ async function handleCalibrationResult(passed) {
     completeCalibrationProcess();
 
     // Generate PDF and show View PDF button
-    addLogMessage('Generating PDF report...');
+    addLogMessage('📄 Generating PDF report...');
     const pdfResult = await generateCalibrationPDF(passed);
-    addLogMessage('PDF report generated successfully');
+    addLogMessage(`✅ PDF report generated successfully. Click the button above to view it.`);
 
     // Show completion UI with View PDF button
     showCalibrationCompletion(passed, pdfResult);
@@ -868,7 +867,7 @@ function showCalibrationCompletion(passed, pdfResult = null) {
     container.innerHTML = `
       <div class="flex flex-row text-center justify-center">
         <div class="flex items-center">
-          <h4>Gauge: ${model}, Calibration completed</h4>
+          <h4 class="font-bold">Gauge: ${model}, Calibration completed</h4>
         </div>
         <div class="ml-5 flex">
           <h1 class="text-4xl font-bold ${statusColor}">${statusText}</h1>
@@ -879,10 +878,10 @@ function showCalibrationCompletion(passed, pdfResult = null) {
 
   if (buttonsContainer) {
     buttonsContainer.innerHTML = `
-      <button id="view-pdf-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200" style="display: block;">
+      <button id="view-pdf-btn" class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200" style="display: block;">
         <i class="fa-solid fa-eye mr-2"></i>VIEW PDF
       </button>
-      <button id="start-calibration-btn" class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" style="display: none;" disabled>
+      <button id="start-calibration-btn" class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" style="display: none;" disabled>
         <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
       </button>
     `;
@@ -975,10 +974,14 @@ function resetCalibrationUI() {
   const container = elements.gpmAtGaugeContainer;
   if (container) {
     container.innerHTML = `
-      <h4>Please Note GPM at Gauge</h4>
-      <div class="flex items-end">
-        <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
-        <span class="text-2xl font-bold ml-2">GPM</span>
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4 class="font-bold">Current flow rate at Gauge</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
+          <span class="text-4xl font-bold ml-2">GPM</span>
+        </div>
       </div>
     `;
   }
@@ -989,10 +992,10 @@ function resetCalibrationUI() {
     buttonsContainer.innerHTML = `
       <button
         id="start-calibration-btn"
-        class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
-        START CALIBRATION
+        <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
       </button>
     `;
 
@@ -1093,10 +1096,14 @@ function clearCalibrationData() {
   const container = elements.gpmAtGaugeContainer;
   if (container) {
     container.innerHTML = `
-      <h4>Please Note GPM at Gauge</h4>
-      <div class="flex items-end">
-        <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
-        <span class="text-2xl font-bold ml-2">GPM</span>
+      <div class="flex flex-row text-center justify-center">
+        <div class="flex items-center">
+          <h4 class="font-bold">Current flow rate at Gauge</h4>
+        </div>
+        <div class="ml-5 flex">
+          <h1 class="text-4xl font-bold" id="gpm-at-gauge">N/A</h1>
+          <span class="text-4xl font-bold ml-2">GPM</span>
+        </div>
       </div>
     `;
   }
@@ -1106,10 +1113,10 @@ function clearCalibrationData() {
     buttonsContainer.innerHTML = `
       <button
         id="start-calibration-btn"
-        class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled
       >
-        START CALIBRATION
+        <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
       </button>
     `;
 

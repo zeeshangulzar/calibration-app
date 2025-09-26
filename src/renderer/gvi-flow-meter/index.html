@@ -58,7 +58,7 @@
 
           <!-- Back Button Status Message (below back button) -->
           <div id="back-button-status-message" class="hidden mt-4">
-            <div class="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 flex items-center">
+            <div class="bg-[#f4f4f4] border border-gray-200 rounded-md px-3 py-2 flex items-center">
               <i class="fa-solid fa-info-circle text-gray-600 mr-2"></i>
               <span id="back-button-message-text" class="text-gray-800 text-sm font-medium"></span>
             </div>
@@ -66,7 +66,7 @@
         </div>
         <!-- Configuration Section -->
         <div class="bg-white rounded-lg border border-neutral-200 p-6 mb-4">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
             <!-- Model Selection -->
             <div>
               <label class="block text-md mb-2 font-semibold"> Model<span class="text-red-500">*</span> </label>
@@ -120,7 +120,7 @@
             <!-- this button should be rounded from right -->
             <button
               id="start-calibration-btn"
-              class="border-left-0 rounded-r-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="border-left-0 rounded-md bg-black w-full text-white text-xl font-bold px-4 py-2 hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled
             >
               <i class="fa-solid fa-play mr-2"></i>START CALIBRATION
@@ -129,8 +129,8 @@
         </div>
 
         <!-- Stop Calibration Button (visible during calibration) -->
-        <div class="flex justify-end mb-4">
-          <button id="stop-calibration-btn" class="rounded-md bg-red-600 hover:bg-red-700 px-6 py-3 text-white transition-colors font-bold text-xl w-[180px] hidden">
+        <div class="flex justify-end">
+          <button id="stop-calibration-btn" class="rounded-md mb-4 bg-red-600 hover:bg-red-700 px-6 py-3 text-white transition-colors font-bold text-xl w-[180px] hidden">
             <i class="fa-solid fa-stop mr-2"></i>STOP
           </button>
         </div>
@@ -145,9 +145,9 @@
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="border-b">
-                      <th class="px-3 py-2 text-left">GPM</th>
-                      <th class="px-3 py-2 text-left">PSI (min)</th>
-                      <th class="px-3 py-2 text-left">PSI (max)</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">GPM</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">PSI (min)</th>
+                      <th class="px-3 py-2 text-left text-lg font-semibold">PSI (max)</th>
                     </tr>
                   </thead>
                   <tbody id="calibration-table">

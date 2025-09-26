@@ -107,6 +107,7 @@ export class FlukeManager {
         if (!this.isProcessActive()) return;
 
         // Send the setting command
+        this.showLogOnScreen(`🔄 Setting ${command.name}...`);
         if (command.responseExpectedInAction) {
           await this.telnetClient.sendCommand(command.action);
         } else {
@@ -124,7 +125,7 @@ export class FlukeManager {
           this.showLogOnScreen(errorMessage);
           throw new Error(`Fluke calibrator setup failed: ${errorMessage}`);
         } else {
-          this.showLogOnScreen(`✅ ${command.name} configured`);
+          this.showLogOnScreen(`✅ ${command.name} configured.`);
         }
       } else {
         this.showLogOnScreen(`✅ ${command.name} already set correctly.`);
