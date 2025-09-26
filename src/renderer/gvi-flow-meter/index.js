@@ -786,7 +786,7 @@ function showGPMInput(step, currentStep, totalSteps) {
     }
   }
 
-  addLogMessage(`📸 Checking Gauge reading for ${step.gpm} GPM at ${step.psiMin} PSI`);
+  addLogMessage(`📸 Checking Gauge reading for ${step.gpm} GPM at ${step.psiMin} PSI.`);
 }
 
 /**
