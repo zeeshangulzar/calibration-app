@@ -212,10 +212,10 @@ class MonsterMeterVerificationService {
 
       const pressureValue = this.sweepIntervals[i];
       await this.fluke.setHighPressureToFluke(pressureValue);
-      if (this.isVerificationStopped) return;
+      if (this.isVerificationStopped) break;
 
       await this.fluke.waitForFlukeToReachTargetPressure(pressureValue);
-      if (this.isVerificationStopped) return;
+      if (this.isVerificationStopped) break;
 
       this.showLogOnScreen(`✅ Pressure set to ${pressureValue} PSI.`);
       await this.delay(2000);
