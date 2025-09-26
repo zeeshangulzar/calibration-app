@@ -27,7 +27,9 @@ export class FlukeManager {
   async connect() {
     let log = '';
     if (this.telnetClient.isConnected) {
-      return { success: true, message: log };
+      const message = `✅ Fluke already connected at ${this.telnetClient.host}:${this.telnetClient.port}`;
+      this.showLogOnScreen(message);
+      return { success: true, message };
     }
 
     try {

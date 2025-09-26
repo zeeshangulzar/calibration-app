@@ -423,4 +423,28 @@ export class GVIController {
       this.sendToRenderer('gvi-error', { message: userMessage });
     }
   }
+
+  /**
+   * Cleanup controller resources
+   */
+  async cleanup() {
+    try {
+      console.log('GVI Controller: Starting cleanup...');
+
+      // Stop calibration if active and vent Fluke
+      if (this.calibrationService) {
+        await this.calibrationService.cleanup();
+        this.calibrationService = null;
+      }
+
+      console.log('GVI Controller: Cleanup completed');
+    } catch (error) {
+      console.error('GVI Controller: Error during cleanup:', error);
+      sentryLogger.handleError(error, {
+        module: 'gvi',
+        service: 'gvi-controller',
+        method: 'cleanup',
+      });
+    }
+  }
 }

@@ -394,8 +394,17 @@ export class GVICalibrationService {
         this.isCalibrationActive = false;
       }
 
+      // Vent Fluke and disconnect properly
       if (this.fluke && this.fluke.telnetClient && this.fluke.telnetClient.isConnected) {
-        this.fluke.telnetClient.disconnect();
+        try {
+          // Explicitly vent Fluke before disconnecting
+          this.fluke.ventFluke();
+          await this.fluke.disconnect();
+        } catch (ventError) {
+          console.error('Error during Fluke venting/disconnect in cleanup:', ventError);
+          // Try to vent again as a fallback
+          this.handleError(ventError, 'GVI cleanup');
+        }
       }
 
       this.reset();

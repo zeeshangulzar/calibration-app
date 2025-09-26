@@ -3,9 +3,9 @@ import path from 'path';
 import { getMainWindow } from '../windows/main.js';
 import { registerKrakenListIpcHandlers } from './kraken-list.ipc.js';
 import { registerKrakenCalibrationIpcHandlers, cleanupKrakenCalibration } from './kraken-calibration.ipc.js';
-import { registerSettingsIpcHandlers } from './settings.ipc.js';
+import { registerSettingsIpcHandlers, cleanupSettings } from './settings.ipc.js';
 import { registerDeveloperSettingsIpcHandlers } from './developer-settings.ipc.js';
-import { registerMonsterMeterIpcHandlers } from './monster-meter.ipc.js';
+import { registerMonsterMeterIpcHandlers, cleanupMonsterMeter } from './monster-meter.ipc.js';
 import { registerGVIIpcHandlers, cleanupGVI } from './gvi.ipc.js';
 import { registerAssemblySensorIpcHandlers } from './assembly-sensor.ipc.js';
 import { registerMigrationIpcHandlers } from './migration.ipc.js';
@@ -44,6 +44,12 @@ function registerCoreIpcHandlers() {
 export async function cleanupIpcResources() {
   try {
     console.log('Cleaning up IPC resources...');
+
+    // Cleanup settings (includes Fluke disconnection for test connections)
+    await cleanupSettings();
+
+    // Cleanup Monster Meter (includes any Fluke connections)
+    await cleanupMonsterMeter();
 
     // Cleanup kraken calibration (includes Fluke disconnection)
     await cleanupKrakenCalibration();

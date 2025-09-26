@@ -160,3 +160,20 @@ export function registerSettingsIpcHandlers() {
     }
   });
 }
+
+/**
+ * Cleanup settings resources (called on app quit)
+ */
+export async function cleanupSettings() {
+  if (settingsController) {
+    try {
+      console.log('Cleaning up Settings on app quit...');
+      await settingsController.cleanup();
+      settingsController = null;
+      console.log('Settings cleanup completed');
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Error during Settings cleanup on app quit:', error);
+    }
+  }
+}
