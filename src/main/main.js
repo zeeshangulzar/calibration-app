@@ -8,6 +8,7 @@ import { createMainWindow } from './windows/main.js';
 import { registerIpcHandlers, cleanupIpcResources } from './ipc/index.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
 import { runAllSeeds } from './db/seeds/index.js';
+import { getLocationService } from '../shared/helpers/location-helper.js';
 
 // Initialize Sentry for crash tracking (must be done early)
 import * as Sentry from '@sentry/electron/main';
@@ -96,6 +97,17 @@ app.whenReady().then(async () => {
     } catch (seedError) {
       console.warn('Failed to run database seeds:', seedError.message);
       throw seedError;
+    }
+
+    // Initialize location service
+    try {
+      console.log('Initializing location service...');
+      const locationService = getLocationService();
+      await locationService.initialize();
+      console.log('Location service initialized successfully');
+    } catch (locationError) {
+      console.warn('Failed to initialize location service:', locationError.message);
+      // Continue with app startup even if location service fails
     }
   } catch (error) {
     Sentry.captureException(error);
