@@ -308,6 +308,15 @@ class MonsterMeterVerificationService {
 
     this.sendVerificationUpdate();
     this.sendLiveSensorData(data);
+
+    // Send live data update with current pressure for UI display
+    this.sendToRenderer('monster-meter-live-data', {
+      referencePressure: pressureValue,
+      voltageHi: voltageHi,
+      pressureHi: pressureHi,
+      voltageLo: voltageLo,
+      pressureLo: pressureLo,
+    });
   }
 
   updateVerificationArrays(voltageHi, pressureHi, voltageLo, pressureLo, pressureValue) {
