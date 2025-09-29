@@ -9,6 +9,7 @@ import { registerIpcHandlers, cleanupIpcResources } from './ipc/index.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
 import { runAllSeeds } from './db/seeds/index.js';
 import { getLocationService } from '../shared/helpers/location-helper.js';
+import * as Sentry from '@sentry/electron/main';
 
 // Initialize Sentry for crash tracking (must be done early)
 import { getMainProcessConfig, isSentryConfigured } from '../config/sentry.config.js';
