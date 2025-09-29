@@ -11,8 +11,8 @@ import { runAllSeeds } from './db/seeds/index.js';
 import { getLocationService } from '../shared/helpers/location-helper.js';
 
 // Initialize Sentry for crash tracking (must be done early)
-import * as Sentry from '@sentry/electron/main';
 import { getMainProcessConfig, isSentryConfigured } from '../config/sentry.config.js';
+import { sentryLogger } from './loggers/sentry.logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +37,7 @@ process.on('uncaughtException', error => {
   if (error.code === 'ERR_UNHANDLED_ERROR') {
     console.error('Unhandled EventEmitter error:', error);
     if (isSentryConfigured()) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'MAIN', method: 'uncaughtException', tags: { errorType: 'ERR_UNHANDLED_ERROR' } });
     }
     console.error('App continuing despite unhandled EventEmitter error');
     return; // Don't process this error further
@@ -46,7 +46,7 @@ process.on('uncaughtException', error => {
   // Handle other uncaught exceptions
   console.error('Uncaught exception:', error);
   if (isSentryConfigured()) {
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'MAIN', method: 'uncaughtException' });
   }
 
   // Log the error but don't crash the app
@@ -54,7 +54,7 @@ process.on('uncaughtException', error => {
   if (process.env.NODE_ENV === 'development') {
     console.error('Development mode: Consider fixing this uncaught exception');
   } else {
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'MAIN', method: 'uncaughtException', level: 'error' });
   }
 });
 
@@ -62,7 +62,7 @@ process.on('uncaughtException', error => {
 process.on('error', error => {
   console.error('Process error:', error);
   if (isSentryConfigured()) {
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'MAIN', method: 'processError' });
   }
   console.error('App continuing despite process error');
 });
@@ -70,7 +70,7 @@ process.on('error', error => {
 process.on('unhandledRejection', reason => {
   console.error('Unhandled rejection:', reason);
   if (isSentryConfigured()) {
-    Sentry.captureException(new Error(`Unhandled Rejection: ${reason}`));
+    sentryLogger.handleError(new Error(`Unhandled Rejection: ${reason}`), { module: 'MAIN', method: 'unhandledRejection' });
   }
 });
 
@@ -110,7 +110,7 @@ app.whenReady().then(async () => {
       // Continue with app startup even if location service fails
     }
   } catch (error) {
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'MAIN', method: 'initializeDatabase' });
     console.error('Failed to initialize database:', error);
     // Continue with app startup even if database fails
   }
@@ -141,7 +141,7 @@ app.on('before-quit', async event => {
 
     console.log('App cleanup completed, quitting...');
   } catch (error) {
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'MAIN', method: 'appCleanup' });
     console.error('Error during app cleanup:', error);
   } finally {
     clearTimeout(cleanupTimeout);

@@ -1,7 +1,7 @@
 import { getMonsterMeterConnection } from '../services/monster-meter-connection.service.js';
 import { getMonsterMeterCommunication } from '../services/monster-meter-communication.service.js';
 import { getMonsterMeterState } from '../../state/monster-meter-state.service.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 /**
  * Monster Meter Controller - Orchestrates Monster Meter connectivity and communication
@@ -150,8 +150,10 @@ class MonsterMeterController {
   }
 
   handleError(method, error, userMessage = null, extra = {}) {
-    Sentry.captureException(error, {
-      tags: { controller: 'monster-meter', method },
+    sentryLogger.handleError(error, {
+      module: 'monster-meter',
+      service: 'monster-meter-controller',
+      method,
       extra,
     });
     console.error(`Error in ${method}:`, error);

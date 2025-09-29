@@ -3,7 +3,7 @@ import { getKrakenConnection } from '../services/kraken-connection.service.js';
 import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.service.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { getSignalStrengthInfo } from '../../shared/helpers/signal-strength.helper.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 class KrakenListController {
   constructor(mainWindow) {
@@ -218,9 +218,7 @@ class KrakenListController {
       await this.scanner.startScanning();
       return { success: true };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'kraken-list-controller', method: 'startScan' },
-      });
+      this.handleError('startScan', error);
       console.error('Error starting scan:', error);
       return { success: false, error: error.message };
     }
@@ -231,9 +229,7 @@ class KrakenListController {
       await this.scanner.stopScanning();
       return { success: true };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'kraken-list-controller', method: 'stopScan' },
-      });
+      this.handleError('stopScan', error);
       console.error('Error stopping scan:', error);
       return { success: false, error: error.message };
     }
@@ -246,9 +242,7 @@ class KrakenListController {
       this.sendToRenderer('scan-refreshed');
       return { success: true };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'kraken-list-controller', method: 'refreshScan' },
-      });
+      this.handleError('refreshScan', error);
       console.error('Error refreshing scan:', error);
       return { success: false, error: error.message };
     }
@@ -283,10 +277,7 @@ class KrakenListController {
         failedCount: results.failed?.length || 0,
       };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'kraken-list-controller', method: 'connectToSelectedDevices' },
-        extra: { deviceIds },
-      });
+      this.handleError('connectToSelectedDevices', error, { deviceIds });
       this.sendToRenderer('hide-loader');
       console.error('Error connecting to devices:', error);
       return { success: false, error: error.message };
@@ -313,6 +304,15 @@ class KrakenListController {
     return this.connection.getConnectionStatus();
   }
 
+  handleError(method, error, extra = {}) {
+    sentryLogger.handleError(error, {
+      module: 'kraken-list-controller',
+      service: 'kraken-list-controller',
+      method,
+      extra,
+    });
+  }
+
   async cleanup() {
     try {
       // Ensure connection service is properly reset for fresh connections
@@ -323,7 +323,7 @@ class KrakenListController {
       await this.connection.cleanup();
       this.selectedDeviceIds.clear();
     } catch (error) {
-      Sentry.captureException(error);
+      this.handleError('cleanup', error);
       console.error('Error during kraken list cleanup:', error);
     }
   }
@@ -344,9 +344,7 @@ class KrakenListController {
 
       return { success: true };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'kraken-list-controller', method: 'initialize' },
-      });
+      this.handleError('initialize', error);
       console.error('Error initializing kraken list:', error);
       return { success: false, error: error.message };
     }

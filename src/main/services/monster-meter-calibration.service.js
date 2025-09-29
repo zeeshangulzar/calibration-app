@@ -9,7 +9,7 @@ import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.co
 
 import { convertCelciusToFahrenheit } from '../utils/general.utils.js';
 
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 class MonsterMeterCalibrationService {
   constructor(monsterMeterState, monsterMeterCommunication, sendToRenderer, showLogOnScreen) {
@@ -564,8 +564,9 @@ class MonsterMeterCalibrationService {
   }
 
   handleError(error, method) {
-    Sentry.captureException(error, {
-      tags: { component: 'monster-meter-calibration-service', method },
+    sentryLogger.handleError(error, {
+      module: 'MONSTER_METER_CALIBRATION',
+      method,
     });
     console.error(`MonsterMeterCalibrationService.${method}:`, error);
   }
@@ -595,7 +596,7 @@ class MonsterMeterCalibrationService {
 
     if (!result.success) {
       this.showLogOnScreen(`⚠️ Failed to write date to Monster Meter: ${result.error}`);
-      Sentry.captureException(result.error);
+      sentryLogger.handleError(result.error, { module: 'MONSTER_METER_CALIBRATION', method: 'writeDateToMonsterMeter' });
     }
   }
 

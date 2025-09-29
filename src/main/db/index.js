@@ -1,7 +1,7 @@
 import path from 'path';
 import { app } from 'electron';
 import Database from 'better-sqlite3';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 import { MigrationManager } from './migration-manager.js';
 
 // Store DB in user's app data directory
@@ -51,8 +51,9 @@ export async function initializeDatabase() {
 
     return db;
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'initializeDatabase' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'initializeDatabase',
     });
     console.error('Failed to initialize database:', error);
     throw error;
@@ -82,7 +83,7 @@ export function getMigrationStatus() {
     return migrationManager.getMigrationStatus();
   } catch (error) {
     console.error('Failed to get migration status:', error);
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'DATABASE', method: 'getMigrationStatus' });
     return null;
   }
 }
@@ -107,8 +108,9 @@ export function getFlukeSettings() {
     const settings = db.prepare('SELECT fluke_ip, fluke_port, mock_fluke_enabled FROM app_settings ORDER BY id DESC LIMIT 1').get();
     return settings || { fluke_ip: '10.10.69.27', fluke_port: '5025', mock_fluke_enabled: 0 };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'getFlukeSettings' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'getFlukeSettings',
     });
     console.error('Failed to get fluke settings:', error);
     return { fluke_ip: '10.10.69.27', fluke_port: '5025', mock_fluke_enabled: 0 };
@@ -148,8 +150,9 @@ export function saveFlukeSettings(ip, port) {
     console.log(`Saved fluke settings - IP: ${ip}, Port: ${port}`);
     return { success: true, message: 'Settings saved successfully' };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'saveFlukeSettings' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'saveFlukeSettings',
     });
     console.error('Failed to save fluke settings:', error);
     return { success: false, error: error.message };
@@ -183,8 +186,9 @@ export function addCommandToHistory(type, content, relatedCommand = null) {
 
     return { success: true };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'addCommandToHistory' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'addCommandToHistory',
     });
     console.error('Failed to add command to history:', error);
     return { success: false, error: error.message };
@@ -208,8 +212,9 @@ export function getCommandHistory(limit = 50) {
       )
       .all(limit);
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'getCommandHistory' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'getCommandHistory',
     });
     console.error('Failed to get command history:', error);
     return [];
@@ -225,8 +230,9 @@ export function clearCommandHistory() {
     db.prepare('DELETE FROM command_history').run();
     return { success: true, message: 'Command history cleared' };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'clearCommandHistory' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'clearCommandHistory',
     });
     console.error('Failed to clear command history:', error);
     return { success: false, error: error.message };
@@ -243,8 +249,9 @@ export function getDeveloperSettings() {
       mockFlukeEnabled: settings?.mock_fluke_enabled === 1 || false,
     };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'getDeveloperSettings' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'getDeveloperSettings',
     });
     console.error('Failed to get developer settings:', error);
     return {
@@ -280,8 +287,9 @@ export function saveDeveloperSettings(settings) {
     console.log(`Saved developer settings - Mock Fluke: ${settings.mockFlukeEnabled}`);
     return { success: true, message: 'Developer settings saved successfully' };
   } catch (error) {
-    Sentry.captureException(error, {
-      tags: { service: 'database', method: 'saveDeveloperSettings' },
+    sentryLogger.handleError(error, {
+      module: 'DATABASE',
+      method: 'saveDeveloperSettings',
     });
     console.error('Failed to save developer settings:', error);
     return { success: false, error: error.message };

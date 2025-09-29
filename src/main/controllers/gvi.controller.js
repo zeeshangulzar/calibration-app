@@ -377,11 +377,7 @@ export class GVIController {
       }
     } catch (error) {
       console.error('[GVI Controller] Error saving calibration report:', error);
-      sentryLogger.handleError(error, {
-        module: 'gvi',
-        service: 'gvi-controller',
-        method: 'saveCalibrationReport',
-      });
+      this.handleError('saveCalibrationReport', error);
     }
   }
 
