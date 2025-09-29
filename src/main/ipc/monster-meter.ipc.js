@@ -3,7 +3,7 @@ import { getMainWindow } from '../windows/main.js';
 import { MonsterMeterController } from '../controllers/monster-meter.controller.js';
 import { MonsterMeterCalibrationService } from '../services/monster-meter-calibration.service.js';
 import { MonsterMeterVerificationService } from '../services/monster-meter-verification.service.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 let monsterMeterController = null;
 let monsterMeterCalibrationService = null;
@@ -28,8 +28,9 @@ const createHandler =
 
       return await handlerFunction(event, ...args);
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { ipc: 'monster-meter', handler: handlerName },
+      sentryLogger.handleError(error, {
+        module: 'MONSTER_METER_IPC',
+        method: handlerName,
         extra: { args },
       });
       console.error(`Error in ${handlerName}:`, error);
@@ -252,7 +253,7 @@ const handlers = {
       return { success: true, filePath };
     } catch (error) {
       console.error('Error opening PDF:', error);
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'MONSTER_METER_IPC', method: 'openPDF' });
       return { success: false, error: error.message };
     }
   },
@@ -316,7 +317,7 @@ export async function cleanupMonsterMeter() {
       monsterMeterController = null;
       console.log('Monster Meter cleanup completed');
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'MONSTER_METER_IPC', method: 'cleanupOnAppQuit' });
       console.error('Error during Monster Meter cleanup on app quit:', error);
     }
   }

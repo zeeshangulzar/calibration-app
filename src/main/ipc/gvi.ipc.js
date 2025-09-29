@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { getMainWindow } from '../windows/main.js';
 import { GVIController } from '../controllers/gvi.controller.js';
 import { gviReportsDb } from '../db/gvi-reports.db.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 import path from 'path';
 
 let gviController = null;
@@ -25,8 +25,9 @@ const createHandler =
 
       return await handlerFunction(event, ...args);
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { ipc: 'gvi', handler: handlerName },
+      sentryLogger.handleError(error, {
+        module: 'GVI_IPC',
+        method: handlerName,
         extra: { args },
       });
       console.error(`GVI IPC Error in ${handlerName}:`, error);
@@ -169,6 +170,6 @@ export async function cleanupGVI() {
     }
   } catch (error) {
     console.error('Error cleaning up GVI:', error);
-    Sentry.captureException(error);
+    sentryLogger.handleError(error, { module: 'GVI_IPC', method: 'cleanup' });
   }
 }
