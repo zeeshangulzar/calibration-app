@@ -5,7 +5,7 @@ import { KrakenPDFService } from './kraken-pdf.service.js';
 import { updateKrakenName } from './uart-service.js';
 import { ErrorMessageService } from '../../shared/services/error-message.service.js';
 
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 class KrakenVerificationService {
   constructor(globalState, flukeManager, sendToRenderer, showLogOnScreen) {
@@ -144,7 +144,7 @@ class KrakenVerificationService {
         this.sendToRenderer('kraken-verification-sweep-completed', this.globalState.getKrakenSweepData());
       }
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'KRAKEN_VERIFICATION', method: 'startVerification' });
       this.showLogOnScreen(`❌ Error during verification sweep: ${error.message}`);
       console.error('Error during verification sweep:', error);
 
@@ -222,7 +222,7 @@ class KrakenVerificationService {
         }
       }
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'KRAKEN_VERIFICATION', method: 'startVerification' });
       const errorMessage = `Error during verification at ${targetPressure} PSI: ${error.message}`;
       this.showLogOnScreen(`❌ ${errorMessage}`);
       console.error(`Error at pressure ${targetPressure}:`, error);
@@ -315,7 +315,7 @@ class KrakenVerificationService {
           }
         } catch (deviceError) {
           errorCount++;
-          Sentry.captureException(deviceError);
+          sentryLogger.handleError(deviceError);
           console.error(`Error processing device ${device.id}:`, deviceError);
           const specificError = ErrorMessageService.createVerificationErrorMessage('device processing', deviceError, device.displayName || device.id);
           this.showLogOnScreen(`❌ ${specificError}`);
@@ -328,7 +328,7 @@ class KrakenVerificationService {
         this.showLogOnScreen(`📋 Certification processing completed with ${errorCount} error(s). ${processedCount} device(s) processed successfully.`);
       }
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'KRAKEN_VERIFICATION', method: 'startVerification' });
       console.error('Error processing verification results:', error);
       const specificError = ErrorMessageService.createVerificationErrorMessage('certification processing', error);
       this.showLogOnScreen(`❌ Critical error: ${specificError}`);
@@ -419,7 +419,7 @@ class KrakenVerificationService {
         throw new Error(result.error || 'PDF generation failed');
       }
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'KRAKEN_VERIFICATION', method: 'startVerification' });
       console.error(`Error generating PDF for device ${device.id}:`, error);
       this.showLogOnScreen(`⚠️ Warning: Failed to generate PDF for ${device.displayName || device.id}: ${error.message}`);
       return { success: false, error: error.message };
@@ -460,7 +460,7 @@ class KrakenVerificationService {
 
       return { success: true, newName: newName };
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error, { module: 'KRAKEN_VERIFICATION', method: 'startVerification' });
       this.showLogOnScreen(`❌ Failed to update kraken name: ${error.message}`);
       return { success: false, error: error.message };
     }

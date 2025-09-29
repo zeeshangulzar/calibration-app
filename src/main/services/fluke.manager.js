@@ -2,7 +2,7 @@ import { getTelnetClient } from './telnet-client.service.js';
 import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 /**
  * Fluke Manager
@@ -37,8 +37,9 @@ export class FlukeManager {
       this.showLogOnScreen(response.message);
       return response;
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'fluke-manager', method: 'connect' },
+      sentryLogger.handleError(error, {
+        module: 'FLUKE_MANAGER',
+        method: 'connect',
       });
       const errorMessage = error.error || error.message || 'Unknown connection error';
       log = `❌ Failed to connect to Fluke: ${errorMessage}`;
@@ -149,7 +150,7 @@ export class FlukeManager {
         return false; // Pressure needs to be set to zero
       }
     } catch (error) {
-      Sentry.captureException(error);
+      sentryLogger.handleError(error);
       const errorMessage = error.error || error.message || 'Unknown error';
       this.showLogOnScreen(`❌ Failed to check pressure: ${errorMessage}`);
       throw new Error(`Pressure check failed: ${errorMessage}`);
@@ -192,8 +193,9 @@ export class FlukeManager {
         await this.waitForFlukeToReachZeroPressure();
       }
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'fluke-manager', method: 'ensureZeroPressure' },
+      sentryLogger.handleError(error, {
+        module: 'FLUKE_MANAGER',
+        method: 'ensureZeroPressure',
       });
       // const errorMessage = error.error || error.message || 'Unknown error';
       // this.showLogOnScreen(`❌ Failed to ensure zero pressure: ${errorMessage}`);
@@ -276,8 +278,9 @@ export class FlukeManager {
 
       return response && response.length > 0;
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'fluke-manager', method: 'isFlukeResponsive' },
+      sentryLogger.handleError(error, {
+        module: 'FLUKE_MANAGER',
+        method: 'isFlukeResponsive',
       });
       console.warn('Fluke responsiveness check failed:', error.message);
       return false;
@@ -289,8 +292,9 @@ export class FlukeManager {
       this.telnetClient.sendCommandWithoutWaitingForResponse(FlukeUtil.flukeSetOutputPressureModeVentCommand);
       console.log('Fluke vent command sent');
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'fluke-manager', method: 'ventFluke' },
+      sentryLogger.handleError(error, {
+        module: 'FLUKE_MANAGER',
+        method: 'ventFluke',
       });
       console.warn('Fluke vent command failed:', error);
     }
@@ -303,8 +307,9 @@ export class FlukeManager {
         return parseFloat(response).toFixed(2);
       }
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'fluke-manager', method: 'getTemperature' },
+      sentryLogger.handleError(error, {
+        module: 'FLUKE_MANAGER',
+        method: 'getTemperature',
       });
       console.warn('Fluke get temperature failed:', error.message);
       return null;

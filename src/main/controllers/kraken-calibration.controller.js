@@ -12,7 +12,7 @@ import { KrakenCalibrationManager } from '../managers/kraken-calibration.manager
 import { KrakenUIManager } from '../managers/kraken-ui.manager.js';
 import { KrakenVerificationService } from '../services/kraken-verification.service.js';
 
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 /**
  * Kraken Calibration Controller
@@ -196,7 +196,7 @@ class KrakenCalibrationController {
     } catch (error) {
       this.globalState.isCalibrationActive = false;
       console.error('Error starting calibration:', error);
-      Sentry.captureException(error);
+      this.handleError('startCalibration', error);
 
       // Extract meaningful error message
       const errorMessage = error.error || error.message || 'Please try again after some time.';
@@ -341,7 +341,7 @@ class KrakenCalibrationController {
       verificationSuccessful = true;
       console.log('KrakenCalibrationController: Verification service completed successfully');
     } catch (error) {
-      Sentry.captureException(error);
+      this.handleError('startVerification', error);
       this.uiManager.showLogOnScreen(`❌ Error during verification: ${error.message}`);
       verificationSuccessful = false;
       console.log('KrakenCalibrationController: Verification service failed:', error.message);
@@ -439,6 +439,15 @@ class KrakenCalibrationController {
     }
   }
 
+  handleError(method, error, extra = {}) {
+    sentryLogger.handleError(error, {
+      module: 'kraken-calibration-controller',
+      service: 'kraken-calibration-controller',
+      method,
+      extra,
+    });
+  }
+
   /**
    * Cleanup all resources and connections
    * @returns {Promise<void>}
@@ -462,7 +471,7 @@ class KrakenCalibrationController {
 
       console.log('Calibration controller cleanup completed');
     } catch (error) {
-      Sentry.captureException(error);
+      this.handleError('cleanup', error);
       console.error('Error during calibration controller cleanup:', error);
       // Continue cleanup even if Fluke disconnection fails
       await this.globalState.cleanup();

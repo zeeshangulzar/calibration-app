@@ -16,7 +16,6 @@ export class GVIController {
     this.pdfService = getGVIPDFService();
     this.state = getGVICalibrationState();
     this.currentReportId = null; // Store current report ID for PDF path update
-
     this.setupEventListeners();
   }
 
@@ -37,7 +36,6 @@ export class GVIController {
       this.calibrationService = new GVICalibrationService(this.state, this.sendToRenderer.bind(this), this.showLogOnScreen.bind(this));
 
       await this.calibrationService.initialize();
-
       this.sendToRenderer('gvi-initialized');
       this.showLogOnScreen('GVI Flow Meter controller initialized');
     } catch (error) {
@@ -379,11 +377,7 @@ export class GVIController {
       }
     } catch (error) {
       console.error('[GVI Controller] Error saving calibration report:', error);
-      sentryLogger.handleError(error, {
-        module: 'gvi',
-        service: 'gvi-controller',
-        method: 'saveCalibrationReport',
-      });
+      this.handleError('saveCalibrationReport', error);
     }
   }
 
@@ -410,14 +404,13 @@ export class GVIController {
     }
   }
 
-  handleError(method, error, userMessage = null, extra = {}) {
+  async handleError(method, error, userMessage = null, extra = {}) {
     sentryLogger.handleError(error, {
       module: 'gvi',
       service: 'gvi-controller',
       method,
       extra,
     });
-    console.error(`Error in ${method}:`, error);
 
     if (userMessage) {
       this.sendToRenderer('gvi-error', { message: userMessage });

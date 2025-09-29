@@ -2,7 +2,7 @@ import { getTelnetClient } from '../services/telnet-client.service.js';
 import { COMMAND_HELPERS } from '../constants/fluke-commands.js';
 import * as FlukeUtil from '../utils/fluke.utils.js';
 import { addCommandToHistory } from '../db/index.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 /**
  * Controller for managing application settings
@@ -100,9 +100,7 @@ class SettingsController {
       this.sendToRenderer('fluke-test-result', result);
       return result;
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-controller', method: 'testFlukeConnection' },
-      });
+      this.handleError('testFlukeConnection', error);
       console.error('Error testing Fluke connection:', error);
       const result = { success: false, error: error.message };
       this.sendToRenderer('fluke-test-result', result);
@@ -118,9 +116,7 @@ class SettingsController {
     try {
       return await this.telnetClient.connect();
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-controller', method: 'connectToFluke' },
-      });
+      this.handleError('connectToFluke', error);
       console.error('Error connecting to Fluke:', error);
       return { success: false, error: error.message };
     }
@@ -160,10 +156,7 @@ class SettingsController {
         };
       }
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-controller', method: 'sendFlukeCommand' },
-        extra: { command },
-      });
+      this.handleError('sendFlukeCommand', error, { command });
       console.error('Error sending Fluke command:', error);
       return {
         success: false,
@@ -231,6 +224,14 @@ class SettingsController {
     }
   }
 
+  handleError(method, error, extra = {}) {
+    sentryLogger.handleError(error, {
+      module: 'settings',
+      service: 'settings-controller',
+      method,
+      extra,
+    });
+  }
   /**
    * Cleanup controller resources
    */
@@ -247,9 +248,7 @@ class SettingsController {
         console.log('SettingsController: Fluke vented before disconnect');
       } catch (error) {
         console.warn('SettingsController: Fluke venting failed:', error);
-        Sentry.captureException(error, {
-          tags: { service: 'settings-controller', method: 'cleanup' },
-        });
+        this.handleError('cleanup', error);
       } finally {
         await this.telnetClient.disconnect();
         console.log('SettingsController: Fluke disconnected');
@@ -273,9 +272,7 @@ class SettingsController {
 
       return { success: true };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { service: 'settings-controller', method: 'initialize' },
-      });
+      this.handleError('initialize', error);
       console.error('Error initializing settings controller:', error);
       return { success: false, error: error.message };
     }

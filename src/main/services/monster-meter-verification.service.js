@@ -14,7 +14,7 @@ import { generateReverseStepArray } from '../utils/kraken-calibration.utils.js';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import { MonsterMeterPDFService } from './monster-meter-pdf.service.js';
 import { monsterMeterReportsDb } from '../db/monster-meter-reports.db.js';
-import * as Sentry from '@sentry/electron/main';
+import { sentryLogger } from '../loggers/sentry.logger.js';
 
 class MonsterMeterVerificationService {
   constructor(monsterMeterState, monsterMeterCommunication, sendToRenderer, showLogOnScreen) {
@@ -547,8 +547,9 @@ class MonsterMeterVerificationService {
   }
 
   handleError(method, error, extra = {}) {
-    Sentry.captureException(error, {
-      tags: { service: 'monster-meter-verification', method },
+    sentryLogger.handleError(error, {
+      module: 'MONSTER_METER_VERIFICATION',
+      method,
       extra,
     });
     console.error(`[MonsterMeterVerificationService.${method}]`, error);
