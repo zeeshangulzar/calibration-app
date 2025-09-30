@@ -7,15 +7,15 @@
   <body>
     <div class='top-header'>
       <div class='logo-and-address'>
-        {{#if logoUrl}}
-          <img src='{{logoUrl}}' alt='Logo' style='height: 70px; width: 70px; object-fit: contain' />
-        {{/if}}
+        <img src='{{logoUrl}}' alt='Company Logo' />
         <div class='company-details'>
-          {{companyAddress}}<br />{{companyArea}}<br />{{companyPhone}}<br />{{companyEmail}}
+          <div>{{companyAddress}}, {{companyArea}}</div>
+          <div>{{companyPhone}}</div>
+          <div>{{companyEmail}}</div>
         </div>
       </div>
       <div class='report-box'>
-        REPORT #:
+        Report #:
         <span class='report-number'>{{reportId}}</span>
       </div>
     </div>
@@ -26,38 +26,35 @@
 
     <div class='info-boxes'>
       <div class='info-box'>
-        <div class='product-serial-row'>
-          <div class='product-description'>
-            <span>{{productDescription}}</span>
-            <label>Product Description</label>
-          </div>
-          <div class='serial-number'>
+        <div>
+          <span>{{productDescription}}</span>
+          <label>Product Description</label>
+        </div>
+        <div>
+          <span>{{modelNumber}}</span>
+          <label>Model Number</label>
+        </div>
+        <div class='serial-location-row'>
+          <div class='serial-item'>
             <span>{{serialNumber}}</span>
             <label>Serial Number</label>
           </div>
-        </div>
-        <div class='product-serial-row'>
-          <div class='product-description'>
-            <span>{{modelNumber}}</span>
-            <label>Model Number</label>
+          <div class='location-item'>
+            <span>{{testLocation}}</span>
+            <label>Test Location</label>
           </div>
-
-          {{!-- <div class='product-description'>
-            <span>{{gaugeName}}</span>
-            <label>Gauge</label>
-          </div> --}}
         </div>
-        <div class='product-serial-row'>
-          <div class='product-description'>
+        <div class='date-row'>
+          <div class='date-item'>
             <span>{{calDate}}</span>
             <label>Cal Date</label>
           </div>
-          <div class='serial-number'>
+          <div class='date-item color-red'>
             <span>{{calDueDate}}</span>
             <label>Cal Due Date</label>
           </div>
         </div>
-        <div style='font-size: 11px; color: #666; margin-top: 8px; text-align: center; font-weight: bold'>
+        <div class='validity-text'>
           This certificate is valid only for one year.
         </div>
       </div>
@@ -92,7 +89,7 @@
       </tr>
     </table>
 
-    <h3 style='color: #000'>Calibration Data</h3>
+    <h3 style='color: #000; text-align: left;'>Calibration Data</h3>
     <table>
       <thead>
         <tr>
@@ -114,12 +111,12 @@
       </tbody>
     </table>
 
-    <div class='footer' style='margin-left: auto;'>
-      <div style='border: 1px solid black; padding: 15px 20px;'>
-        <p style='display: flex; justify-content: space-between;'><strong>Inspected By:&nbsp;&nbsp;</strong> <span>{{testerName}}</span></p>
+    <div class='footer' style='width: 300px; margin-left: auto; display: block;'>
+      <div style='border: 1px solid black; padding: 10px 15px;'>
+        <p style='display: flex; justify-content: space-between;'><strong>Tester Name:&nbsp;&nbsp;</strong> <span>{{testerName}}</span></p>
 
-        <hr />
-        <p style='display: flex; justify-content: space-between;'><strong>Date:&nbsp;&nbsp;</strong> <span>{{testDate}}</span></p>
+        <hr class='blue-hr' />
+        <p style='display: flex; justify-content: space-between;'><strong>Tested At:&nbsp;&nbsp;</strong> <span>{{testDate}}</span></p>
       </div>
     </div>
   </body>

@@ -434,6 +434,10 @@ export class KrakenDeviceSetupManager {
       // Store the latest pressure value for verification process
       this.globalState.setDevicePressure(deviceId, pressureValue);
 
+      // Get device name for pressure readings display
+      const device = this.globalState.connectedDevices.get(deviceId);
+      const deviceName = device ? device.name || device.id : deviceId;
+
       this.sendToRenderer('device-data-update', {
         deviceId,
         pressure: {
@@ -441,6 +445,13 @@ export class KrakenDeviceSetupManager {
           unit: 'PSI',
         },
         timestamp: Date.now(),
+      });
+
+      // Also send pressure update for pressure readings section
+      this.sendToRenderer('update-kraken-pressure', {
+        deviceId,
+        deviceName,
+        pressure: pressureValue,
       });
     } catch (error) {
       console.error(`Error parsing data from device ${deviceId}:`, error);

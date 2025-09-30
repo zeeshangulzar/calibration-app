@@ -109,7 +109,11 @@
                 <button id="show-results-btn" class="rounded-lg bg-neutral-800 px-4 py-2 text-white hover:bg-neutral-700 transition-colors hidden">
                   <i class="fa-solid fa-chart-line mr-2"></i> Show Calibration Results
                 </button>
-                <button id="start-calibration-btn" class="rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button
+                  id="start-calibration-btn"
+                  class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled
+                >
                   <i class="fa-solid fa-play mr-2"></i>Start Calibration
                 </button>
                 <button id="start-verification-btn" class="rounded-md bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-white transition-colors hidden">
@@ -165,8 +169,8 @@
           </div>
         </div>
 
-        <div id="verification-results-container" class="hidden mt-0">
-          <h2 class="text-xl font-semibold mb-2">Verification Sweep Results</h2>
+        <div id="verification-results-container" class="hidden mt-0 pb-8">
+          <h2 class="text-xl font-semibold mb-2">Verification Results</h2>
 
           <div class="flex flex-row">
             <!-- <button id="remove-verification-button" class="self-end py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">

@@ -7,6 +7,8 @@ export const GLOBAL_CONSTANTS = {
   COMPANY_CITY_STATE_ZIP: 'Mundelein, IL 60060',
   COMPANY_PHONE: '(888) 202-9987',
   COMPANY_EMAIL: 'service@hosemonster.com',
+  // Test Location
+  TEST_LOCATION: 'Hosemonster USA',
 };
 
 // Pagination constants

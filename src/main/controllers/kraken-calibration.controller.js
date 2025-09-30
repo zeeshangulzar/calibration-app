@@ -4,6 +4,7 @@ import { getKrakenCalibrationState } from '../../state/kraken-calibration-state.
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
 import { FlukeFactoryService } from '../services/fluke-factory.service.js';
+import { convertCelciusToFahrenheit } from '../utils/general.utils.js';
 
 // Import the new managers
 import { KrakenDeviceSetupManager } from '../managers/kraken-device-setup.manager.js';
@@ -188,6 +189,7 @@ class KrakenCalibrationController {
 
       await this.setupCalibrationUI();
       await this.prepareFlukeAndDevices();
+      await this.captureFlukeTemperature();
       await this.executeCalibration();
 
       // Only complete calibration if it wasn't stopped
@@ -442,6 +444,30 @@ class KrakenCalibrationController {
   sendToRenderer(channel, data = null) {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, data);
+    }
+  }
+
+  /**
+   * Capture fluke temperature for calibration
+   * @private
+   */
+  async captureFlukeTemperature() {
+    try {
+      let temperature = await this.flukeManager.getTemperature();
+      if (temperature) {
+        let farenheitTemperature = convertCelciusToFahrenheit(temperature);
+        // Apply temperature subtraction like monster meter (if needed)
+        farenheitTemperature = farenheitTemperature - KRAKEN_CONSTANTS.TEMPERATURE_SUBTRACTION;
+        this.globalState.setFlukeTemperature(farenheitTemperature.toFixed(0));
+        console.log(`Fluke temperature captured: ${farenheitTemperature.toFixed(0)}°F`);
+      } else {
+        this.globalState.setFlukeTemperature('N/A');
+        console.log('Fluke temperature not available, set to N/A');
+      }
+    } catch (error) {
+      console.error('Error capturing fluke temperature:', error);
+      Sentry.captureException(error);
+      this.globalState.setFlukeTemperature('N/A');
     }
   }
 

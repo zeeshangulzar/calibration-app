@@ -172,6 +172,7 @@ class MonsterMeterPDFService {
       companyCityStateZip: GLOBAL_CONSTANTS.COMPANY_CITY_STATE_ZIP,
       companyPhone: GLOBAL_CONSTANTS.COMPANY_PHONE,
       companyEmail: GLOBAL_CONSTANTS.COMPANY_EMAIL,
+      testLocation: GLOBAL_CONSTANTS.TEST_LOCATION,
       temperature: temperature,
     };
 

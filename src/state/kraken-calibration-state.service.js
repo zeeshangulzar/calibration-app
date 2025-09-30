@@ -35,6 +35,9 @@ class KrakenCalibrationStateService extends EventEmitter {
 
     // Kraken sweep selection
     this.sweepMaxValue = null;
+
+    // Fluke temperature
+    this.flukeTemperature = 'N/A';
   }
 
   // Set the current connected devices
@@ -562,6 +565,16 @@ class KrakenCalibrationStateService extends EventEmitter {
       return null;
     }
     return this.devicePDFPaths.get(deviceId);
+  }
+
+  // Fluke temperature methods
+  setFlukeTemperature(temperature) {
+    this.flukeTemperature = temperature;
+    this.emit('flukeTemperatureUpdated', temperature);
+  }
+
+  getFlukeTemperature() {
+    return this.flukeTemperature;
   }
 }
 

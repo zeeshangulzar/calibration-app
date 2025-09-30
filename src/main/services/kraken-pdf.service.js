@@ -27,15 +27,16 @@ class KrakenPDFService {
    * @param {Array} deviceData - Verification data array
    * @param {Object} certificationResult - Certification result object
    * @param {string} testerName - Name of the tester who performed the calibration
+   * @param {string} temperature - Fluke temperature during calibration
    * @returns {Promise<Object>} Result object with success status and file path
    */
-  async generateKrakenPDF(device, deviceData, certificationResult, testerName) {
+  async generateKrakenPDF(device, deviceData, certificationResult, testerName, temperature = 'N/A') {
     try {
       // Ensure output directory exists
       await this.ensureOutputDirectory(device.displayName || device.id);
 
       // Generate report content
-      const reportContent = await this.generateReportContent(device, deviceData, certificationResult, testerName);
+      const reportContent = await this.generateReportContent(device, deviceData, certificationResult, testerName, temperature);
 
       // Create filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -90,7 +91,7 @@ class KrakenPDFService {
    * @param {string} testerName - Name of the tester who performed the calibration
    * @returns {Promise<string>} HTML content string
    */
-  async generateReportContent(device, deviceData, certificationResult, testerName) {
+  async generateReportContent(device, deviceData, certificationResult, testerName, temperature = 'N/A') {
     // Read template and CSS files
     const templateContent = await fs.readFile(this.templatePath, 'utf8');
     const cssContent = await fs.readFile(this.cssPath, 'utf8');
@@ -101,7 +102,7 @@ class KrakenPDFService {
     const template = Handlebars.compile(templateWithInlineCSS);
 
     // Prepare data for template
-    const templateData = this.prepareTemplateData(device, deviceData, certificationResult, testerName);
+    const templateData = this.prepareTemplateData(device, deviceData, certificationResult, testerName, temperature);
 
     // Generate HTML content
     return template(templateData);
@@ -113,11 +114,13 @@ class KrakenPDFService {
    * @param {Array} deviceData - Verification data array
    * @param {Object} certificationResult - Certification result object
    * @param {string} testerName - Name of the tester who performed the calibration
+   * @param {string} temperature - Fluke temperature during calibration
    * @returns {Object} Template data object
    */
-  prepareTemplateData(device, deviceData, certificationResult, testerName = 'SmartMonster Calibration System') {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const reportId = `${device.serialNumber}-${timestamp}`;
+  prepareTemplateData(device, deviceData, certificationResult, testerName = 'SmartMonster Calibration System', temperature = 'N/A') {
+    const now = new Date();
+    const year = now.getFullYear();
+    const reportId = `K-${device.serialNumber}-${year}`;
 
     // Get current date and calculate due date (1 year from now)
     const currentDate = new Date();
@@ -146,12 +149,13 @@ class KrakenPDFService {
       companyArea: GLOBAL_CONSTANTS.COMPANY_CITY_STATE_ZIP,
       companyPhone: GLOBAL_CONSTANTS.COMPANY_PHONE,
       companyEmail: GLOBAL_CONSTANTS.COMPANY_EMAIL,
+      testLocation: GLOBAL_CONSTANTS.TEST_LOCATION,
 
       // Report info
       reportId: reportId,
 
       // Product info
-      productDescription: 'Smart Meter Pressure Transducer',
+      productDescription: `Smart Meter ${device.modelNumber || device.id}`,
       modelNumber: device.modelNumber || device.id,
       gaugeName: gaugeName,
       serialNumber: device.serialNumber || 'N/A',
@@ -167,7 +171,7 @@ class KrakenPDFService {
       // Sweep value from constants
       sweepValue: KRAKEN_CONSTANTS.SWEEP_VALUE,
       tolerance: KRAKEN_CONSTANTS.DISCREPANCY_TOLERANCE,
-      calibratedTemp: KRAKEN_CONSTANTS.CALIBRATION_TEMPERATURE,
+      calibratedTemp: temperature,
 
       // Footer info
       testerName: testerName,
@@ -183,7 +187,7 @@ class KrakenPDFService {
     try {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
-      const logoPath = path.join(__dirname, '../../assets/images/hm_logo.jpg');
+      const logoPath = path.join(__dirname, '../../assets/images/hm_logo.svg');
 
       // Check if logo exists, if not return empty string
       if (!fsSync.existsSync(logoPath)) {
@@ -191,9 +195,9 @@ class KrakenPDFService {
         return '';
       }
 
-      // Read logo as base64 and return as data URL (similar to old app)
+      // Read logo as base64 and return as data URL (same as monster meter)
       const logoBase64 = fsSync.readFileSync(logoPath, { encoding: 'base64' });
-      return `data:image/png;base64,${logoBase64}`;
+      return `data:image/svg+xml;base64,${logoBase64}`;
     } catch (error) {
       console.warn('Error loading logo:', error);
       Sentry.captureException(error);

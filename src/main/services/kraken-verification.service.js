@@ -408,7 +408,9 @@ class KrakenVerificationService {
    */
   async generateDevicePDF(device, deviceData, certificationResult) {
     try {
-      const result = await this.pdfService.generateKrakenPDF(device, deviceData, certificationResult, this.testerName);
+      // Get fluke temperature from global state
+      const temperature = this.globalState.getFlukeTemperature();
+      const result = await this.pdfService.generateKrakenPDF(device, deviceData, certificationResult, this.testerName, temperature);
 
       if (result.success) {
         // Store PDF path in global state for download functionality

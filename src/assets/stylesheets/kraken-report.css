@@ -14,13 +14,17 @@ body {
 
 .logo-and-address {
   display: flex;
-  align-items: center;
-  gap: 15px;
+  align-items: left;
+  flex-direction: column;
 }
 
 .top-header img {
-  height: 70px;
-  width: 70px;
+  height: 105px;
+  width: 145px;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  filter: contrast(1.1) brightness(1.05);
 }
 
 .company-details {
@@ -110,26 +114,13 @@ body {
   margin-right: 0;
 }
 
-.product-serial-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-  gap: 20px;
-}
-
-.product-description {
-  flex: 1;
-  min-width: 0;
-}
-
-.serial-number {
-  flex-shrink: 0;
-  margin-left: auto;
+.info-box div {
+  margin-bottom: 5px;
+  font-size: 13px;
 }
 
 .info-box p {
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.6;
   margin: 0;
   display: flex;
@@ -222,4 +213,54 @@ td {
 
 .footer-box p {
   margin: 4px 0; /* Small spacing between lines */
+}
+
+.blue-hr {
+  border: none;
+  height: 1px;
+  background-color: #0000cc;
+  margin: 5px 0;
+}
+
+.date-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.date-item {
+  flex: 1;
+  margin-right: 20px;
+}
+
+.date-item:last-child {
+  margin-right: 0;
+}
+
+.validity-text {
+  font-size: 15px !important;
+  color: black;
+  margin-top: 8px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.color-red {
+  color: red;
+}
+
+.serial-location-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.serial-item {
+  flex: 1;
+  margin-right: 20px;
+}
+
+.location-item {
+  flex: 1;
+  margin-right: 0;
 }

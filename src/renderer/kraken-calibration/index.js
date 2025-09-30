@@ -804,7 +804,7 @@ function createDeviceWidget(device) {
       <button 
         id="device-view-pdf-${device.id}"
         onclick="console.log('Button clicked!'); viewDevicePDF('${device.id}')"
-        class="hidden w-full px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 text-xs"
+        class="hidden w-full px-3 py-1 bg-neutral-800 text-white rounded-md hover:bg-neutral-700 transition-colors duration-200 text-xs"
         style="cursor: pointer;">
         <svg class="w-3 h-3 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -1002,17 +1002,17 @@ function updateDeviceVerificationStatus(deviceId, isVerifying, message, hasError
 
     // Show verification indicator
     if (indicator) {
-      indicator.className = 'calibration-status-indicator bg-blue-100 border border-blue-300 rounded-md p-2 mt-2 flex items-center';
+      indicator.className = 'calibration-status-indicator bg-neutral-100 border border-neutral-300 rounded-md p-2 mt-2 flex items-center';
       indicator.innerHTML = `
         <div class="flex items-center w-full">
-          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-          <span class="text-blue-700 text-xs font-medium">Verifying...</span>
+          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-neutral-600 mr-2"></div>
+          <span class="text-neutral-700 text-xs font-medium">Verifying...</span>
         </div>
       `;
     }
 
     // Update widget styling for verification
-    widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200 verifying';
+    widget.className = 'rounded-md border border-neutral-300 bg-neutral-50 p-4 shadow-sm transition-all duration-200 verifying';
   } else {
     // Verification completed or not started
     widget.classList.remove('verifying');
@@ -1104,14 +1104,14 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
           if (stage === 'subscribing') progress = 75;
 
           progressBar.style.width = `${progress}%`;
-          progressBar.className = 'bg-blue-600 h-2 rounded-full transition-all duration-500';
-          widget.className = 'rounded-md border border-blue-300 bg-blue-50 p-4 shadow-sm transition-all duration-200';
+          progressBar.className = 'bg-neutral-600 h-2 rounded-full transition-all duration-500';
+          widget.className = 'rounded-md border border-neutral-300 bg-neutral-50 p-4 shadow-sm transition-all duration-200';
         }
         break;
       case 'ready':
         progressBar.style.width = '100%';
-        progressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-green-300 bg-green-50 p-4 shadow-sm transition-all duration-200';
+        progressBar.className = 'bg-neutral-600 h-2 rounded-full transition-all duration-500';
+        widget.className = 'rounded-md border border-neutral-300 bg-neutral-50 p-4 shadow-sm transition-all duration-200';
 
         // Show data area for ready devices
         if (dataArea) {
@@ -1120,8 +1120,8 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         break;
       case 'verification-completed':
         progressBar.style.width = '100%';
-        progressBar.className = 'bg-purple-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-purple-300 bg-purple-50 p-4 shadow-sm transition-all duration-200';
+        progressBar.className = 'bg-neutral-600 h-2 rounded-full transition-all duration-500';
+        widget.className = 'rounded-md border border-neutral-300 bg-neutral-50 p-4 shadow-sm transition-all duration-200';
 
         // Show data area for verification completed devices
         if (dataArea) {
@@ -1130,8 +1130,8 @@ function updateDeviceWidget(deviceId, status, message, stage = null) {
         break;
       case 'failed':
         progressBar.style.width = '100%';
-        progressBar.className = 'bg-red-600 h-2 rounded-full transition-all duration-500';
-        widget.className = 'rounded-md border border-red-300 bg-red-50 p-4 shadow-sm transition-all duration-200';
+        progressBar.className = 'bg-neutral-600 h-2 rounded-full transition-all duration-500';
+        widget.className = 'rounded-md border border-neutral-300 bg-neutral-50 p-4 shadow-sm transition-all duration-200';
 
         // Show retry button
         if (actionArea) {
@@ -1360,35 +1360,35 @@ function displayVerificationResults(data) {
     return widget ? widget.querySelector('h4').textContent.replace('Sensor ', '') : 'Unknown Device';
   });
 
-  let table = '<table class="min-w-full divide-y divide-gray-200 border border-gray-300">';
+  let table = '<table class="w-full text-sm">';
 
   // Create header with device names
-  table += '<thead class="bg-gray-50">';
-  table += '<tr>';
-  table += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Reference (PSI)</th>';
+  table += '<thead>';
+  table += '<tr class="text-center border-b">';
+  table += '<th class="pb-2 pr-6">Reference (PSI)</th>';
 
   // Add columns for each device (Value and Discrepancy)
   deviceNames.forEach(deviceName => {
-    table += `<th colspan="2" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">${deviceName}</th>`;
+    table += `<th colspan="2" class="pb-2 pr-6 text-center">${deviceName}</th>`;
   });
   table += '</tr>';
 
   // Sub-header row for Value and Discrepancy
-  table += '<tr>';
-  table += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"></th>';
+  table += '<tr class="text-center border-b">';
+  table += '<th class="pb-2 pr-6"></th>';
   deviceNames.forEach(() => {
-    table += '<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Value</th>';
-    table += '<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Discrepancy</th>';
+    table += '<th class="pb-2 pr-6 text-center">Value</th>';
+    table += '<th class="pb-2 pr-6 text-center">Discrepancy</th>';
   });
   table += '</tr>';
   table += '</thead>';
 
   // Table body
-  table += '<tbody class="bg-white divide-y divide-gray-200">';
+  table += '<tbody>';
 
   sortedPressurePoints.forEach(pressurePoint => {
-    table += '<tr>';
-    table += `<td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900 border border-gray-300">${pressurePoint.toFixed(1)}</td>`;
+    table += '<tr class="border-b">';
+    table += `<td class="py-2 pr-6 text-center">${pressurePoint.toFixed(1)}</td>`;
 
     // Add data for each device at this pressure point
     deviceIds.forEach(deviceId => {
@@ -1399,15 +1399,15 @@ function displayVerificationResults(data) {
           const discrepancy = (reading.krakenPressure - reading.flukePressure).toFixed(1);
           const discrepancyClass = Math.abs(reading.krakenPressure - reading.flukePressure) > 1 ? 'text-red-600' : 'text-green-600';
 
-          table += `<td class="px-4 py-3 whitespace-nowrap text-gray-900 border border-gray-300">${reading.krakenPressure.toFixed(1)}</td>`;
-          table += `<td class="px-4 py-3 whitespace-nowrap ${discrepancyClass} border border-gray-300">${discrepancy}</td>`;
+          table += `<td class="py-2 pr-6 text-center">${reading.krakenPressure.toFixed(1)}</td>`;
+          table += `<td class="py-2 pr-6 text-center ${discrepancyClass}">${discrepancy}</td>`;
         } else {
-          table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
-          table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+          table += '<td class="py-2 pr-6 text-center">--</td>';
+          table += '<td class="py-2 pr-6 text-center">--</td>';
         }
       } else {
-        table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
-        table += '<td class="px-4 py-3 whitespace-nowrap text-gray-400 border border-gray-300">--</td>';
+        table += '<td class="py-2 pr-6 text-center">--</td>';
+        table += '<td class="py-2 pr-6 text-center">--</td>';
       }
     });
 
@@ -1557,20 +1557,18 @@ function updateDeviceCertificationStatus(deviceId, certificationResult) {
   // Update status display with detailed information
   if (certificationResult.certified) {
     statusDiv.innerHTML = `
-      <div class="text-green-600 font-bold text-base mb-1">✅ CERTIFICATION PASSED</div>
-      <div class="text-sm text-green-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
-      <div class="text-xs text-green-600">Criteria: ≤ 1.5 PSI</div>
+      <div class="text-neutral-700 font-bold text-base mb-1">✅ CERTIFICATION PASSED</div>
+      <div class="text-sm text-neutral-600">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
     `;
     statusDiv.className = 'text-sm font-medium mb-2';
-    certificationDiv.className = 'mt-3 p-3 rounded-md bg-green-50 border border-green-200';
+    certificationDiv.className = 'mt-3 p-3 rounded-md bg-neutral-50 border border-neutral-200';
   } else {
     statusDiv.innerHTML = `
-      <div class="text-red-600 text-xs font-bold mb-1">❌ CERTIFICATION FAILED</div>
-      <div class="text-xs text-red-700">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
-      <div class="text-xs text-red-600">Criteria: ≤ 1.5 PSI</div>
+      <div class="text-neutral-700 text-xs font-bold mb-1">❌ CERTIFICATION FAILED</div>
+      <div class="text-xs text-neutral-600">Average Discrepancy: ${certificationResult.averageDiscrepancy} PSI</div>
     `;
     statusDiv.className = 'text-sm font-medium mb-2';
-    certificationDiv.className = 'mt-3 p-3 rounded-md bg-red-50 border border-red-200';
+    certificationDiv.className = 'mt-3 p-3 rounded-md bg-neutral-50 border border-neutral-200';
   }
 
   // Show view PDF button
