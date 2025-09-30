@@ -101,6 +101,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceManualRetryStarted: callback => ipcRenderer.on('device-manual-retry-started', (_, data) => callback(data)),
   onDeviceManualRetrySuccess: callback => ipcRenderer.on('device-manual-retry-success', (_, data) => callback(data)),
   onDeviceManualRetryFailed: callback => ipcRenderer.on('device-manual-retry-failed', (_, data) => callback(data)),
+  onSetupPaused: callback => ipcRenderer.on('setup-paused', (_, data) => callback(data)),
+  onSetupResumed: callback => ipcRenderer.on('setup-resumed', (_, data) => callback(data)),
   onKrakenDetailsUpdated: callback => ipcRenderer.on('kraken-details-updated', (_, data) => callback(data)),
   onDeviceStatusUpdate: callback => ipcRenderer.on('device-status-update', (_, data) => callback(data)),
   onProgressUpdate: callback => ipcRenderer.on('progress-update', (_, data) => callback(data)),

@@ -6,11 +6,12 @@ import * as Sentry from '@sentry/electron/main';
  * Handles Kraken device connectivity monitoring, reconnection, and disconnection
  */
 export class KrakenConnectivityManager {
-  constructor(globalState, connection, scanner, sendToRenderer) {
+  constructor(globalState, connection, scanner, sendToRenderer, deviceSetupManager = null) {
     this.globalState = globalState;
     this.connection = connection;
     this.scanner = scanner;
     this.sendToRenderer = sendToRenderer;
+    this.deviceSetupManager = deviceSetupManager;
     this.connectivityMonitor = null;
     this.monitoringInterval = KRAKEN_CONSTANTS.CONNECTIVITY_MONITOR_INTERVAL; // Check every 2 seconds
   }
@@ -203,8 +204,17 @@ export class KrakenConnectivityManager {
     try {
       console.log(`Manually disconnecting device ${deviceId}...`);
 
+      // Pause setup process if it's running
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        this.deviceSetupManager.pauseSetup(`Removing device ${deviceId}`);
+      }
+
       const device = this.globalState.connectedDevices.get(deviceId);
       if (!device) {
+        // Resume setup if device not found
+        if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+          this.deviceSetupManager.resumeSetup();
+        }
         return { success: false, error: 'Device not found' };
       }
 
@@ -278,6 +288,12 @@ export class KrakenConnectivityManager {
         extra: { deviceId },
       });
       console.error(`Error manually disconnecting device ${deviceId}:`, error);
+
+      // Resume setup if it was paused and removal failed
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        this.deviceSetupManager.resumeSetup();
+      }
+
       this.sendToRenderer('device-manual-disconnect-failed', {
         deviceId,
         error: error.message,
@@ -308,12 +324,31 @@ export class KrakenConnectivityManager {
       if (queueIndex > -1) {
         this.globalState.setupQueue.splice(queueIndex, 1);
         console.log(`Removed device ${deviceId} from setup queue at index ${queueIndex}`);
+
+        // Adjust currentSetupIndex if the removed device was at or before the current index
+        if (queueIndex <= this.globalState.currentSetupIndex) {
+          this.globalState.currentSetupIndex = Math.max(0, this.globalState.currentSetupIndex - 1);
+          console.log(`Adjusted currentSetupIndex to ${this.globalState.currentSetupIndex} after removing device at index ${queueIndex}`);
+        }
       }
 
       // Send success event to renderer immediately
       this.sendToRenderer('device-manual-disconnect-success', { deviceId });
       this.updateProgressSummary();
       this.updateCalibrationButtonState();
+
+      // Resume setup process if setup was paused for this removal
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        console.log('Setup in progress, resuming after device removal...');
+        // Use setTimeout to allow the current operation to complete before resuming
+        setTimeout(() => {
+          try {
+            this.deviceSetupManager.resumeSetup();
+          } catch (error) {
+            console.error('Error resuming setup after device removal:', error);
+          }
+        }, 100);
+      }
 
       console.log(`Device ${deviceId}: ${statusMessage}`);
       return { success: true };

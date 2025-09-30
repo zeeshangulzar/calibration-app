@@ -1,6 +1,7 @@
 // update this showCustomAlertModal  import to be like import * from as
 import * as NotificationHelper from '../../shared/helpers/notification-helper.js';
 import { populateSelectOptions } from '../../shared/helpers/ui-helper.js';
+import { setElementState } from '../view_helpers/index.js';
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { getLocalTimestamp } from '../../main/utils/general.utils.js';
 
@@ -61,12 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stopVerificationBtn.addEventListener('click', async () => {
       try {
         await window.electronAPI.krakenCalibrationStopVerification();
-        // Mark verification stopped and show status
+        // Mark verification stopped and keep status hidden
         isVerificationInProgress = false;
         const statusEl = document.getElementById('connection-status');
         if (statusEl) {
-          statusEl.style.display = 'block';
-          statusEl.textContent = 'Verification stopped';
+          statusEl.style.display = 'none';
         }
       } catch (error) {
         NotificationHelper.showError(`Error stopping verification: ${error.message}`);
@@ -123,6 +123,103 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// Device action functions - defined early so they're available for onclick handlers
+// Retry device setup (called from retry button)
+async function retryDeviceSetup(deviceId) {
+  try {
+    const result = await window.electronAPI.krakenCalibrationRetryDevice(deviceId);
+    if (!result.success) {
+      NotificationHelper.showError(`Failed to retry device setup: ${result.error}`);
+    }
+  } catch (error) {
+    NotificationHelper.showError(`Error retrying device setup: ${error.message}`);
+  }
+}
+
+// Reconnect a disconnected device
+async function reconnectDevice(deviceId) {
+  try {
+    console.log(`Reconnecting device ${deviceId}...`);
+    const result = await window.electronAPI.krakenCalibrationReconnectDevice(deviceId);
+
+    if (!result.success) {
+      alert(`Failed to reconnect device: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error reconnecting device:', error);
+    alert(`Error reconnecting device: ${error.message}`);
+  }
+}
+
+// Manually disconnect a device
+async function disconnectDevice(deviceId) {
+  try {
+    const confirmDisconnect = confirm('Are you sure you want to disconnect and remove this kraken from the calibration?');
+    if (!confirmDisconnect) return;
+
+    console.log(`Manually disconnecting device ${deviceId}...`);
+
+    // Immediately disable widget and show removing state
+    const widget = document.getElementById(`device-widget-${deviceId}`);
+    const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
+
+    if (widget) {
+      widget.style.pointerEvents = 'none';
+      widget.style.opacity = '0.7';
+      widget.classList.add('removing');
+    }
+
+    if (disconnectBtn) {
+      disconnectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i>';
+      disconnectBtn.disabled = true;
+    }
+
+    // Update widget status immediately
+    updateDeviceWidget(deviceId, 'in-progress', 'Preparing to remove...');
+
+    const result = await window.electronAPI.krakenCalibrationDisconnectDevice(deviceId);
+
+    if (!result.success) {
+      NotificationHelper.showError(`Failed to remove kraken: ${result.error}`);
+
+      // Reset widget state on failure
+      if (widget) {
+        widget.style.pointerEvents = 'auto';
+        widget.style.opacity = '1';
+        widget.classList.remove('removing');
+      }
+
+      if (disconnectBtn) {
+        disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
+        disconnectBtn.disabled = false;
+      }
+    }
+  } catch (error) {
+    console.error('Error disconnecting device:', error);
+    NotificationHelper.showError(`Error removing kraken: ${error.message}`);
+
+    // Reset widget state on error
+    const widget = document.getElementById(`device-widget-${deviceId}`);
+    const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
+
+    if (widget) {
+      widget.style.pointerEvents = 'auto';
+      widget.style.opacity = '1';
+      widget.classList.remove('removing');
+    }
+
+    if (disconnectBtn) {
+      disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
+      disconnectBtn.disabled = false;
+    }
+  }
+}
+
+// Make functions globally available for onclick handlers
+window.retryDeviceSetup = retryDeviceSetup;
+window.reconnectDevice = reconnectDevice;
+window.disconnectDevice = disconnectDevice;
+
 // Event listeners for calibration events
 window.electronAPI.onShowPageLoader(() => {
   document.getElementById('page-loader')?.classList.remove('hidden');
@@ -174,6 +271,19 @@ window.electronAPI.onDeviceSetupStage(data => {
 window.electronAPI.onDeviceSetupComplete(data => {
   const { deviceId } = data;
   updateDeviceWidget(deviceId, 'ready', 'Ready for calibration');
+});
+
+// Handle setup pause
+window.electronAPI.onSetupPaused(data => {
+  const { reason } = data;
+  console.log(`Setup paused: ${reason}`);
+});
+
+// Handle setup resume
+window.electronAPI.onSetupResumed(data => {
+  const { previousReason } = data;
+  console.log(`Setup resumed after: ${previousReason}`);
+  // NotificationHelper.showInfo(`Setup resumed - continuing with remaining krakens...`);
 });
 
 window.electronAPI.onDeviceSetupFailed(data => {
@@ -369,6 +479,10 @@ window.electronAPI.onCalibrationStarted(() => {
     startBtn.classList.add('hidden');
   }
 
+  // Disable tester dropdown during calibration
+  const testerSelect = document.getElementById('tester-name');
+  setElementState(testerSelect, true);
+
   // Mark calibration in progress and hide status
   isCalibrationInProgress = true;
   const statusEl = document.getElementById('connection-status');
@@ -395,6 +509,12 @@ window.electronAPI.onEnableKrakenCalibrationButton(() => {
     startBtn.disabled = false;
     startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     console.log('Calibration button enabled by main process');
+  }
+
+  // Only re-enable tester dropdown if verification is not in progress
+  if (!isVerificationInProgress) {
+    const testerSelect = document.getElementById('tester-name');
+    setElementState(testerSelect, false);
   }
 });
 
@@ -511,17 +631,24 @@ window.electronAPI.onKrakenVerificationStarted(() => {
   if (statusEl) {
     statusEl.style.display = 'none';
   }
+
+  // Ensure tester dropdown remains disabled during verification
+  const testerSelect = document.getElementById('tester-name');
+  setElementState(testerSelect, true);
 });
 
 window.electronAPI.onKrakenVerificationSweepCompleted(data => {
   console.log('Verification sweep data received:', data);
-  // Mark verification completed and show status
+  // Mark verification completed and keep status hidden
   isVerificationInProgress = false;
   const statusEl = document.getElementById('connection-status');
   if (statusEl) {
-    statusEl.style.display = 'block';
-    statusEl.textContent = 'Verification completed';
+    statusEl.style.display = 'none';
   }
+
+  // Re-enable tester dropdown when verification completes
+  const testerSelect = document.getElementById('tester-name');
+  setElementState(testerSelect, false);
 
   displayVerificationResults(data);
 
@@ -1166,108 +1293,12 @@ function handleDeviceDisconnection(deviceId) {
   }
 }
 
-// Retry device setup (called from retry button)
-async function retryDeviceSetup(deviceId) {
-  try {
-    const result = await window.electronAPI.krakenCalibrationRetryDevice(deviceId);
-    if (!result.success) {
-      NotificationHelper.showError(`Failed to retry device setup: ${result.error}`);
-    }
-  } catch (error) {
-    NotificationHelper.showError(`Error retrying device setup: ${error.message}`);
-  }
-}
-
-// Reconnect a disconnected device
-async function reconnectDevice(deviceId) {
-  try {
-    console.log(`Reconnecting device ${deviceId}...`);
-    const result = await window.electronAPI.krakenCalibrationReconnectDevice(deviceId);
-
-    if (!result.success) {
-      alert(`Failed to reconnect device: ${result.error}`);
-    }
-  } catch (error) {
-    console.error('Error reconnecting device:', error);
-    alert(`Error reconnecting device: ${error.message}`);
-  }
-}
-
-// Manually disconnect a device
-async function disconnectDevice(deviceId) {
-  try {
-    const confirmDisconnect = confirm('Are you sure you want to disconnect and remove this kraken from the calibration?');
-    if (!confirmDisconnect) return;
-
-    console.log(`Manually disconnecting device ${deviceId}...`);
-
-    // Immediately disable widget and show removing state
-    const widget = document.getElementById(`device-widget-${deviceId}`);
-    const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
-
-    if (widget) {
-      widget.style.pointerEvents = 'none';
-      widget.style.opacity = '0.7';
-      widget.classList.add('removing');
-    }
-
-    if (disconnectBtn) {
-      disconnectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i>';
-      disconnectBtn.disabled = true;
-    }
-
-    // Update widget status immediately
-    updateDeviceWidget(deviceId, 'in-progress', 'Preparing to remove...');
-
-    const result = await window.electronAPI.krakenCalibrationDisconnectDevice(deviceId);
-
-    if (!result.success) {
-      NotificationHelper.showError(`Failed to remove kraken: ${result.error}`);
-
-      // Reset widget state on failure
-      if (widget) {
-        widget.style.pointerEvents = 'auto';
-        widget.style.opacity = '1';
-        widget.classList.remove('removing');
-      }
-
-      if (disconnectBtn) {
-        disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
-        disconnectBtn.disabled = false;
-      }
-    }
-  } catch (error) {
-    console.error('Error disconnecting device:', error);
-    NotificationHelper.showError(`Error removing kraken: ${error.message}`);
-
-    // Reset widget state on error
-    const widget = document.getElementById(`device-widget-${deviceId}`);
-    const disconnectBtn = document.querySelector(`[onclick="disconnectDevice('${deviceId}')"]`);
-
-    if (widget) {
-      widget.style.pointerEvents = 'auto';
-      widget.style.opacity = '1';
-      widget.classList.remove('removing');
-    }
-
-    if (disconnectBtn) {
-      disconnectBtn.innerHTML = '<i class="fa-solid fa-times text-sm"></i>';
-      disconnectBtn.disabled = false;
-    }
-  }
-}
-
 function populateCalibrationControls() {
   // Sweep value is now hardcoded to 300 PSI, no need to populate dropdown
 
   // Populate Tester Name dropdown
   populateSelectOptions('tester-name', KRAKEN_CONSTANTS.TESTER_NAMES);
 }
-
-// Make functions globally available for onclick handlers
-window.retryDeviceSetup = retryDeviceSetup;
-window.reconnectDevice = reconnectDevice;
-window.disconnectDevice = disconnectDevice;
 
 /**
  * Show verification results container and initialize it for new verification

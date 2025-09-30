@@ -40,5 +40,9 @@ export const getPreloadProcessConfig = () => getBaseSentryConfig();
 
 // Utility function to check if Sentry is configured
 export const isSentryConfigured = () => {
-  return process.env.SENTRY_DSN || '';
+  const dsn = process.env.SENTRY_DSN || '';
+  // Check if DSN is valid (should contain 'sentry.io' or similar)
+  const isValid = dsn && dsn.includes('sentry.io') && dsn.length > 10;
+
+  return isValid;
 };

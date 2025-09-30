@@ -62,9 +62,15 @@ class KrakenCalibrationController {
 
     this.deviceSetupManager = new KrakenDeviceSetupManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this));
 
-    this.connectivityManager = new KrakenConnectivityManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this));
+    this.connectivityManager = new KrakenConnectivityManager(this.globalState, this.connection, this.scanner, this.sendToRenderer.bind(this), this.deviceSetupManager);
 
-    this.calibrationManager = new KrakenCalibrationManager(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
+    this.calibrationManager = new KrakenCalibrationManager(
+      this.globalState,
+      this.flukeManager,
+      this.sendToRenderer.bind(this),
+      this.uiManager.showLogOnScreen.bind(this.uiManager),
+      this.deviceSetupManager
+    );
 
     this.verificationService = new KrakenVerificationService(this.globalState, this.flukeManager, this.sendToRenderer.bind(this), this.uiManager.showLogOnScreen.bind(this.uiManager));
     // Set up cross-references for managers that need each other

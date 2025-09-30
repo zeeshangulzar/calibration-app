@@ -11,11 +11,12 @@ import * as Sentry from '@sentry/electron/main';
  * Handles the Kraken calibration process, command sending, and device management during calibration
  */
 export class KrakenCalibrationManager {
-  constructor(globalState, flukeManager, sendToRenderer, showLogOnScreen) {
+  constructor(globalState, flukeManager, sendToRenderer, showLogOnScreen, deviceSetupManager = null) {
     this.globalState = globalState;
     this.flukeManager = flukeManager;
     this.sendToRenderer = sendToRenderer;
     this.showLogOnScreen = showLogOnScreen;
+    this.deviceSetupManager = deviceSetupManager;
   }
 
   async calibrateAllSensors() {
@@ -305,6 +306,11 @@ export class KrakenCalibrationManager {
     const deviceName = device ? device.name || device.id : deviceId;
 
     try {
+      // Pause setup process if it's running
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        this.deviceSetupManager.pauseSetup(`Removing disconnected device ${deviceId}`);
+      }
+
       this.showLogOnScreen(`🔌 ${deviceName} disconnected`);
 
       // Update device widget to show disconnected/failed state before removal
@@ -329,6 +335,12 @@ export class KrakenCalibrationManager {
       const queueIndex = this.globalState.setupQueue.indexOf(deviceId);
       if (queueIndex > -1) {
         this.globalState.setupQueue.splice(queueIndex, 1);
+
+        // Adjust currentSetupIndex if the removed device was at or before the current index
+        if (queueIndex <= this.globalState.currentSetupIndex) {
+          this.globalState.currentSetupIndex = Math.max(0, this.globalState.currentSetupIndex - 1);
+          console.log(`Adjusted currentSetupIndex to ${this.globalState.currentSetupIndex} after removing device at index ${queueIndex}`);
+        }
       }
 
       // Send removal event to renderer
@@ -338,6 +350,18 @@ export class KrakenCalibrationManager {
         reason: 'Device disconnected during calibration',
       });
 
+      // Resume setup process if setup was paused for this removal
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        console.log('Setup in progress, resuming after calibration device removal...');
+        setTimeout(() => {
+          try {
+            this.deviceSetupManager.resumeSetup();
+          } catch (error) {
+            console.error('Error resuming setup after calibration device removal:', error);
+          }
+        }, 100);
+      }
+
       console.log(`Device ${deviceName} removed from calibration due to disconnection`);
     } catch (error) {
       Sentry.captureException(error, {
@@ -346,6 +370,11 @@ export class KrakenCalibrationManager {
       });
       console.error(`Error removing disconnected device ${deviceName}:`, error);
       this.showLogOnScreen(`⚠️ Error removing ${deviceName}: ${error.message}`);
+
+      // Resume setup if it was paused and removal failed
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        this.deviceSetupManager.resumeSetup();
+      }
     }
   }
 
@@ -359,64 +388,98 @@ export class KrakenCalibrationManager {
       return;
     }
 
-    for (const deviceId of deviceIds) {
-      const device = this.globalState.connectedDevices.get(deviceId);
-      const deviceName = device ? device.name || device.id : deviceId;
+    // Pause setup process if it's running
+    if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+      this.deviceSetupManager.pauseSetup(`Removing failed devices: ${deviceIds.join(', ')}`);
+    }
 
-      try {
-        // Log the removal
-        this.showLogOnScreen(`🗑️ Removing ${deviceName} - Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`);
+    try {
+      for (const deviceId of deviceIds) {
+        const device = this.globalState.connectedDevices.get(deviceId);
+        const deviceName = device ? device.name || device.id : deviceId;
 
-        // Clean up device subscriptions
-        await this.globalState.cleanupDeviceSubscription(deviceId);
+        try {
+          // Log the removal
+          this.showLogOnScreen(`🗑️ Removing ${deviceName} - Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`);
 
-        // Remove from all tracking
-        this.globalState.connectedDevices.delete(deviceId);
-        this.globalState.deviceSetupStatus.delete(deviceId);
-        this.globalState.deviceRetryCount.delete(deviceId);
-        this.globalState.deviceCharacteristics.delete(deviceId);
-        this.globalState.activeSubscriptions.delete(deviceId);
+          // Clean up device subscriptions
+          await this.globalState.cleanupDeviceSubscription(deviceId);
 
-        // Update setup queue
-        const queueIndex = this.globalState.setupQueue.indexOf(deviceId);
-        if (queueIndex > -1) {
-          this.globalState.setupQueue.splice(queueIndex, 1);
+          // Remove from all tracking
+          this.globalState.connectedDevices.delete(deviceId);
+          this.globalState.deviceSetupStatus.delete(deviceId);
+          this.globalState.deviceRetryCount.delete(deviceId);
+          this.globalState.deviceCharacteristics.delete(deviceId);
+          this.globalState.activeSubscriptions.delete(deviceId);
+
+          // Update setup queue
+          const queueIndex = this.globalState.setupQueue.indexOf(deviceId);
+          if (queueIndex > -1) {
+            this.globalState.setupQueue.splice(queueIndex, 1);
+
+            // Adjust currentSetupIndex if the removed device was at or before the current index
+            if (queueIndex <= this.globalState.currentSetupIndex) {
+              this.globalState.currentSetupIndex = Math.max(0, this.globalState.currentSetupIndex - 1);
+              console.log(`Adjusted currentSetupIndex to ${this.globalState.currentSetupIndex} after removing device at index ${queueIndex}`);
+            }
+          }
+
+          // Send removal event to renderer
+          this.sendToRenderer('device-removed-from-calibration', {
+            deviceId,
+            deviceName,
+            reason: `Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`,
+          });
+
+          // Resume setup process if setup was paused for this removal
+          if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+            console.log('Setup in progress, resuming after failed device removal...');
+            setTimeout(() => {
+              try {
+                this.deviceSetupManager.resumeSetup();
+              } catch (error) {
+                console.error('Error resuming setup after failed device removal:', error);
+              }
+            }, 100);
+          }
+
+          console.log(`Device ${deviceName} removed from calibration due to failed ${commandType}`);
+        } catch (error) {
+          Sentry.captureException(error, {
+            tags: { service: 'kraken-calibration-manager', method: 'removeFailedDeviceFromCalibration' },
+            extra: { deviceName, commandType },
+          });
+          console.error(`Error removing device ${deviceName}:`, error);
+          this.showLogOnScreen(`⚠️ Error removing ${deviceName}: ${error.message}`);
         }
-
-        // Send removal event to renderer
-        this.sendToRenderer('device-removed-from-calibration', {
-          deviceId,
-          deviceName,
-          reason: `Failed ${commandType} after ${GLOBAL_CONSTANTS.MAX_RETRIES} retries`,
-        });
-
-        console.log(`Device ${deviceName} removed from calibration due to failed ${commandType}`);
-      } catch (error) {
-        Sentry.captureException(error, {
-          tags: { service: 'kraken-calibration-manager', method: 'removeFailedDeviceFromCalibration' },
-          extra: { deviceName, commandType },
-        });
-        console.error(`Error removing device ${deviceName}:`, error);
-        this.showLogOnScreen(`⚠️ Error removing ${deviceName}: ${error.message}`);
       }
-    }
 
-    // Send consolidated notification for removed devices
-    if (deviceIds.length > 0) {
-      this.sendToRenderer('show-notification', {
-        type: 'warning',
-        message: `${deviceIds.length} device(s) removed from calibration due to ${commandType} failures. Check logs for details.`,
-      });
-    }
+      // Send consolidated notification for removed devices
+      if (deviceIds.length > 0) {
+        this.sendToRenderer('show-notification', {
+          type: 'warning',
+          message: `${deviceIds.length} device(s) removed from calibration due to ${commandType} failures. Check logs for details.`,
+        });
+      }
 
-    // Check if we still have devices to continue with
-    const remainingDevices = this.globalState.getConnectedDevices();
-    if (remainingDevices.length === 0) {
-      this.showLogOnScreen(`❌ No devices remaining for calibration. Stopping process.`);
-      await this.stopCalibration('All devices failed calibration commands');
-      throw new Error('All devices failed calibration commands');
-    } else {
-      this.showLogOnScreen(`✅ Continuing calibration with ${remainingDevices.length} remaining devices`);
+      // Check if we still have devices to continue with
+      const remainingDevices = this.globalState.getConnectedDevices();
+      if (remainingDevices.length === 0) {
+        this.showLogOnScreen(`❌ No devices remaining for calibration. Stopping process.`);
+        await this.stopCalibration('All devices failed calibration commands');
+        throw new Error('All devices failed calibration commands');
+      } else {
+        this.showLogOnScreen(`✅ Continuing calibration with ${remainingDevices.length} remaining devices`);
+      }
+    } catch (error) {
+      console.error('Error in removeFailedDevicesFromCalibration:', error);
+
+      // Resume setup if it was paused and removal failed
+      if (this.globalState.isSetupInProgress && this.deviceSetupManager) {
+        this.deviceSetupManager.resumeSetup();
+      }
+
+      throw error; // Re-throw to maintain error handling in calling code
     }
   }
 

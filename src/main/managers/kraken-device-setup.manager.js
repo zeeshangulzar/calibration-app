@@ -14,6 +14,8 @@ export class KrakenDeviceSetupManager {
     this.connection = connection;
     this.scanner = scanner;
     this.sendToRenderer = sendToRenderer;
+    this.setupPaused = false;
+    this.pauseReason = null;
   }
 
   /**
@@ -29,10 +31,35 @@ export class KrakenDeviceSetupManager {
       const setupQueue = this.globalState.setupQueue;
 
       for (let i = this.globalState.currentSetupIndex; i < setupQueue.length; i++) {
-        const deviceId = setupQueue[i];
+        // Check if setup is paused
+        if (this.setupPaused) {
+          console.log(`Setup paused: ${this.pauseReason}, stopping at index ${i}`);
+          break;
+        }
+
+        // Check if device still exists in the queue (might have been removed)
+        if (i >= this.globalState.setupQueue.length) {
+          console.log(`Setup queue changed during setup, stopping at index ${i}`);
+          break;
+        }
+
+        const deviceId = this.globalState.setupQueue[i];
         this.globalState.currentSetupIndex = i;
 
-        console.log(`Starting setup for device ${i + 1}/${setupQueue.length}: ${deviceId}`);
+        // Double-check device still exists in connected devices
+        if (!this.globalState.connectedDevices.has(deviceId)) {
+          console.log(`Device ${deviceId} no longer exists, skipping to next device`);
+          continue;
+        }
+
+        // Check if device is already ready (skip if already processed)
+        const deviceStatus = this.globalState.deviceSetupStatus.get(deviceId);
+        if (deviceStatus && deviceStatus.status === 'ready') {
+          console.log(`Device ${deviceId} is already ready, skipping to next device`);
+          continue;
+        }
+
+        console.log(`Starting setup for device ${i + 1}/${this.globalState.setupQueue.length}: ${deviceId}`);
 
         const success = await this.setupDeviceWithRetries(deviceId);
 
@@ -42,7 +69,7 @@ export class KrakenDeviceSetupManager {
         }
 
         // Delay between device setups
-        if (i < setupQueue.length - 1) {
+        if (i < this.globalState.setupQueue.length - 1) {
           console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP}ms before next device setup...`);
           await this.globalState.addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP);
         }
@@ -466,6 +493,99 @@ export class KrakenDeviceSetupManager {
     if (this.globalState.areAllDevicesReady()) {
       this.sendToRenderer('all-devices-ready');
     }
+  }
+
+  /**
+   * Pause the setup process (used during device removal)
+   * @param {string} reason - Reason for pausing
+   */
+  pauseSetup(reason = 'Device removal in progress') {
+    this.setupPaused = true;
+    this.pauseReason = reason;
+    console.log(`Setup paused: ${reason}`);
+    this.sendToRenderer('setup-paused', { reason });
+  }
+
+  /**
+   * Resume the setup process after pause
+   */
+  resumeSetup() {
+    if (!this.setupPaused) {
+      console.log('Setup not paused, nothing to resume');
+      return;
+    }
+
+    this.setupPaused = false;
+    const reason = this.pauseReason;
+    this.pauseReason = null;
+
+    console.log(`Setup resumed after: ${reason}`);
+    this.sendToRenderer('setup-resumed', { previousReason: reason });
+
+    // Continue setup from current index
+    this.continueSetupFromCurrentIndex();
+  }
+
+  /**
+   * Continue setup from the current index (used after resume)
+   */
+  async continueSetupFromCurrentIndex() {
+    if (!this.globalState.isSetupInProgress) {
+      console.log('Setup not in progress, skipping continuation');
+      return;
+    }
+
+    console.log(`Continuing setup from index ${this.globalState.currentSetupIndex} with ${this.globalState.setupQueue.length} devices remaining`);
+
+    const setupQueue = this.globalState.setupQueue;
+
+    for (let i = this.globalState.currentSetupIndex; i < setupQueue.length; i++) {
+      // Check if setup was paused again during iteration
+      if (this.setupPaused) {
+        console.log('Setup paused again, stopping iteration');
+        break;
+      }
+
+      // Check if device still exists in the queue
+      if (i >= this.globalState.setupQueue.length) {
+        console.log(`Setup queue changed during setup, stopping at index ${i}`);
+        break;
+      }
+
+      const deviceId = this.globalState.setupQueue[i];
+      this.globalState.currentSetupIndex = i;
+
+      // Double-check device still exists in connected devices
+      if (!this.globalState.connectedDevices.has(deviceId)) {
+        console.log(`Device ${deviceId} no longer exists, skipping to next device`);
+        continue;
+      }
+
+      // Check if device is already ready (skip if already processed)
+      const deviceStatus = this.globalState.deviceSetupStatus.get(deviceId);
+      if (deviceStatus && deviceStatus.status === 'ready') {
+        console.log(`Device ${deviceId} is already ready, skipping to next device`);
+        continue;
+      }
+
+      console.log(`Continuing setup for device ${i + 1}/${this.globalState.setupQueue.length}: ${deviceId}`);
+
+      const success = await this.setupDeviceWithRetries(deviceId);
+
+      if (!success) {
+        console.log(`Setup failed for device ${deviceId} after retries, continuing with next device`);
+        // Continue to next device instead of stopping the entire process
+      }
+
+      // Delay between device setups
+      if (i < this.globalState.setupQueue.length - 1) {
+        console.log(`Waiting ${KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP}ms before next device setup...`);
+        await this.globalState.addDelay(KRAKEN_CONSTANTS.DELAY_BETWEEN_SETUP);
+      }
+    }
+
+    // Check if all devices are ready after continuing
+    this.checkAllDevicesReady();
   }
 
   /**
