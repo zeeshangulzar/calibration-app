@@ -21,6 +21,7 @@ export class KrakenCalibrationManager {
 
   async calibrateAllSensors() {
     try {
+      this.showLogOnScreen('|------ CALIBRATION STARTED ------|');
       await this.sendZeroCommandToAllSensors();
       if (this.shouldStopCalibration()) return;
 
@@ -166,7 +167,21 @@ export class KrakenCalibrationManager {
   }
 
   async sendZeroCommandToAllSensors() {
-    return this.sendCommandToAllSensors('Zero', this.writeZeroToSensorWithRetries.bind(this), '🔄 Setting zero pressure calibration...', '✅ Zero pressure calibration completed');
+    const flukeSetup = async () => {
+      try {
+        await this.flukeManager.setZeroPressureToFlukeWithVerification();
+        this.showLogOnScreen(`✅ Fluke set to 0 PSI for all zero commands`);
+
+        // Send reference pressure update to renderer
+        this.sendToRenderer('update-kraken-calibration-reference-pressure', 0);
+      } catch (error) {
+        Sentry.captureException(error);
+        this.showLogOnScreen(`❌ Failed to set Fluke to zero pressure: ${error.message}`);
+        await this.stopCalibration('Critical Fluke communication failure during zero pressure setup', error.message);
+      }
+    };
+
+    return this.sendCommandToAllSensors('Zero', this.writeZeroToSensorWithRetries.bind(this), '🔄 Setting zero pressure calibration...', '✅ Zero pressure calibration completed', flukeSetup);
   }
 
   async sendLowCommandToAllSensors() {
@@ -178,6 +193,9 @@ export class KrakenCalibrationManager {
       try {
         await this.flukeManager.setHighPressureToFlukeWithVerification(this.sweepValue);
         this.showLogOnScreen(`✅ Fluke set to ${this.sweepValue} PSI for all high commands`);
+
+        // Send reference pressure update to renderer
+        this.sendToRenderer('update-kraken-calibration-reference-pressure', this.sweepValue);
       } catch (error) {
         Sentry.captureException(error);
         this.showLogOnScreen(`❌ Failed to set Fluke to high pressure: ${error.message}`);

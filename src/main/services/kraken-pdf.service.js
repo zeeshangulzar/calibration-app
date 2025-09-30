@@ -127,8 +127,11 @@ class KrakenPDFService {
     const dueDate = new Date(currentDate);
     dueDate.setFullYear(dueDate.getFullYear() + 1);
 
+    // Sort device data by pressure (ascending order) for PDF display
+    const sortedDeviceData = [...deviceData].sort((a, b) => a.flukePressure - b.flukePressure);
+
     // Process certification data for the table
-    const certificationData = deviceData.map(reading => {
+    const certificationData = sortedDeviceData.map(reading => {
       const discrepancy = Math.abs(reading.krakenPressure - reading.flukePressure);
       const passed = discrepancy <= 1.5;
 

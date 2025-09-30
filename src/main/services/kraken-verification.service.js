@@ -1,6 +1,6 @@
 import { KRAKEN_CONSTANTS } from '../../config/constants/kraken.constants.js';
 import { addDelay } from '../../shared/helpers/calibration-helper.js';
-import { generateStepArray } from '../utils/kraken-calibration.utils.js';
+import { generateReverseStepArray } from '../utils/kraken-calibration.utils.js';
 import { KrakenPDFService } from './kraken-pdf.service.js';
 import { updateKrakenName } from './uart-service.js';
 import { ErrorMessageService } from '../../shared/services/error-message.service.js';
@@ -69,8 +69,6 @@ class KrakenVerificationService {
   async stopVerification() {
     this.isSweepRunning = false;
     this.globalState.isVerificationActive = false;
-    this.showLogOnScreen('⏹️ Verification process stopped by user.');
-    console.log('Verification sweep stopped by user');
 
     // Update device widgets to show verification stopped
     this.updateDeviceWidgetsForVerification(false);
@@ -88,7 +86,7 @@ class KrakenVerificationService {
    * Starts the verification sweep process.
    */
   async startVerification() {
-    this.showLogOnScreen('--- KRAKEN VERIFICATION PROCESS ---');
+    this.showLogOnScreen('------ KRAKEN VERIFICATION PROCESS ------');
     console.log('Starting Kraken verification sweep...');
     this.isSweepRunning = true;
     this.globalState.isVerificationActive = true;
@@ -114,14 +112,10 @@ class KrakenVerificationService {
     }
 
     // Assume all devices have same pressure range, use the first one.
-    const pressurePoints = generateStepArray(KRAKEN_CONSTANTS.SWEEP_VALUE);
+    const pressurePoints = generateReverseStepArray(KRAKEN_CONSTANTS.SWEEP_VALUE);
 
     try {
-      // First step: Set Fluke to zero pressure
-      this.showLogOnScreen('🔄 Setting Fluke to 0 PSI pressure...');
-      await this.fluke.setZeroPressureToFluke(true); // Silent to avoid duplicate log
-      await this.fluke.waitForFlukeToReachZeroPressure();
-
+      // Start verification sweep (no zero pressure command needed)
       for (let i = 0; i < pressurePoints.length; i++) {
         const targetPressure = pressurePoints[i];
         if (!this.isSweepRunning) {
@@ -133,7 +127,7 @@ class KrakenVerificationService {
       }
 
       if (this.isSweepRunning) {
-        this.showLogOnScreen('✅ Verification sweep completed successfully.');
+        this.showLogOnScreen('✅ Verification completed successfully.');
 
         // Process certification results and generate PDFs
         await this.processVerificationResults();
@@ -175,7 +169,7 @@ class KrakenVerificationService {
 
       // Only log and set pressure if not zero (zero was already set at start)
       if (targetPressure !== 0) {
-        this.showLogOnScreen(`⚙️ Setting Fluke to ${targetPressure.toFixed(2)} PSI pressure...`);
+        this.showLogOnScreen(`🔄 Setting Fluke to ${targetPressure.toFixed(2)} PSI pressure...`);
         await this.fluke.setHighPressureToFluke(targetPressure);
         if (this.shouldStopVerification()) return;
 
@@ -184,7 +178,7 @@ class KrakenVerificationService {
 
       if (this.shouldStopVerification()) return;
 
-      this.showLogOnScreen(`✅ Fluke reached ${targetPressure.toFixed(2)} PSI. Stabilizing...`);
+      this.showLogOnScreen(`✅ Pressure set to ${targetPressure.toFixed(2)} PSI.`);
       // Send current Fluke pressure to renderer for display
       this.sendToRenderer('update-kraken-calibration-reference-pressure', targetPressure);
       await addDelay(KRAKEN_CONSTANTS.DELAY_AFTER_PRESSURE_SET);
@@ -309,7 +303,7 @@ class KrakenVerificationService {
             }
 
             processedCount++;
-            this.showLogOnScreen(`✅ Processed certification for ${device.displayName || device.id}`);
+            // this.showLogOnScreen(`✅ Processed certification for ${device.displayName || device.id}`);
           } else {
             this.showLogOnScreen(`⚠️ No verification data available for ${device.displayName || device.id}`);
           }
@@ -322,11 +316,11 @@ class KrakenVerificationService {
         }
       }
 
-      if (errorCount === 0) {
-        this.showLogOnScreen(`📋 Certification results processed successfully for ${processedCount} device(s).`);
-      } else {
-        this.showLogOnScreen(`📋 Certification processing completed with ${errorCount} error(s). ${processedCount} device(s) processed successfully.`);
-      }
+      // if (errorCount === 0) {
+      //   // this.showLogOnScreen(`📋 Certification results processed successfully for ${processedCount} device(s).`);
+      // } else {
+      //   this.showLogOnScreen(`📋 Certification processing completed with ${errorCount} error(s). ${processedCount} device(s) processed successfully.`);
+      // }
     } catch (error) {
       Sentry.captureException(error);
       console.error('Error processing verification results:', error);

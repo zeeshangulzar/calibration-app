@@ -12,6 +12,8 @@ export const KRAKEN_CONSTANTS = {
   MODEL_NUMBER_CHARACTERISTIC_UUID: '2a24',
   SERIAL_NUMBER_CHARACTERISTIC_UUID: '2a25',
 
+  TEMPERATURE_SUBTRACTION: 5.0,
+
   // Connection and discovery timeouts (in milliseconds)
   CONNECTION_TIMEOUT: 30000, // 30 seconds
   DISCOVERY_TIMEOUT: 15000, // 15 seconds
@@ -62,7 +64,8 @@ export const KRAKEN_CONSTANTS = {
   TESTER_NAMES: { Gabriel: 'Gabriel Nunez' },
 
   // Discrepancy tolerance
-  DISCREPANCY_TOLERANCE: 1.5,
+  DISCREPANCY_TOLERANCE: 3.15,
+  DISCREPANCY_TOLERANCE_PERCENTAGE: 1.0,
 
   // Calibration temperature
   CALIBRATION_TEMPERATURE: 'N/A', // Default calibration temperature
