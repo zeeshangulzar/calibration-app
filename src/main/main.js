@@ -19,9 +19,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables first
-const envPath = path.resolve(__dirname, '../../.env');
-dotenv.config({ path: envPath });
+// Try multiple possible locations for .env file
+const possibleEnvPaths = app.isPackaged
+  ? [path.join(process.resourcesPath, 'app', '.env'), path.join(process.resourcesPath, '.env'), path.join(__dirname, '.env'), path.join(process.cwd(), '.env')]
+  : [path.resolve(__dirname, '../../.env')];
 
+let envLoaded = false;
+for (const envPath of possibleEnvPaths) {
+  // console.log('Trying to load environment from:', envPath);
+  const envResult = dotenv.config({ path: envPath });
+  if (!envResult.error) {
+    // console.log('Environment file loaded successfully from:', envPath);
+    envLoaded = true;
+    break;
+  }
+}
 // Initialize Sentry for crash tracking only
 if (isSentryConfigured()) {
   Sentry.init(getMainProcessConfig());
