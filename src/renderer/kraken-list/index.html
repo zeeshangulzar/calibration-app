@@ -56,30 +56,37 @@
           <div id="sensor-section">
             <div class="flex items-center justify-between mb-6">
               <div>
-                <p class="text-neutral-600">Showing all available sensors and their readings</p>
+                <p class="text-neutral-600">List of all available sensors</p>
               </div>
               <div class="flex space-x-4">
                 <div class="relative">
-                  <input type="search" id="sensor-search" placeholder="Search sensors..." class="pl-10 pr-4 py-2 border border-neutral-300 rounded-lg w-64" />
-                  <i class="fa-solid fa-search absolute left-3 top-3 text-neutral-400"></i>
+                  <input
+                    type="search"
+                    id="sensor-search"
+                    placeholder="Search sensors..."
+                    class="pl-10 pr-4 py-2 border border-neutral-300 rounded-lg w-64 focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+                  />
+                  <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400"></i>
                 </div>
-                <select id="sort-list" class="border border-neutral-300 rounded-lg px-4 py-2">
-                  <option>Sort by: Sensor Id</option>
+                <select
+                  id="sort-list"
+                  class="border border-neutral-300 rounded-lg px-4 py-2 pr-8 custom-select-arrow-left text-left focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+                >
+                  <option>Sort by: ID</option>
                   <option>Sort by: Name</option>
                 </select>
               </div>
             </div>
 
             <div id="sensor-list" class="bg-white rounded-lg border border-neutral-200">
-              <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-200 bg-neutral-50">
+              <div class="grid grid-cols-12 gap-12 px-6 py-4 border-b border-neutral-200 bg-neutral-50">
                 <div class="col-span-1">
                   <input type="checkbox" id="select-all-checkbox" class="w-4 h-4" />
                 </div>
 
-                <div class="col-span-3">Id</div>
-                <div class="col-span-2">Name</div>
-                <div class="col-span-2">Status</div>
-                <div class="col-span-2">Signal Strength</div>
+                <div class="col-span-3">ID</div>
+                <div class="col-span-3">Name</div>
+                <div class="col-span-3">Signal Strength</div>
               </div>
             </div>
 

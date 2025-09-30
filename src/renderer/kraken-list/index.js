@@ -323,17 +323,14 @@ function renderSensorList(devices) {
   devices.forEach(device => {
     const signalData = getSignalStrengthInfo(device.rssi);
     const deviceRow = document.createElement('div');
-    deviceRow.className = 'sensor-item grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50';
+    deviceRow.className = 'sensor-item grid grid-cols-12 gap-12 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50';
     deviceRow.innerHTML = `
       <div class="col-span-1">
        <input type="checkbox" class="sensor-checkbox w-4 h-4" data-sensor-id="${device.id}" ${selectedSensorIds.has(device.id) ? 'checked' : ''}/>
       </div>
       <div class="col-span-3">${device.id}</div>
-      <div class="col-span-2">${device.name}</div>
-      <div class="col-span-2">
-        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Discovered</span>
-      </div>
-      <div class="col-span-2">
+      <div class="col-span-3">${device.name}</div>
+      <div class="col-span-3">
         <div class="flex items-center">
           <i class="fa-solid fa-signal text-neutral-700 mr-2"></i>
           <div class="w-24 h-2 bg-neutral-200 rounded-full">
@@ -371,12 +368,12 @@ function renderSensorList(devices) {
 function updateConnectButtonState() {
   const anyChecked = document.querySelectorAll('.sensor-checkbox:checked').length > 0;
   const connectBtn = document.getElementById('connect-sensors-button');
-  
+
   // Don't update button state if it's in cooldown
   if (isConnectButtonInCooldown) {
     return;
   }
-  
+
   connectBtn.disabled = !anyChecked;
   connectBtn.classList.toggle('opacity-50', !anyChecked);
   connectBtn.classList.toggle('cursor-not-allowed', !anyChecked);

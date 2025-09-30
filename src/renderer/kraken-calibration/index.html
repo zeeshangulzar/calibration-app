@@ -56,19 +56,19 @@
 
       <main id="main-content" class="pt-16 container mx-auto px-4">
         <!-- Back Button -->
-        <div class="mt-5 flex items-center space-x-4 justify-between">
+        <div class="mb-4 mt-4">
           <button
             id="back-button-kraken-calibration"
             class="flex items-center px-4 py-2 border border-neutral-300 bg-white text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors duration-200"
           >
-            <i class="fa-solid fa-arrow-left mr-2"></i> Back to Sensor List
+            <i class="fa-solid fa-arrow-left mr-2"></i> Back
           </button>
 
-          <!-- Back Button Status Message (inline) -->
-          <div id="back-button-status-message" class="hidden">
-            <div class="bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 flex items-center">
-              <i class="fa-solid fa-info-circle text-yellow-600 mr-2"></i>
-              <span id="back-button-message-text" class="text-yellow-800 text-sm font-medium"></span>
+          <!-- Back Button Status Message (beneath button) -->
+          <div id="back-button-status-message" class="mt-4 hidden">
+            <div class="bg-[#f4f4f4] border border-gray-200 rounded-md px-3 py-2 flex items-center">
+              <i class="fa-solid fa-info-circle text-gray-600 mr-2"></i>
+              <span id="back-button-message-text" class="text-gray-800 text-sm font-medium"></span>
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@
             </div>
 
             <div class="items-center">
-              <h2 class="text-xl mt-4">Calibration Settings</h2>
+              <h2 class="text-xl mt-4">Calibration Setting</h2>
               <div class="flex items-center justify-between mb-2">
                 <!-- Dropdowns Row -->
                 <div class="flex gap-10 py-2">
@@ -96,7 +96,7 @@
                   <!-- Tester Name Dropdown -->
                   <div>
                     <label for="tester-name" class="block text-sm font-medium text-neutral-700 mb-1"> Select Tester Name </label>
-                    <select id="tester-name" class="border border-neutral-300 rounded-md px-10 py-2 text-sm"></select>
+                    <select id="tester-name" class="border border-neutral-300 rounded-md px-10 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"></select>
                   </div>
                 </div>
               </div>
@@ -133,7 +133,7 @@
                   <span>Reference Pressure</span>
                   <span id="reference-pressure-value">N/A</span>
                 </div>
-                <div id="sensor-pressures" class="space-y-2">
+                <div id="sensor-pressures" class="space-y-4">
                   <!-- Sensors will be dynamically added here -->
                 </div>
               </div>

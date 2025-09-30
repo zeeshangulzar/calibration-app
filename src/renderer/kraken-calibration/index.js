@@ -629,7 +629,7 @@ function createDeviceWidget(device) {
       <h4 class="font-medium device-name" id="device-name-${device.id}">Sensor ${device.displayName}</h4>
       <button 
         onclick="disconnectDevice('${device.id}')"
-        class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors duration-200"
+        class="text-red-500 hover:text-red-700 rounded-full p-1 transition-all duration-200 hover:scale-125"
         title="Disconnect and remove this kraken">
         <i class="fa-solid fa-times text-sm"></i>
       </button>
