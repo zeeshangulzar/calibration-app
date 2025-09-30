@@ -4,6 +4,8 @@ import usb from 'usb';
 import { MONSTER_METER_CONSTANTS } from '../../config/constants/monster-meter.constants.js';
 import * as Sentry from '@sentry/electron/main';
 
+import { sentryLogger } from '../loggers/sentry.logger.js';
+
 /**
  * Monster Meter Connection Service - Handles serial port connections to Monster Meter devices
  */
@@ -284,7 +286,7 @@ class MonsterMeterConnectionService extends EventEmitter {
   }
 
   handleError(method, error) {
-    Sentry.captureException(error, {
+    sentryLogger.captureException(error, {
       tags: { service: 'monster-meter-connection', method },
     });
     console.error(`Failed in ${method}:`, error);
@@ -309,6 +311,7 @@ class MonsterMeterConnectionService extends EventEmitter {
         console.log(`  🏭 Manufacturer: ${ftdiDevice.manufacturer || 'N/A'}`);
         console.log(`  📝 Description: ${ftdiDevice.friendlyName || ftdiDevice.pnpId || 'N/A'}`);
         // i want to send the monster meeter serial number to sentry
+        this.handleError('logMonsterMeterSerialNumber', new Error(`Monster Meter Device Info Latest: ${serialNumber}`));
         Sentry.captureMessage(`Monster Meter Device Info: ${serialNumber}`, {
           tags: { service: 'monster-meter-connection', method: 'logMonsterMeterSerialNumber' },
         });
